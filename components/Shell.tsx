@@ -29,7 +29,7 @@ const OPERACAO: Item[] = [
 const ESCRITORIO: Item[] = [
   { href: "/areas", rotulo: "Áreas de atuação", pronto: true, icone: ic(<><rect x="4" y="4" width="7" height="7" rx="1.5" /><rect x="13" y="4" width="7" height="7" rx="1.5" /><rect x="4" y="13" width="7" height="7" rx="1.5" /><path d="M16.5 13.5v6M13.5 16.5h6" /></>) },
   { href: "/equipe", rotulo: "Equipe e cargos", pronto: true, icone: ic(<><circle cx="8" cy="9" r="2.7" /><circle cx="16" cy="9" r="2.7" /><path d="M3.5 18.5a4.5 4.5 0 0 1 9 0M12.5 18.5a4.5 4.5 0 0 1 8 0" /></>) },
-  { href: "/integracoes", rotulo: "Integrações", pronto: false, icone: ic(<path d="M9 6V3M15 6V3M7 6h10v4a5 5 0 0 1-10 0zM12 15v6" />) },
+  { href: "/integracoes", rotulo: "Integrações", pronto: true, icone: ic(<path d="M9 6V3M15 6V3M7 6h10v4a5 5 0 0 1-10 0zM12 15v6" />) },
   { href: "/perfil", rotulo: "Meu perfil", pronto: true, icone: ic(<><circle cx="12" cy="8" r="3.4" /><path d="M5 19.5a7 7 0 0 1 14 0" /></>) },
 ];
 

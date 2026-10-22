@@ -1,6 +1,8 @@
+import { BotaoAcao } from "@/components/BotaoAcao";
 import { FormAcao } from "@/components/FormAcao";
 import { supabaseServer } from "@/lib/supabase/server";
 import { criarCliente } from "../actions";
+import { criarPastaCliente } from "../integracoes/actions";
 
 type Cliente = {
   id: string;
@@ -21,14 +23,16 @@ function telefone(t: string | null) {
 
 export default async function Clientes() {
   const supabase = await supabaseServer();
-  const [{ data: clientes, error }, { data: areas }] = await Promise.all([
+  const [{ data: clientes, error }, { data: areas }, { data: google }] = await Promise.all([
     supabase
       .from("clientes")
       .select("id, nome, telefone_whatsapp, cpf_cnpj, pasta_drive_url, criado_em, areas(nome, cor), perfis(nome)")
       .order("nome")
-      .limit(500),
+      .limit(3000),
     supabase.from("areas").select("id, nome").eq("ativa", true).order("ordem_bot"),
+    supabase.from("configuracoes").select("chave").in("chave", ["google_email", "pasta_clientes"]),
   ]);
+  const driveLigado = (google ?? []).length === 2;
   const lista = (clientes ?? []) as unknown as Cliente[];
 
   return (
@@ -72,7 +76,15 @@ export default async function Clientes() {
                     <td>{c.areas ? <span className="chip area" style={{ "--c": c.areas.cor } as React.CSSProperties}>{c.areas.nome}</span> : <span className="chip">a definir</span>}</td>
                     <td className="num">{telefone(c.telefone_whatsapp)}</td>
                     <td>{c.perfis?.nome ?? "—"}</td>
-                    <td>{c.pasta_drive_url ? <a className="btn sm" href={c.pasta_drive_url} target="_blank" rel="noopener">Abrir</a> : <span className="chip">após ligar o Drive</span>}</td>
+                    <td>
+                      {c.pasta_drive_url ? (
+                        <a className="btn sm" href={c.pasta_drive_url} target="_blank" rel="noopener">Abrir</a>
+                      ) : driveLigado ? (
+                        <BotaoAcao acao={criarPastaCliente.bind(null, c.id)} rotulo="Criar pasta" />
+                      ) : (
+                        <span className="chip">após ligar o Drive</span>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>

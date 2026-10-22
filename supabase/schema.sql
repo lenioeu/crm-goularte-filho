@@ -425,3 +425,16 @@ insert into configuracoes (chave, valor) values
   ('horario_lembrete_audiencia', '"18:00"'),
   ('padrao_nome_arquivo', '"AAAA-MM-DD TIPO - NOME DO CLIENTE"')
 on conflict (chave) do nothing;
+
+-- ---------------------------------------------------------------------
+-- Ligação com o Google (mesmo conteúdo de 002_google.sql)
+-- ---------------------------------------------------------------------
+create table if not exists google_conexao (
+  id             int primary key default 1 check (id = 1),
+  refresh_token  text not null,
+  email          text,
+  conectado_por  uuid references perfis (id),
+  conectado_em   timestamptz not null default now()
+);
+
+alter table google_conexao enable row level security;

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { criarEvento, excluirEvento, tokenDeAcesso } from "@/lib/google";
 import { supabaseServer } from "@/lib/supabase/server";
 
 export type Resultado = { erro: string | null; ok: string | null };
@@ -228,6 +229,30 @@ export async function criarAudiencia(_: Resultado, f: FormData): Promise<Resulta
     .single();
   if (error) return { erro: traduzirErro(error.message), ok: null };
 
+  const { data: caso } = await supabase.from("casos").select("cliente_id, titulo, clientes(nome)").eq("id", casoId).maybeSingle();
+  const rel = caso?.clientes as { nome: string } | { nome: string }[] | null | undefined;
+  const nomeCliente = (Array.isArray(rel) ? rel[0]?.nome : rel?.nome) ?? "";
+
+  // Google Agenda (só quando a conta Google do escritório estiver conectada)
+  let agenda = "";
+  try {
+    const token = await tokenDeAcesso();
+    if (token) {
+      const fim = new Date(new Date(inicio).getTime() + 60 * 60 * 1000).toISOString();
+      const ev = await criarEvento(token, {
+        titulo: `Audiência de ${tipo.toLowerCase()} · ${nomeCliente}`,
+        inicio,
+        fim,
+        local: local ?? (modalidade === "video" ? "Por vídeo" : undefined),
+        descricao: `Caso: ${caso?.titulo ?? ""}\n${texto(f, "observacoes") ?? ""}\nRegistrado pelo Órion CRM`.trim(),
+      });
+      await supabase.from("audiencias").update({ google_event_id: ev.id }).eq("id", aud.id);
+      agenda = " Adicionada ao Google Agenda.";
+    }
+  } catch {
+    agenda = " Não foi possível adicionar ao Google Agenda agora.";
+  }
+
   let lembrete = "";
   if (f.get("lembrete") === "on") {
     const vespera = new Date(`${data}T12:00:00-03:00`);
@@ -235,9 +260,6 @@ export async function criarAudiencia(_: Resultado, f: FormData): Promise<Resulta
     const dia = vespera.toISOString().slice(0, 10);
     const enviarEm = `${dia}T18:00:00-03:00`;
     if (new Date(enviarEm).getTime() > Date.now()) {
-      const { data: caso } = await supabase.from("casos").select("cliente_id, clientes(nome)").eq("id", casoId).maybeSingle();
-      const rel = caso?.clientes as { nome: string } | { nome: string }[] | null | undefined;
-      const nomeCliente = (Array.isArray(rel) ? rel[0]?.nome : rel?.nome) ?? "";
       const [, m, d] = data.split("-");
       const onde = local ? `, em ${local}` : modalidade === "video" ? ", por vídeo (o link foi enviado)" : "";
       const mensagem =
@@ -263,11 +285,20 @@ export async function criarAudiencia(_: Resultado, f: FormData): Promise<Resulta
 
   revalidatePath("/audiencias");
   revalidatePath("/");
-  return { erro: null, ok: `Audiência agendada.${lembrete}` };
+  return { erro: null, ok: `Audiência agendada.${agenda}${lembrete}` };
 }
 
 export async function excluirAudiencia(id: string): Promise<Resultado> {
   const supabase = await supabaseServer();
+  const { data: aud } = await supabase.from("audiencias").select("google_event_id").eq("id", id).maybeSingle();
+  if (aud?.google_event_id) {
+    try {
+      const token = await tokenDeAcesso();
+      if (token) await excluirEvento(token, aud.google_event_id);
+    } catch {
+      // O evento pode já ter sido apagado direto no Google Agenda.
+    }
+  }
   const { error } = await supabase.from("audiencias").delete().eq("id", id);
   if (error) return { erro: traduzirErro(error.message), ok: null };
   revalidatePath("/audiencias");

@@ -12,7 +12,8 @@ mensagens e salva os documentos do cliente direto na pasta dele no Google Drive.
 |---|---|
 | `docs/prototipo.html` | Protótipo navegável das telas. Abra no navegador. |
 | `docs/decisoes.md` | Decisões de produto e de tecnologia já tomadas. |
-| `supabase/schema.sql` | Estrutura do banco de dados (tabelas, permissões e dados iniciais). |
+| `supabase/schema.sql` | Estrutura completa do banco de dados (tabelas, permissões e dados iniciais). |
+| `supabase/002_google.sql` | Acréscimo para quem já rodou o schema antes da ligação com o Google. |
 
 ## Como o sistema é montado
 
@@ -42,6 +43,7 @@ Depois abra http://localhost:3000. O sistema já aponta para o projeto Supabase 
 - Funil de casos: quadro por etapa, filtro por área, não viáveis com motivo
 - Tarefas: quadro com coluna de revisão opcional
 - Audiências: cadastro, lista por dia e lembrete ao cliente programado para a véspera
+- Integrações: conexão com o Google, importação das pastas de clientes do Drive, criação de pasta por cliente e audiências no Google Agenda
 - Áreas de atuação: lista e criação
 - Equipe e cargos: liberar acesso, escolher papel e cargo
 - Meu perfil

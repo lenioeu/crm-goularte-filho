@@ -7,7 +7,6 @@ const SECOES: Record<string, { titulo: string; etapa: string; texto: string }> =
   processos: { titulo: "Processos", etapa: "Etapa 6", texto: "Número CNJ, vara, fase e última movimentação pela API pública do CNJ (DataJud)." },
   agendamentos: { titulo: "Mensagens agendadas", etapa: "Etapa 5 · WhatsApp", texto: "Lembretes de audiência, follow-ups e mensagens livres em dia e hora certos." },
   indicadores: { titulo: "Indicadores", etapa: "Etapa 6", texto: "Números do mês por pessoa e do escritório, para consulta, sem ranking." },
-  integracoes: { titulo: "Integrações", etapa: "Etapas 4 e 5", texto: "Conexão com o WhatsApp, o Google Drive e o Google Agenda." },
 };
 
 export default async function EmBreve({ params }: { params: Promise<{ secao: string }> }) {
