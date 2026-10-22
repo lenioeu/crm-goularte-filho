@@ -39,6 +39,9 @@ Depois abra http://localhost:3000. O sistema já aponta para o projeto Supabase 
 - Login e cadastro, com liberação de acesso pelo administrador
 - Início com números reais do banco
 - Clientes: cadastro e lista
+- Funil de casos: quadro por etapa, filtro por área, não viáveis com motivo
+- Tarefas: quadro com revisão obrigatória para estagiários
+- Audiências: cadastro, lista por dia e lembrete ao cliente programado para a véspera
 - Áreas de atuação: lista e criação
 - Equipe e cargos: liberar acesso, escolher papel e cargo
 - Meu perfil
@@ -47,7 +50,7 @@ Depois abra http://localhost:3000. O sistema já aponta para o projeto Supabase 
 
 1. [x] Repositório
 2. [x] Banco de dados e login (Supabase)
-3. [ ] Sistema no ar (Vercel)
+3. [x] Sistema no ar (Vercel)
 4. [ ] Google Drive e Google Agenda
 5. [ ] WhatsApp (Evolution API)
 6. [ ] Testes com a equipe

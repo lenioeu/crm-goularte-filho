@@ -150,3 +150,141 @@ export async function moverCaso(id: string, etapa: string, motivo: string | null
   revalidatePath("/");
   return { erro: null, ok: "Movido." };
 }
+
+// ---------------------------------------------------------------- tarefas
+const COLUNAS = ["a_fazer", "em_andamento", "revisao", "concluida"] as const;
+
+export async function criarTarefa(_: Resultado, f: FormData): Promise<Resultado> {
+  const titulo = texto(f, "titulo");
+  if (!titulo) return { erro: "Descreva a tarefa.", ok: null };
+  const supabase = await supabaseServer();
+  const casoId = texto(f, "caso_id");
+  let clienteId: string | null = null;
+  if (casoId) {
+    const { data } = await supabase.from("casos").select("cliente_id").eq("id", casoId).maybeSingle();
+    clienteId = data?.cliente_id ?? null;
+  }
+  const { error } = await supabase.from("tarefas").insert({
+    titulo,
+    caso_id: casoId,
+    cliente_id: clienteId,
+    responsavel_id: texto(f, "responsavel_id"),
+    revisor_id: texto(f, "revisor_id"),
+    vence_em: texto(f, "vence_em"),
+  });
+  if (error) return { erro: traduzirErro(error.message), ok: null };
+  revalidatePath("/tarefas");
+  return { erro: null, ok: "Tarefa criada." };
+}
+
+export async function moverTarefa(id: string, coluna: string): Promise<Resultado> {
+  if (!(COLUNAS as readonly string[]).includes(coluna)) return { erro: "Coluna inválida.", ok: null };
+  const supabase = await supabaseServer();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { erro: "Sessão expirada. Entre de novo.", ok: null };
+
+  let destino = coluna;
+  let aviso: string | null = null;
+  if (coluna === "concluida") {
+    const { data: eu } = await supabase.from("perfis").select("papel").eq("id", user.id).maybeSingle();
+    if (eu?.papel === "estagiario") {
+      destino = "revisao";
+      aviso = "Enviada para revisão: tarefas de estagiário são concluídas por um advogado.";
+    }
+  }
+  const { error } = await supabase.from("tarefas").update({ coluna: destino }).eq("id", id);
+  if (error) return { erro: traduzirErro(error.message), ok: null };
+  revalidatePath("/tarefas");
+  return { erro: null, ok: aviso ?? "Movida." };
+}
+
+// ---------------------------------------------------------------- audiências
+const nomeProprio = (nome: string) =>
+  nome
+    .toLowerCase()
+    .split(/\s+/)[0]
+    .replace(/^./, (c) => c.toUpperCase());
+
+export async function criarAudiencia(_: Resultado, f: FormData): Promise<Resultado> {
+  const casoId = texto(f, "caso_id");
+  const tipo = texto(f, "tipo_outro") ?? texto(f, "tipo");
+  const data = texto(f, "data");
+  const hora = texto(f, "hora");
+  if (!casoId) return { erro: "Escolha o caso da audiência.", ok: null };
+  if (!tipo) return { erro: "Informe o tipo da audiência.", ok: null };
+  if (!data || !hora) return { erro: "Informe o dia e a hora.", ok: null };
+
+  // Horário de Brasília (o Brasil não tem horário de verão desde 2019).
+  const inicio = `${data}T${hora}:00-03:00`;
+  if (Number.isNaN(new Date(inicio).getTime())) return { erro: "Data ou hora inválida.", ok: null };
+
+  const supabase = await supabaseServer();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const modalidade = texto(f, "modalidade") === "video" ? "video" : "presencial";
+  const local = texto(f, "local");
+
+  const { data: aud, error } = await supabase
+    .from("audiencias")
+    .insert({
+      caso_id: casoId,
+      tipo,
+      inicio,
+      local,
+      modalidade,
+      responsavel_id: texto(f, "responsavel_id"),
+      observacoes: texto(f, "observacoes"),
+    })
+    .select("id")
+    .single();
+  if (error) return { erro: traduzirErro(error.message), ok: null };
+
+  let lembrete = "";
+  if (f.get("lembrete") === "on") {
+    const vespera = new Date(`${data}T12:00:00-03:00`);
+    vespera.setUTCDate(vespera.getUTCDate() - 1);
+    const dia = vespera.toISOString().slice(0, 10);
+    const enviarEm = `${dia}T18:00:00-03:00`;
+    if (new Date(enviarEm).getTime() > Date.now()) {
+      const { data: caso } = await supabase.from("casos").select("cliente_id, clientes(nome)").eq("id", casoId).maybeSingle();
+      const rel = caso?.clientes as { nome: string } | { nome: string }[] | null | undefined;
+      const nomeCliente = (Array.isArray(rel) ? rel[0]?.nome : rel?.nome) ?? "";
+      const [, m, d] = data.split("-");
+      const onde = local ? `, em ${local}` : modalidade === "video" ? ", por vídeo (o link foi enviado)" : "";
+      const mensagem =
+        `Olá, ${nomeProprio(nomeCliente) || "tudo bem"}! Passando para lembrar da sua audiência de ${tipo.toLowerCase()} amanhã, ${d}/${m}, às ${hora}${onde}. ` +
+        `Chegue com 30 minutos de antecedência e leve um documento com foto. Qualquer dúvida, é só responder aqui.\nGoularte Filho Advocacia`;
+      if (caso?.cliente_id) {
+        const { error: e2 } = await supabase.from("mensagens_agendadas").insert({
+          cliente_id: caso.cliente_id,
+          audiencia_id: aud.id,
+          tipo: "lembrete_audiencia",
+          texto: mensagem,
+          enviar_em: enviarEm,
+          automatico: true,
+          criado_por: user?.id ?? null,
+        });
+        if (!e2) {
+          const [, mv, dv] = dia.split("-");
+          lembrete = ` Lembrete ao cliente programado para ${dv}/${mv} às 18:00.`;
+        }
+      }
+    }
+  }
+
+  revalidatePath("/audiencias");
+  revalidatePath("/");
+  return { erro: null, ok: `Audiência agendada.${lembrete}` };
+}
+
+export async function excluirAudiencia(id: string): Promise<Resultado> {
+  const supabase = await supabaseServer();
+  const { error } = await supabase.from("audiencias").delete().eq("id", id);
+  if (error) return { erro: traduzirErro(error.message), ok: null };
+  revalidatePath("/audiencias");
+  revalidatePath("/");
+  return { erro: null, ok: "Audiência excluída." };
+}

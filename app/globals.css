@@ -185,3 +185,10 @@ h1, h2, h3 { margin: 0; font-weight: 500; text-wrap: balance; }
 details.novo > summary { cursor: pointer; list-style: none; }
 details.novo > summary::-webkit-details-marker { display: none; }
 details.novo[open] > summary { margin-bottom: 14px; }
+
+.chip.crit { background: var(--crit-soft); color: var(--crit); }
+.dayhead { font-size: 12px; font-weight: 500; color: var(--dim); letter-spacing: 0.5px; text-transform: uppercase; margin: 16px 0 4px; }
+.dayhead:first-child { margin-top: 0; }
+.hora { font-weight: 500; font-size: 15px; min-width: 62px; text-align: center; font-variant-numeric: tabular-nums; }
+.hora small { display: block; font-size: 11px; color: var(--dim); font-weight: 400; }
+.linkbtn { color: var(--crit); font-size: 12.5px; font-weight: 500; }

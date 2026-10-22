@@ -20,9 +20,9 @@ const OPERACAO: Item[] = [
   { href: "/funil", rotulo: "Funil de casos", pronto: true, icone: ic(<path d="M3.5 5h17l-6.5 7.5v6l-4 2v-8z" />) },
   { href: "/clientes", rotulo: "Clientes", pronto: true, icone: ic(<><circle cx="9" cy="8" r="3.2" /><path d="M3.5 19a5.5 5.5 0 0 1 11 0M16 5.5a3 3 0 0 1 0 6M17.5 19a5 5 0 0 0-2.5-4.3" /></>) },
   { href: "/processos", rotulo: "Processos", pronto: false, icone: ic(<path d="M12 4v16M6 7h12M8 7l-3 6.5a3 3 0 0 0 6 0zM16 7l-3 6.5a3 3 0 0 0 6 0zM8.5 20h7" />) },
-  { href: "/audiencias", rotulo: "Audiências", pronto: false, icone: ic(<><rect x="3.5" y="5" width="17" height="15" rx="2.5" /><path d="M3.5 10h17M8 3v4M16 3v4" /></>) },
+  { href: "/audiencias", rotulo: "Audiências", pronto: true, icone: ic(<><rect x="3.5" y="5" width="17" height="15" rx="2.5" /><path d="M3.5 10h17M8 3v4M16 3v4" /></>) },
   { href: "/agendamentos", rotulo: "Mensagens agendadas", pronto: false, icone: ic(<><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5V12l3 2" /></>) },
-  { href: "/tarefas", rotulo: "Tarefas", pronto: false, icone: ic(<><circle cx="12" cy="12" r="8.5" /><path d="M8.5 12.3l2.3 2.3 4.7-4.8" /></>) },
+  { href: "/tarefas", rotulo: "Tarefas", pronto: true, icone: ic(<><circle cx="12" cy="12" r="8.5" /><path d="M8.5 12.3l2.3 2.3 4.7-4.8" /></>) },
   { href: "/indicadores", rotulo: "Indicadores", pronto: false, icone: ic(<path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />) },
 ];
 
