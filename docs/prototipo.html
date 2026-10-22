@@ -1,0 +1,1222 @@
+<!doctype html>
+<html lang="pt-BR">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ÓRION CRM</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Layout: cabeçalho azul-marinho (PJe) + menu lateral claro com pílulas (Gmail) + área de trabalho em cartões
+   brancos sobre o fundo azul-acinzentado do Gmail. Claro por padrão, escuro conforme o sistema. */
+:root{
+  --bg:#f6f8fc; --panel:#ffffff; --panel-2:#f2f6fc; --raised:#eaf1fb;
+  --line:#e3e7ee; --line-2:#c7d0dc;
+  --fg:#1f1f1f; --muted:#444746; --dim:#747775;
+  --accent:#0b57d0; --accent-ink:#ffffff; --accent-soft:#d3e3fd; --accent-soft-ink:#041e49;
+  --head:#0f3460; --head-ink:#ffffff; --head-2:rgba(255,255,255,.13); --head-3:rgba(255,255,255,.7);
+  --good:#188038; --good-soft:#e6f4ea; --warn:#a85a00; --warn-soft:#fef7e0; --crit:#d93025; --crit-soft:#fce8e6;
+  --a-trab:#1967d2; --a-civ:#8430ce; --a-crim:#c2185b; --a-prev:#00796b; --a-fam:#e37400; --a-fisc:#546e7a;
+  --av1:#5c6bc0; --av2:#00897b; --av3:#e8710a; --av4:#8e24aa; --av5:#d81b60; --av6:#546e7a; --av7:#1a73e8;
+  --drive:#188038;
+  --shadow:0 1px 2px rgba(60,64,67,.12),0 1px 3px 1px rgba(60,64,67,.06);
+  --f-body:"Roboto",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"Roboto Mono",ui-monospace,monospace;
+  --rail:256px; --rail-min:72px; --top:64px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#131314; --panel:#1e1f20; --panel-2:#26282a; --raised:#2d3033; --line:#33363a; --line-2:#4a4f55;
+  --fg:#e3e3e3; --muted:#c4c7c5; --dim:#8e918f;
+  --accent:#a8c7fa; --accent-ink:#062e6f; --accent-soft:#004a77; --accent-soft-ink:#c2e7ff;
+  --head:#0c2547; --head-ink:#e3e3e3; --head-2:rgba(255,255,255,.1); --head-3:rgba(255,255,255,.6);
+  --good:#6dd58c; --good-soft:rgba(109,213,140,.14); --warn:#fdd663; --warn-soft:rgba(253,214,99,.13); --crit:#f2b8b5; --crit-soft:rgba(242,184,181,.13);
+  --a-trab:#8ab4f8; --a-civ:#d7aefb; --a-crim:#f48fb1; --a-prev:#80cbc4; --a-fam:#ffb74d; --a-fisc:#b0bec5; --drive:#6dd58c;
+  --shadow:none; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#131314; --panel:#1e1f20; --panel-2:#26282a; --raised:#2d3033; --line:#33363a; --line-2:#4a4f55;
+  --fg:#e3e3e3; --muted:#c4c7c5; --dim:#8e918f;
+  --accent:#a8c7fa; --accent-ink:#062e6f; --accent-soft:#004a77; --accent-soft-ink:#c2e7ff;
+  --head:#0c2547; --head-ink:#e3e3e3; --head-2:rgba(255,255,255,.1); --head-3:rgba(255,255,255,.6);
+  --good:#6dd58c; --good-soft:rgba(109,213,140,.14); --warn:#fdd663; --warn-soft:rgba(253,214,99,.13); --crit:#f2b8b5; --crit-soft:rgba(242,184,181,.13);
+  --a-trab:#8ab4f8; --a-civ:#d7aefb; --a-crim:#f48fb1; --a-prev:#80cbc4; --a-fam:#ffb74d; --a-fisc:#b0bec5; --drive:#6dd58c;
+  --shadow:none; color-scheme:dark}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:50;background:var(--head)}
+a{color:inherit;text-decoration:none}
+button{font:inherit;color:inherit;cursor:pointer;background:none;border:none}
+h1,h2,h3{margin:0;font-weight:500;text-wrap:balance}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.num{font-variant-numeric:tabular-nums}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:8px}
+
+/* ---------- topo (PJe) ---------- */
+.topbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:40;height:var(--top);display:flex;align-items:center;gap:12px;
+  padding:0 max(16px,env(safe-area-inset-right,0px)) 0 max(12px,env(safe-area-inset-left,0px));background:var(--head);color:var(--head-ink)}
+.hbtn{width:42px;height:42px;flex:none;display:grid;place-items:center;border-radius:50%;color:var(--head-ink)}
+.hbtn:hover{background:var(--head-2)}
+.hbtn svg{width:22px;height:22px}
+.brand{display:flex;align-items:center;gap:10px;min-width:0}
+.brand .mark{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;background:var(--head-ink);flex:none}
+.brand .mark svg{width:20px;height:20px}
+.brand b{font-size:19px;font-weight:500;letter-spacing:.3px;white-space:nowrap}
+.brand small{display:block;font-size:10.5px;color:var(--head-3);letter-spacing:1px;margin-top:-3px}
+.search{flex:1;max-width:620px;margin-left:24px;display:flex;align-items:center;gap:10px;height:46px;padding:0 16px;border-radius:24px;background:var(--head-2);color:var(--head-ink)}
+.search:focus-within{background:var(--panel);color:var(--fg)}
+.search svg{width:20px;height:20px;flex:none;opacity:.85}
+.search input{flex:1;min-width:0;background:none;border:none;outline:none;color:inherit;font-size:15px;font-family:var(--f-body)}
+.search input::placeholder{color:var(--head-3)}
+.search:focus-within input::placeholder{color:var(--dim)}
+.tb-right{margin-left:auto;display:flex;align-items:center;gap:6px}
+.org{display:flex;align-items:center;gap:9px;padding:6px 10px 6px 6px;border-radius:22px;position:relative;cursor:pointer;color:var(--head-ink)}
+.org:hover{background:var(--head-2)}
+.org .dot{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;font-weight:700;font-size:13px;background:var(--head-ink);color:var(--head)}
+.org .nm{font-size:13.5px;font-weight:500;white-space:nowrap}
+.org .nm small{display:block;font-size:10.5px;color:var(--head-3);font-weight:400;margin-top:-2px}
+.org .cv{width:16px;height:16px;opacity:.8}
+.orgmenu{position:absolute;top:calc(100% + 8px);right:0;width:270px;background:var(--panel);color:var(--fg);border-radius:14px;padding:8px;display:none;flex-direction:column;gap:2px;box-shadow:0 4px 18px rgba(0,0,0,.22);z-index:60;border:1px solid var(--line)}
+.orgmenu.open{display:flex}
+.orgmenu .oi{display:flex;align-items:center;gap:11px;padding:9px;border-radius:10px}
+.orgmenu .oi:hover{background:var(--panel-2)}
+.orgmenu .oi.cur{background:var(--accent-soft);color:var(--accent-soft-ink)}
+.orgmenu .oi .d{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;font-weight:700;font-size:13px;color:#fff;flex:none}
+.orgmenu .oi small{display:block;color:var(--dim);font-size:11px}
+.orgmenu .oi.cur small{color:inherit;opacity:.75}
+.orgmenu .sep{height:1px;background:var(--line);margin:5px 2px}
+.orgmenu .add{color:var(--accent);font-weight:500;font-size:13px}
+.bell{position:relative}
+.bell .pip{position:absolute;top:9px;right:10px;width:8px;height:8px;border-radius:50%;background:var(--crit);border:2px solid var(--head)}
+.me{width:34px;height:34px;font-size:13px;margin-left:4px}
+
+/* ---------- casca ---------- */
+.app{display:grid;grid-template-columns:var(--rail) 1fr;min-height:calc(100% - var(--top))}
+.app.collapsed{grid-template-columns:var(--rail-min) 1fr}
+.rail{position:sticky;top:calc(var(--top) + env(safe-area-inset-top,0px));align-self:start;height:calc(100vh - var(--top));display:flex;flex-direction:column;padding:10px 12px 12px 0;overflow:hidden;z-index:30;background:var(--bg)}
+.compose{margin:4px 0 12px 12px;display:inline-flex;align-items:center;gap:12px;height:54px;padding:0 22px 0 18px;border-radius:16px;background:var(--accent-soft);color:var(--accent-soft-ink);font-weight:500;font-size:14px;align-self:flex-start;box-shadow:var(--shadow);white-space:nowrap}
+.compose:hover{filter:brightness(.97)}
+.compose svg{width:22px;height:22px;flex:none}
+.navscroll{display:flex;flex-direction:column;overflow-y:auto;flex:1}
+.navscroll::-webkit-scrollbar{width:8px}.navscroll::-webkit-scrollbar-thumb{background:var(--line-2);border-radius:8px}
+.nav-sec{font-size:11px;font-weight:500;letter-spacing:.8px;color:var(--dim);text-transform:uppercase;padding:16px 0 6px 26px}
+.nav{display:flex;align-items:center;gap:16px;height:36px;padding:0 14px 0 26px;border-radius:0 18px 18px 0;color:var(--muted);white-space:nowrap;font-size:14px}
+.nav svg{width:20px;height:20px;flex:none}
+.nav:hover{background:var(--raised)}
+.nav.active{background:var(--accent-soft);color:var(--accent-soft-ink);font-weight:700}
+.nav .cnt{margin-left:auto;font-size:12px;font-weight:700}
+.collapsed .rail{padding-right:0}
+.collapsed .navlbl,.collapsed .nav-sec,.collapsed .cnt,.collapsed .compose span{display:none}
+.collapsed .compose{padding:0;width:54px;justify-content:center;margin-left:9px}
+.collapsed .nav{margin:0 12px;padding:0;justify-content:center;border-radius:18px;width:48px}
+
+/* ---------- views ---------- */
+.main{min-width:0}
+.view{padding:18px max(16px,env(safe-area-inset-right,0px)) 48px max(16px,env(safe-area-inset-left,0px));max-width:1320px}
+.vhead{display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+.vhead h1{font-size:24px;font-weight:400}
+.vhead p{color:var(--muted);margin:4px 0 0;font-size:14px;max-width:72ch}
+.vhead .ha{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 16px;border-radius:18px;font-size:14px;font-weight:500;border:1px solid var(--line-2);color:var(--accent);background:var(--panel);white-space:nowrap}
+.btn svg{width:18px;height:18px}
+.btn:hover{background:var(--panel-2)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+.btn.primary:hover{filter:brightness(1.07)}
+.btn.tonal{background:var(--accent-soft);color:var(--accent-soft-ink);border-color:transparent}
+.btn.drive{color:var(--drive)}
+.btn.sm{height:30px;padding:0 12px;font-size:12.5px}
+.card{background:var(--panel);border-radius:16px;padding:18px;box-shadow:var(--shadow);border:1px solid var(--line);min-width:0}
+.ctitle{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.ctitle h3{font-size:16px;font-weight:500}
+.ctitle .tag{font-size:12px;color:var(--dim)}
+.ctitle .more{margin-left:auto;color:var(--accent);font-size:13px;font-weight:500;cursor:pointer}
+.grid{display:grid;gap:16px}
+.kpis{grid-template-columns:repeat(4,1fr)}
+.cols-2{grid-template-columns:1.45fr 1fr}
+.cols-2e{grid-template-columns:1fr 1fr}
+.cols-3{grid-template-columns:repeat(3,1fr)}
+.mb{margin-bottom:16px}
+.kpi .lbl{font-size:13px;color:var(--muted);display:flex;align-items:center;gap:8px}
+.kpi .lbl svg{width:18px;height:18px;color:var(--accent)}
+.kpi .val{font-size:32px;font-weight:400;margin-top:6px;font-variant-numeric:tabular-nums;line-height:1.2}
+.kpi .val small{font-size:15px;color:var(--muted)}
+.kpi .sub{font-size:12.5px;margin-top:4px;color:var(--muted)}
+.kpi .sub.good{color:var(--good)} .kpi .sub.warn{color:var(--warn)} .kpi .sub.crit{color:var(--crit)}
+
+/* chips */
+.chip{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:12px;font-size:12px;font-weight:500;background:var(--panel-2);color:var(--muted);white-space:nowrap}
+.chip.good{background:var(--good-soft);color:var(--good)} .chip.warn{background:var(--warn-soft);color:var(--warn)} .chip.crit{background:var(--crit-soft);color:var(--crit)}
+.chip.acc{background:var(--accent-soft);color:var(--accent-soft-ink)}
+.chip.area{background:color-mix(in srgb,var(--c) 13%,transparent);color:var(--c)}
+.chip .d{width:7px;height:7px;border-radius:50%;background:currentColor}
+.trab{--c:var(--a-trab)} .civ{--c:var(--a-civ)} .crim{--c:var(--a-crim)} .prev{--c:var(--a-prev)} .fam{--c:var(--a-fam)} .fisc{--c:var(--a-fisc)}
+
+/* mensagens agendadas */
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg button{height:34px;padding:0 14px;border-radius:17px;border:1px solid var(--line-2);font-size:13px;color:var(--muted);background:var(--panel)}
+.seg button.on{background:var(--accent-soft);color:var(--accent-soft-ink);border-color:transparent;font-weight:500}
+.field textarea{border-radius:8px;border:1px solid var(--line-2);background:var(--panel);color:var(--fg);padding:10px 12px;font-size:14px;font-family:var(--f-body);outline:none;width:100%;resize:vertical;line-height:1.45}
+.field textarea:focus{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.vars{font-size:12px;color:var(--dim);margin-top:4px}
+.vars code{font-family:var(--f-mono);background:var(--panel-2);padding:1px 6px;border-radius:4px;color:var(--muted)}
+.ck{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);grid-column:1/-1}
+.ck input{width:18px;height:18px;accent-color:var(--accent);margin:0}
+.preview{margin:16px 0;padding:14px;border-radius:12px;background:var(--bg);display:flex;flex-direction:column;gap:8px}
+.preview .when{font-size:12px;color:var(--dim)}
+.preview .bub{max-width:92%}
+.whenbox{width:64px;flex:none;text-align:center;border-radius:12px;background:var(--panel-2);padding:6px 0}
+.whenbox small{display:block;font-size:10.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.4px}
+.whenbox b{display:block;font-size:15px;font-weight:500;font-variant-numeric:tabular-nums}
+.sch .chips{display:flex;gap:5px;flex-wrap:wrap;margin-top:5px}
+.sch .bd small{white-space:normal}
+.filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.fp{height:32px;padding:0 14px;border-radius:8px;border:1px solid var(--line-2);font-size:13px;color:var(--muted);background:var(--panel)}
+.fp.on{background:var(--accent-soft);color:var(--accent-soft-ink);border-color:transparent;font-weight:500}
+
+/* avatar */
+.av{border-radius:50%;display:grid;place-items:center;font-weight:500;color:#fff;background:var(--av7);flex:none;width:32px;height:32px;font-size:13px}
+
+/* listas */
+.list{display:flex;flex-direction:column}
+.li{display:flex;align-items:center;gap:14px;padding:12px 4px;border-top:1px solid var(--line)}
+.li:first-child{border-top:none}
+.li .bd{min-width:0;flex:1}
+.li .bd b{font-weight:500;display:block}
+.li .bd small{display:block;color:var(--muted);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.datebox{width:52px;flex:none;text-align:center;border-radius:12px;background:var(--accent-soft);color:var(--accent-soft-ink);padding:6px 0}
+.datebox b{display:block;font-size:20px;font-weight:500;line-height:1.1}
+.datebox small{font-size:10.5px;text-transform:uppercase;letter-spacing:.6px}
+.hour{font-weight:500;font-size:15px;min-width:52px;text-align:center}
+.hour small{display:block;font-size:11px;color:var(--dim);font-weight:400}
+.cnj{font-family:var(--f-mono);font-size:12px;color:var(--dim);white-space:nowrap}
+
+/* funil */
+.funnel{display:flex;flex-direction:column;gap:8px}
+.fs{display:grid;grid-template-columns:1fr 64px;gap:12px;align-items:center}
+.fs .bar{height:34px;border-radius:8px;display:flex;align-items:center;padding:0 12px;font-size:13px;font-weight:500;background:var(--accent-soft);color:var(--accent-soft-ink);white-space:nowrap;min-width:fit-content}
+.fs .bar.won{background:var(--good-soft);color:var(--good)}
+.fs .n{text-align:right;font-variant-numeric:tabular-nums;font-size:15px}
+.fs .n small{display:block;font-size:11px;color:var(--dim)}
+
+/* barras de área */
+.abar{display:flex;flex-direction:column;gap:12px}
+.ab .r{display:flex;justify-content:space-between;font-size:13.5px;margin-bottom:5px}
+.ab .r span:last-child{color:var(--muted);font-variant-numeric:tabular-nums}
+.ab .t{height:8px;border-radius:4px;background:var(--panel-2);overflow:hidden}
+.ab .t i{display:block;height:100%;border-radius:4px;background:var(--c)}
+.adot{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:8px;background:var(--c);vertical-align:-1px}
+
+/* feed */
+.feed .li{align-items:flex-start;padding:10px 4px}
+.feed .ic{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;flex:none;background:var(--panel-2);color:var(--muted)}
+.feed .ic svg{width:16px;height:16px}
+.feed .ic.drive{background:var(--good-soft);color:var(--drive)}
+.feed .ic.acc{background:var(--accent-soft);color:var(--accent-soft-ink)}
+.feed .bd p{margin:0;font-size:13px}
+.feed .bd .t{font-size:11.5px;color:var(--dim);margin-top:2px}
+
+/* arquivos (drive) */
+.file{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:var(--panel)}
+.file .fi{width:36px;height:36px;border-radius:8px;display:grid;place-items:center;flex:none;background:var(--crit-soft);color:var(--crit);font-size:10px;font-weight:700}
+.file .fi.img{background:var(--accent-soft);color:var(--accent-soft-ink)}
+.file .bd{min-width:0;flex:1}
+.file .bd b{display:block;font-weight:500;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.file .bd small{display:block;color:var(--dim);font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.saved{display:inline-flex;align-items:center;gap:6px;color:var(--drive);font-size:12.5px;font-weight:500;white-space:nowrap}
+.saved svg{width:16px;height:16px}
+.dicon{width:18px;height:18px;flex:none}
+
+/* tabelas */
+.scrollx{overflow-x:auto}
+.tbl{width:100%;border-collapse:collapse;font-size:13.5px}
+.tbl th{text-align:left;font-size:12px;font-weight:500;color:var(--dim);padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+.tbl td{padding:11px 12px;border-bottom:1px solid var(--line);vertical-align:middle}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tbody tr:hover td{background:var(--panel-2)}
+.who{display:flex;align-items:center;gap:11px}
+.who b{font-weight:500;display:block;line-height:1.3}
+.who .cargo{display:block;font-size:12px;color:var(--muted)}
+.who small{display:block;font-size:11.5px;color:var(--dim)}
+
+/* kanban */
+.board{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(236px,1fr);gap:14px;overflow-x:auto;padding-bottom:8px}
+.lane{background:var(--panel-2);border-radius:16px;padding:12px;display:flex;flex-direction:column;gap:10px;min-width:236px}
+.lane .lh{display:flex;align-items:center;gap:8px;font-weight:500;font-size:14px;padding:2px 4px}
+.lane .lh .c{margin-left:auto;font-size:12px;color:var(--muted)}
+.lane .hint{font-size:12px;color:var(--dim);margin:-6px 4px 0}
+.deal{background:var(--panel);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px;box-shadow:var(--shadow);border:1px solid var(--line)}
+.deal .co{font-weight:500}
+.deal .ds{color:var(--muted);font-size:12.5px}
+.deal .meta{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.deal .meta .av{width:24px;height:24px;font-size:10.5px}
+.deal .age{font-size:11.5px;color:var(--dim)}
+
+/* atendimento */
+.console{display:grid;grid-template-columns:300px 1fr 300px;gap:14px;height:calc(100vh - var(--top) - 150px);min-height:560px}
+.conv{display:flex;flex-direction:column;overflow-y:auto;padding:6px}
+.ci{display:flex;gap:12px;padding:11px 10px;border-radius:12px}
+.ci:hover{background:var(--panel-2)}
+.ci.on{background:var(--accent-soft)}
+.ci .av{width:40px;height:40px;font-size:15px}
+.ci .bd{min-width:0;flex:1}
+.ci .r1{display:flex;justify-content:space-between;gap:8px}
+.ci .nm{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ci.unr .nm,.ci.unr .pv{font-weight:700;color:var(--fg)}
+.ci .tm{font-size:11.5px;color:var(--dim);flex:none}
+.ci .pv{color:var(--muted);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ci .tags{display:flex;gap:5px;margin-top:6px;flex-wrap:wrap}
+.thread{display:flex;flex-direction:column;background:var(--panel);border-radius:16px;border:1px solid var(--line);box-shadow:var(--shadow);overflow:hidden;min-width:0}
+.th-top{display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--line)}
+.th-top .av{width:38px;height:38px}
+.th-top .nm{min-width:0}
+.th-top .nm b{font-weight:500;font-size:15px}
+.th-top .nm small{display:block;color:var(--dim);font-size:12px}
+.th-top .acts{margin-left:auto;display:flex;gap:2px}
+.ibtn{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;color:var(--muted);flex:none}
+.ibtn:hover{background:var(--panel-2)}
+.ibtn svg{width:20px;height:20px}
+.msgs{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px;background:var(--bg)}
+.bub{max-width:78%;padding:9px 13px;border-radius:16px;font-size:13.5px;line-height:1.45;white-space:pre-line;box-shadow:var(--shadow)}
+.bub .tm{font-size:10.5px;color:var(--dim);margin-top:4px;text-align:right;white-space:normal}
+.bub .from{font-size:11.5px;font-weight:500;color:var(--accent);margin-bottom:2px;white-space:normal}
+.bub.in{align-self:flex-start;background:var(--panel);border-bottom-left-radius:4px;border:1px solid var(--line)}
+.bub.out{align-self:flex-end;background:var(--accent-soft);color:var(--accent-soft-ink);border-bottom-right-radius:4px}
+.bub.out .from{color:inherit;opacity:.8}
+.bub.bot{align-self:flex-end;background:var(--raised);border-bottom-right-radius:4px}
+.bub.bot .from{color:var(--muted)}
+.bub.note{align-self:center;max-width:92%;background:var(--warn-soft);color:var(--warn);font-size:12.5px;text-align:center;box-shadow:none}
+.bub.att{white-space:normal;padding:8px;width:300px;max-width:85%}
+.bub.att .file{border:none;background:var(--panel-2)}
+.bub.att .act{display:flex;justify-content:flex-end;padding:8px 4px 0}
+.composer{display:flex;gap:6px;padding:10px 12px;border-top:1px solid var(--line);align-items:center}
+.composer input{flex:1;min-width:0;height:42px;border-radius:21px;border:none;background:var(--panel-2);padding:0 16px;color:var(--fg);font-size:14px;outline:none;font-family:var(--f-body)}
+.composer input:focus{box-shadow:inset 0 0 0 2px var(--accent)}
+.send{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;background:var(--accent);color:var(--accent-ink);flex:none}
+.send svg{width:19px;height:19px}
+.side{display:flex;flex-direction:column;gap:14px;overflow-y:auto}
+.side .av-lg{width:64px;height:64px;font-size:24px;margin:0 auto 10px}
+.idrow{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:13px;padding:8px 0;border-bottom:1px solid var(--line)}
+.idrow:last-child{border-bottom:none}
+.idrow .k{color:var(--dim)}
+.idrow .v{text-align:right;font-weight:500}
+.sec{font-size:12px;font-weight:500;color:var(--dim);letter-spacing:.5px;text-transform:uppercase;margin-bottom:8px}
+.check{display:flex;flex-direction:column;gap:8px}
+.check div{display:flex;align-items:center;gap:10px;font-size:13px}
+.check i{width:18px;height:18px;border-radius:4px;display:grid;place-items:center;flex:none;font-style:normal;font-size:12px;border:2px solid var(--line-2);color:transparent}
+.check .y i{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.check .n span{color:var(--muted)}
+.drivebox{border:1px solid var(--line);border-radius:14px;padding:13px;display:flex;flex-direction:column;gap:10px;background:var(--panel-2)}
+.drivebox .path{display:flex;align-items:center;gap:9px;font-size:13px;font-weight:500;min-width:0}
+.drivebox .path span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.drivebox small{color:var(--dim);font-size:12px}
+.drivebox .sub{display:flex;flex-wrap:wrap;gap:6px}
+.drivebox .row{display:flex;gap:8px;flex-wrap:wrap}
+
+/* indicadores */
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.stat{padding:14px;border-radius:14px;background:var(--panel-2)}
+.stat .l{font-size:12.5px;color:var(--muted)}
+.stat .n{font-size:26px;margin-top:2px;font-variant-numeric:tabular-nums}
+.stat .d{font-size:12px;margin-top:2px;color:var(--dim)}
+.stat .d.good{color:var(--good)}
+.chart{width:100%;height:auto;display:block}
+.chart .grid-l{stroke:var(--line);stroke-width:1}
+.chart .ax{fill:var(--dim);font-size:11px;font-family:var(--f-body)}
+.chart .bar{fill:var(--accent-soft)}
+.chart .bar.hl{fill:var(--accent)}
+.chart .vl{fill:var(--fg);font-size:12px;font-weight:500;font-family:var(--f-body)}
+.goal{padding:12px 0;border-top:1px solid var(--line)}
+.goal:first-child{border-top:none;padding-top:0}
+.goal .r{display:flex;justify-content:space-between;gap:10px;font-size:13.5px;margin-bottom:7px}
+.goal .r b{font-weight:500}
+.goal .r span{color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.goal .t{height:8px;border-radius:4px;background:var(--panel-2);overflow:hidden}
+.goal .t i{display:block;height:100%;border-radius:4px;background:var(--accent)}
+.goal .t i.good{background:var(--good)}
+.mark-list{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.mk{display:flex;gap:11px;align-items:center;padding:12px;border-radius:12px;background:var(--panel-2)}
+.mk .ic{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;flex:none;background:var(--accent-soft);color:var(--accent-soft-ink)}
+.mk .ic svg{width:19px;height:19px}
+.mk b{font-weight:500;font-size:13px;display:block}
+.mk small{color:var(--dim);font-size:11.5px}
+.mk.todo{opacity:.6}
+.mk.todo .ic{background:var(--raised);color:var(--dim)}
+.note{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:12px;background:var(--accent-soft);color:var(--accent-soft-ink);font-size:13px}
+.note svg{width:18px;height:18px;flex:none;margin-top:1px}
+
+/* áreas */
+.areas{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px}
+.area{display:flex;flex-direction:column;gap:12px;border-top:4px solid var(--c)}
+.area .r1{display:flex;align-items:center;gap:12px}
+.area .ico{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-weight:700;font-size:16px;color:var(--c);background:color-mix(in srgb,var(--c) 13%,transparent)}
+.area h3{font-size:16px}
+.area .opt{font-size:12px;color:var(--dim)}
+.area .txt{font-size:12.5px;color:var(--muted)}
+.area .nums{display:flex;gap:20px;padding-top:12px;border-top:1px solid var(--line)}
+.area .nums .n{font-size:20px;font-variant-numeric:tabular-nums}
+.area .nums .l{font-size:11.5px;color:var(--dim)}
+.area.new{border:1px dashed var(--line-2);border-top:1px dashed var(--line-2);box-shadow:none;background:transparent}
+.swatches{display:flex;gap:8px;flex-wrap:wrap}
+.sw{width:26px;height:26px;border-radius:50%;border:3px solid var(--panel);box-shadow:0 0 0 1px var(--line-2)}
+.sw.on{box-shadow:0 0 0 2px var(--fg)}
+
+/* formulários */
+.field{display:flex;flex-direction:column;gap:5px;min-width:0}
+.field.full{grid-column:1/-1}
+.field label{font-size:12px;color:var(--muted);font-weight:500}
+.field input,.field select{height:40px;border-radius:8px;border:1px solid var(--line-2);background:var(--panel);color:var(--fg);padding:0 12px;font-size:14px;font-family:var(--f-body);outline:none;width:100%}
+.field input:focus,.field select:focus{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.form{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.inline-form{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+.inline-form .field{flex:1;min-width:160px}
+.cargos{display:flex;gap:8px;flex-wrap:wrap}
+.cargos span{height:32px;display:inline-flex;align-items:center;padding:0 12px;border-radius:8px;border:1px solid var(--line-2);font-size:13px}
+.stepper{display:inline-flex;align-items:center;border:1px solid var(--line-2);border-radius:18px;overflow:hidden}
+.stepper button{width:38px;height:36px;font-size:18px;color:var(--accent)}
+.stepper button:hover{background:var(--panel-2)}
+.stepper span{min-width:40px;text-align:center;font-size:15px;font-weight:500;font-variant-numeric:tabular-nums}
+.usebar{height:8px;border-radius:4px;background:var(--panel-2);overflow:hidden;flex:1;min-width:120px}
+.usebar i{display:block;height:100%;background:var(--accent);transition:width .3s}
+.matrix{width:100%;border-collapse:collapse;font-size:13.5px}
+.matrix th{padding:10px;border-bottom:1px solid var(--line);font-size:12px;font-weight:500;color:var(--dim);text-align:center;white-space:nowrap}
+.matrix th:first-child,.matrix td:first-child{text-align:left}
+.matrix td{padding:10px;border-bottom:1px solid var(--line);text-align:center}
+.matrix tr:last-child td{border-bottom:none}
+.yes{color:var(--good);font-weight:700} .no{color:var(--dim)}
+
+/* integrações */
+.intg{display:flex;flex-direction:column;gap:12px}
+.intg .r1{display:flex;align-items:center;gap:12px}
+.intg .logo{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;flex:none;background:var(--panel-2)}
+.intg .logo svg{width:26px;height:26px}
+.intg .nm b{font-weight:500;font-size:15px}
+.intg .nm small{display:block;color:var(--muted);font-size:12.5px}
+.intg .meta{display:flex;gap:18px;padding-top:12px;border-top:1px solid var(--line);font-size:12.5px;color:var(--muted);flex-wrap:wrap}
+.intg .meta b{display:block;color:var(--fg);font-size:16px;font-weight:500}
+
+/* planos */
+.plan{display:flex;flex-direction:column;gap:12px;position:relative}
+.plan.cur{border:2px solid var(--accent)}
+.plan .badge{position:absolute;top:-11px;left:18px;font-size:11px;font-weight:500;background:var(--accent);color:var(--accent-ink);padding:2px 10px;border-radius:10px}
+.plan .price{font-size:28px}
+.plan .price small{font-size:13px;color:var(--muted)}
+.plan ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.plan li{display:flex;gap:8px;font-size:13.5px;color:var(--muted)}
+.plan li svg{width:18px;height:18px;flex:none;color:var(--good)}
+
+.toast{position:fixed;left:max(20px,env(safe-area-inset-left,0px));bottom:calc(20px + env(safe-area-inset-bottom,0px));z-index:90;background:#323232;color:#f2f2f2;padding:14px 18px;border-radius:8px;font-size:14px;box-shadow:0 3px 10px rgba(0,0,0,.3);transform:translateY(20px);opacity:0;pointer-events:none;transition:.22s;max-width:min(420px,calc(100vw - 40px))}
+.toast.show{transform:none;opacity:1}
+
+.scrim{display:none}
+@media(max-width:1180px){.console{grid-template-columns:270px 1fr}.side{display:none}}
+@media(max-width:920px){
+  .cols-2,.cols-2e,.cols-3,.form{grid-template-columns:1fr}
+  .kpis{grid-template-columns:repeat(2,1fr)}
+  .console{grid-template-columns:1fr;height:auto}
+  .conv{max-height:300px}
+  .thread{min-height:520px}
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .search{margin-left:8px}
+}
+@media(max-width:760px){
+  .app,.app.collapsed{grid-template-columns:1fr}
+  .rail{position:fixed;left:0;top:0;height:100%;width:var(--rail);transform:translateX(-105%);transition:transform .22s;box-shadow:0 0 40px rgba(0,0,0,.3);background:var(--panel);z-index:70;padding-top:calc(14px + env(safe-area-inset-top,0px))}
+  .app.mobopen .rail{transform:none}
+  .collapsed .navlbl,.collapsed .nav-sec,.collapsed .cnt,.collapsed .compose span{display:revert}
+  .collapsed .nav{margin:0;padding:0 14px 0 26px;justify-content:flex-start;border-radius:0 18px 18px 0;width:auto}
+  .collapsed .compose{width:auto;padding:0 22px 0 18px;margin-left:12px}
+  .scrim{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:65}
+  .app.mobopen .scrim{display:block}
+  .brand small,.org .nm{display:none}
+  .search{display:none}
+}
+@media(max-width:480px){.kpis,.stats,.mark-list{grid-template-columns:1fr}.vhead h1{font-size:21px}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-drive" viewBox="0 0 24 24"><path d="M8.2 3.5h7.6l6.2 10.8-3.8 6.6H5.8L2 14.3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8.2 3.5l7.6 13.2M15.8 3.5L8.2 16.7M2 14.3h20" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.6l2 2.2h8.4A1.5 1.5 0 0 1 21 8.7v9.8a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z" fill="none" stroke="currentColor" stroke-width="1.8"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.2 4.2L19 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
+  </defs>
+</svg>
+
+<header class="topbar">
+  <button class="hbtn" id="toggleRail" aria-label="Menu principal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+  <div class="brand">
+    <span class="mark"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.9"><path d="M12 4v16M6 7h12M8 7l-3 6.5a3 3 0 0 0 6 0zM16 7l-3 6.5a3 3 0 0 0 6 0zM8.5 20h7" stroke="#0f3460"/></svg></span>
+    <div><b>Órion</b><small>GOULARTE FILHO ADVOCACIA</small></div>
+  </div>
+  <label class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M20 20l-4.5-4.5"/></svg><input id="gsearch" placeholder="Pesquisar cliente, CPF ou nº do processo"></label>
+  <div class="tb-right">
+    <button class="hbtn bell" aria-label="Notificações"><span class="pip"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg></button>
+    <span class="av me" style="background:var(--av3)">MA</span>
+  </div>
+</header>
+
+<div class="app" id="app">
+  <div class="scrim" data-close-mob></div>
+  <aside class="rail">
+    <a class="compose" href="#chat" data-go="chat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0-3-3L5 17v3z"/></svg><span>Nova conversa</span></a>
+    <nav class="navscroll">
+      <a class="nav active" href="#dash" data-view="dash"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 11l8-6.5 8 6.5v8.5a1 1 0 0 1-1 1h-4.5V15h-5v5.5H5a1 1 0 0 1-1-1z"/></svg><span class="navlbl">Início</span></a>
+      <a class="nav" href="#chat" data-view="chat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v9A1.5 1.5 0 0 1 18.5 16H9l-5 4z"/></svg><span class="navlbl">Atendimento</span><span class="cnt">9</span></a>
+      <a class="nav" href="#funnel" data-view="funnel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3.5 5h17l-6.5 7.5v6l-4 2v-8z"/></svg><span class="navlbl">Funil de casos</span></a>
+      <a class="nav" href="#clientes" data-view="clientes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0M16 5.5a3 3 0 0 1 0 6M17.5 19a5 5 0 0 0-2.5-4.3"/></svg><span class="navlbl">Clientes</span></a>
+      <a class="nav" href="#processos" data-view="processos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 4v16M6 7h12M8 7l-3 6.5a3 3 0 0 0 6 0zM16 7l-3 6.5a3 3 0 0 0 6 0zM8.5 20h7"/></svg><span class="navlbl">Processos</span></a>
+      <a class="nav" href="#audiencias" data-view="audiencias"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg><span class="navlbl">Audiências</span><span class="cnt">3</span></a>
+      <a class="nav" href="#agendamentos" data-view="agendamentos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg><span class="navlbl">Mensagens agendadas</span><span class="cnt" id="schedNav">5</span></a>
+      <a class="nav" href="#tarefas" data-view="tarefas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8.5"/><path d="M8.5 12.3l2.3 2.3 4.7-4.8"/></svg><span class="navlbl">Tarefas</span></a>
+      <a class="nav" href="#indicadores" data-view="indicadores"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span class="navlbl">Indicadores</span></a>
+      <div class="nav-sec">Escritório</div>
+      <a class="nav" href="#areas" data-view="areas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><path d="M16.5 13.5v6M13.5 16.5h6"/></svg><span class="navlbl">Áreas de atuação</span></a>
+      <a class="nav" href="#equipe" data-view="equipe"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="8" cy="9" r="2.7"/><circle cx="16" cy="9" r="2.7"/><path d="M3.5 18.5a4.5 4.5 0 0 1 9 0M12.5 18.5a4.5 4.5 0 0 1 8 0"/></svg><span class="navlbl">Equipe e cargos</span></a>
+      <a class="nav" href="#integracoes" data-view="integracoes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 6V3M15 6V3M7 6h10v4a5 5 0 0 1-10 0zM12 15v6"/></svg><span class="navlbl">Integrações</span></a>
+      <a class="nav" href="#perfil" data-view="perfil"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="3.4"/><path d="M5 19.5a7 7 0 0 1 14 0"/></svg><span class="navlbl">Meu perfil</span></a>
+    </nav>
+  </aside>
+
+  <main class="main">
+
+    <!-- ===== INÍCIO ===== -->
+    <section class="view" data-view="dash">
+      <div class="vhead">
+        <div><h1>Bom dia, Dra. Marina</h1><p>Quinta, 22 de outubro. 9 conversas na caixa de entrada, 1 audiência amanhã, 1 lembrete programado para as 18h e 3 documentos de clientes esperando ir para o Drive.</p></div>
+        <div class="ha"><button class="btn" data-go="audiencias">Ver audiências</button><button class="btn primary" data-go="chat">Abrir atendimento</button></div>
+      </div>
+      <div class="grid kpis mb">
+        <div class="card kpi"><div class="lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v9A1.5 1.5 0 0 1 18.5 16H9l-5 4z"/></svg>Conversas abertas</div><div class="val">9</div><div class="sub warn">2 aguardando resposta</div></div>
+        <div class="card kpi"><div class="lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17"/></svg>Audiências · 7 dias</div><div class="val">3</div><div class="sub">próxima amanhã, 14:00</div></div>
+        <div class="card kpi"><div class="lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><use href="#i-folder"/></svg>Casos ativos</div><div class="val">186</div><div class="sub good">12 contratos novos em outubro</div></div>
+        <div class="card kpi"><div class="lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2"/></svg>1ª resposta ao cliente</div><div class="val">6<small> min</small></div><div class="sub good">4 min mais rápido que setembro</div></div>
+      </div>
+
+      <div class="grid cols-2 mb">
+        <div class="card">
+          <div class="ctitle"><h3>Próximas audiências</h3><span class="tag">sincronizado com o Google Agenda</span><a class="more" data-go="audiencias">Ver todas</a></div>
+          <div class="list">
+            <div class="li"><div class="datebox"><b>23</b><small>out</small></div><div class="bd"><b>Instrução · Débora Freitas × Rede Alfa</b><small>14:00 · 32ª Vara do Trabalho de São Paulo · presencial</small></div><span class="chip area trab">Trabalhista</span></div>
+            <div class="li"><div class="datebox"><b>27</b><small>out</small></div><div class="bd"><b>Conciliação · José Almeida × Banco Atlas</b><small>10:30 · CEJUSC Santo Amaro · por vídeo</small></div><span class="chip area civ">Cível</span></div>
+            <div class="li"><div class="datebox"><b>29</b><small>out</small></div><div class="bd"><b>Instrução e julgamento · Pedro H. Santos</b><small>15:00 · 2ª Vara Criminal · Barra Funda</small></div><span class="chip area crim">Criminal</span></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="ctitle"><h3>Funil de casos</h3><span class="tag">outubro</span><a class="more" data-go="funnel">Abrir</a></div>
+          <div class="funnel">
+            <div class="fs"><div class="bar" style="width:100%">Primeiro contato</div><div class="n">64</div></div>
+            <div class="fs"><div class="bar" style="width:72%">Triagem</div><div class="n">46<small>18 não viáveis</small></div></div>
+            <div class="fs"><div class="bar" style="width:48%">Consulta agendada</div><div class="n">31</div></div>
+            <div class="fs"><div class="bar" style="width:30%">Proposta de honorários</div><div class="n">19</div></div>
+            <div class="fs"><div class="bar won" style="width:20%">Contrato assinado</div><div class="n">12<small>39% das consultas</small></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid cols-3">
+        <div class="card">
+          <div class="ctitle"><h3>Documentos para arquivar</h3><span class="tag">recebidos pelo WhatsApp</span></div>
+          <div style="display:flex;flex-direction:column;gap:8px" id="inboxFiles">
+            <div class="file"><span class="fi">PDF</span><div class="bd"><b>TRCT_Joana.pdf</b><small>Joana Ribeiro · hoje 09:44</small></div><button class="btn sm drive" data-save="TRABALHISTA" data-client="JOANA RIBEIRO"><svg class="dicon"><use href="#i-drive"/></svg>Salvar</button></div>
+            <div class="file"><span class="fi img">JPG</span><div class="bd"><b>laudo_ortopedia.jpg</b><small>Antônio C. Pereira · hoje 08:15</small></div><button class="btn sm drive" data-save="PREVIDENCIÁRIO" data-client="ANTÔNIO CARLOS PEREIRA"><svg class="dicon"><use href="#i-drive"/></svg>Salvar</button></div>
+            <div class="file"><span class="fi">PDF</span><div class="bd"><b>contrato_financiamento.pdf</b><small>Marcos Vieira · ontem</small></div><button class="btn sm drive" data-save="CÍVEL" data-client="MARCOS VIEIRA"><svg class="dicon"><use href="#i-drive"/></svg>Salvar</button></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="ctitle"><h3>Casos por área</h3><a class="more" data-go="areas">Gerenciar</a></div>
+          <div class="abar" id="dashAreas"></div>
+        </div>
+        <div class="card feed">
+          <div class="ctitle"><h3>Atividade recente</h3></div>
+          <div class="list">
+            <div class="li"><span class="ic acc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5.5h16v10H9l-5 4z"/></svg></span><div class="bd"><p>Triagem de <b>Joana Ribeiro</b> concluída pelo bot → Trabalhista</p><div class="t">há 1 min</div></div></div>
+            <div class="li"><span class="ic drive"><svg class="dicon"><use href="#i-drive"/></svg></span><div class="bd"><p>Pasta de <b>Luciana Moraes</b> criada no Drive ao assinar o contrato</p><div class="t">há 22 min</div></div></div>
+            <div class="li"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 4v16M6 7h12"/></svg></span><div class="bd"><p>Laudo pericial juntado no processo de <b>Antônio C. Pereira</b></p><div class="t">há 1 h · DataJud</div></div></div>
+            <div class="li"><span class="ic drive"><svg class="dicon"><use href="#i-drive"/></svg></span><div class="bd"><p><b>Camila Rocha</b> enviou 4 documentos, salvos na pasta dela no Drive</p><div class="t">há 2 h</div></div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== ATENDIMENTO ===== -->
+    <section class="view" data-view="chat" hidden>
+      <div class="vhead">
+        <div><h1>Atendimento</h1><p>O bot faz a triagem por área e entrega a conversa ao responsável. Documentos enviados pelo cliente vão para a pasta dele no Drive com um clique.</p></div>
+      </div>
+      <div class="filters">
+        <button class="fp on">Caixa de entrada · 9</button><button class="fp">Aguardando · 2</button><button class="fp">No bot · 3</button><button class="fp">Minhas</button>
+        <button class="fp">Trabalhista</button><button class="fp">Cível</button><button class="fp">Criminal</button><button class="fp">Previdenciário</button><button class="fp">Família</button><button class="fp">Execução fiscal</button>
+      </div>
+      <div class="console">
+        <div class="card conv">
+          <div class="ci on unr"><span class="av" style="background:var(--av2)">JR</span><div class="bd"><div class="r1"><span class="nm">Joana Ribeiro</span><span class="tm">09:44</span></div><div class="pv">📎 TRCT_Joana.pdf</div><div class="tags"><span class="chip area trab">Trabalhista</span></div></div></div>
+          <div class="ci"><span class="av" style="background:var(--av6)">MD</span><div class="bd"><div class="r1"><span class="nm">Maria das Dores</span><span class="tm">09:20</span></div><div class="pv">Bot: Seu processo está concluso para sentença…</div><div class="tags"><span class="chip area prev">Previdenciário</span></div></div></div>
+          <div class="ci unr"><span class="av" style="background:var(--av5)">FS</span><div class="bd"><div class="r1"><span class="nm">Fernanda Santos</span><span class="tm">08:58</span></div><div class="pv">Meu irmão foi preso ontem à noite</div><div class="tags"><span class="chip area crim">Criminal</span><span class="chip crit">urgente</span></div></div></div>
+          <div class="ci"><span class="av" style="background:var(--av4)">CA</span><div class="bd"><div class="r1"><span class="nm">Cond. Ed. Aurora</span><span class="tm">08:31</span></div><div class="pv">Recebemos a intimação, o que fazemos?</div><div class="tags"><span class="chip area civ">Cível</span></div></div></div>
+          <div class="ci"><span class="av" style="background:var(--av1)">LM</span><div class="bd"><div class="r1"><span class="nm">Luciana Moraes</span><span class="tm">ontem</span></div><div class="pv">Contrato assinado e enviado</div><div class="tags"><span class="chip area trab">Trabalhista</span><span class="chip good">contratou</span></div></div></div>
+        </div>
+
+        <div class="thread">
+          <div class="th-top"><span class="av" style="background:var(--av2)">JR</span><div class="nm"><b>Joana Ribeiro</b><small>+55 11 9 7412-3380 · número do escritório</small></div>
+            <div class="acts"><button class="ibtn" aria-label="Abrir pasta no Drive" data-drive-open><svg class="dicon" style="width:20px;height:20px"><use href="#i-drive"/></svg></button><button class="ibtn" aria-label="Transferir"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 9h12l-3-3M20 15H8l3 3"/></svg></button><button class="ibtn" aria-label="Resolver"><svg viewBox="0 0 24 24"><use href="#i-check"/></svg></button></div>
+          </div>
+          <div class="msgs" id="msgs">
+            <div class="bub in">Boa tarde, fui demitida e acho que não pagaram tudo certo<div class="tm">09:30</div></div>
+            <div class="bub bot"><div class="from">Assistente do escritório</div>Olá, Joana! Sou a assistente virtual do escritório Goularte Filho Advocacia. Sobre qual assunto você quer falar?
+1 · Trabalhista
+2 · Cível
+3 · Criminal
+4 · Previdenciário (INSS)
+5 · Família
+6 · Execução fiscal<div class="tm">09:30</div></div>
+            <div class="bub in">1<div class="tm">09:31</div></div>
+            <div class="bub in">Trabalhei 4 anos na Metalúrgica Fortes, saí dia 30/09 sem justa causa. Não pagaram as horas extras nem a multa do FGTS.<div class="tm">09:33</div></div>
+            <div class="bub note">Triagem concluída · Trabalhista · com Dr. Rafael Dias · pasta criada no Drive</div>
+            <div class="bub out"><div class="from">Rafael Dias · Advogado</div>Oi, Joana, aqui é o Rafael. Pode me mandar a carteira de trabalho, os holerites e o termo de rescisão (TRCT)?<div class="tm">09:38</div></div>
+            <div class="bub in att"><div class="file"><span class="fi img">JPG</span><div class="bd"><b>CTPS_frente_verso.jpg</b><small>1,8 MB</small></div></div><div class="act"><span class="saved"><svg><use href="#i-check"/></svg>No Drive · TRABALHISTA › JOANA RIBEIRO</span></div><div class="tm">09:40</div></div>
+            <div class="bub in att"><div class="file"><span class="fi">PDF</span><div class="bd"><b>TRCT_Joana.pdf</b><small>412 KB</small></div></div><div class="act" id="trctAct"><button class="btn sm drive" id="saveTrct"><svg class="dicon"><use href="#i-drive"/></svg>Mandar para a pasta da cliente</button></div><div class="tm">09:44</div></div>
+          </div>
+          <div class="composer">
+            <button class="ibtn" aria-label="Anexar arquivo do Drive do cliente" title="Enviar arquivo da pasta do cliente"><svg class="dicon" style="width:20px;height:20px"><use href="#i-drive"/></svg></button>
+            <button class="ibtn" aria-label="Agendar mensagem para esta cliente" title="Agendar mensagem" data-sched="Joana Ribeiro|livre"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg></button>
+            <input id="chatInput" placeholder="Escreva uma mensagem">
+            <button class="send" id="chatSend" aria-label="Enviar"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3.4 20.4l17.5-7.5a1 1 0 0 0 0-1.8L3.4 3.6a.7.7 0 0 0-1 .8L4.5 11l9 1-9 1-2.1 6.6a.7.7 0 0 0 1 .8z"/></svg></button>
+          </div>
+        </div>
+
+        <div class="side card">
+          <div><span class="av av-lg" style="background:var(--av2)">JR</span><div style="text-align:center"><b style="font-weight:500;font-size:16px">Joana Ribeiro</b><div style="color:var(--muted);font-size:12.5px">Cliente em potencial · desde hoje</div></div></div>
+          <div>
+            <div class="idrow"><span class="k">Área</span><span class="chip area trab">Trabalhista</span></div>
+            <div class="idrow"><span class="k">Etapa</span><span class="v">Triagem</span></div>
+            <div class="idrow"><span class="k">Responsável</span><span class="v">Rafael Dias<br><small style="color:var(--muted);font-weight:400">Advogado</small></span></div>
+            <div class="idrow"><span class="k">Parte contrária</span><span class="v">Metalúrgica Fortes</span></div>
+          </div>
+          <div class="drivebox">
+            <div class="path"><svg class="dicon" style="color:var(--drive)"><use href="#i-drive"/></svg><span>Clientes › TRABALHISTA › JOANA RIBEIRO</span></div>
+            <small id="driveCount">Criada pelo bot na triagem · 3 arquivos</small>
+            <div class="row"><a class="btn sm drive" href="https://drive.google.com/" target="_blank" rel="noopener"><svg class="dicon"><use href="#i-folder"/></svg>Abrir pasta</a><button class="btn sm" id="saveChat">Salvar conversa em PDF</button></div>
+          </div>
+          <div>
+            <div class="sec">Documentos · trabalhista</div>
+            <div class="check" id="checkJoana">
+              <div class="y"><i>✓</i><span>Carteira de trabalho (CTPS)</span></div>
+              <div class="y"><i>✓</i><span>Holerites (últimos 12 meses)</span></div>
+              <div class="n" id="ckTrct"><i>✓</i><span>Termo de rescisão (TRCT)</span></div>
+              <div class="n"><i>✓</i><span>Extrato do FGTS</span></div>
+              <div class="n"><i>✓</i><span>RG e comprovante de endereço</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== FUNIL ===== -->
+    <section class="view" data-view="funnel" hidden>
+      <div class="vhead">
+        <div><h1>Funil de casos</h1><p>Cada cartão é uma pessoa que procurou o escritório. Ao assinar o contrato, a pasta do cliente é criada no Drive automaticamente.</p></div>
+        <div class="ha"><button class="btn">Não viáveis · 18</button><button class="btn primary">Novo caso</button></div>
+      </div>
+      <div class="filters"><button class="fp on">Todas as áreas</button><button class="fp">Trabalhista</button><button class="fp">Cível</button><button class="fp">Criminal</button><button class="fp">Previdenciário</button><button class="fp">Família</button><button class="fp">Execução fiscal</button></div>
+      <div class="board">
+        <div class="lane"><div class="lh">Primeiro contato<span class="c">3</span></div><div class="hint">bot em andamento</div>
+          <div class="deal"><div class="co">Fernanda Santos</div><div class="ds">Irmão preso em flagrante ontem à noite</div><div class="meta"><span class="chip area crim">Criminal</span><span class="age">há 43 min</span></div></div>
+          <div class="deal"><div class="co">Roberto Lins</div><div class="ds">Auxílio-doença negado pelo INSS</div><div class="meta"><span class="chip area prev">Previdenciário</span><span class="age">há 2 h</span></div></div>
+          <div class="deal"><div class="co">Sandra Melo</div><div class="ds">Cobrança indevida de plano de saúde</div><div class="meta"><span class="chip area civ">Cível</span><span class="age">ontem</span></div></div>
+        </div>
+        <div class="lane"><div class="lh">Triagem<span class="c">3</span></div><div class="hint">viabilidade em análise</div>
+          <div class="deal"><div class="co">Joana Ribeiro</div><div class="ds">Verbas rescisórias e horas extras</div><div class="meta"><span class="chip area trab">Trabalhista</span><span class="av" style="background:var(--av1)">RD</span></div></div>
+          <div class="deal"><div class="co">Paulo Araújo</div><div class="ds">Acidente de trabalho sem CAT</div><div class="meta"><span class="chip area trab">Trabalhista</span><span class="av" style="background:var(--av1)">RD</span></div></div>
+          <div class="deal"><div class="co">Elaine Costa</div><div class="ds">BPC/LOAS para filho com deficiência</div><div class="meta"><span class="chip area prev">Previdenciário</span><span class="av" style="background:var(--av2)">TM</span></div></div>
+        </div>
+        <div class="lane"><div class="lh">Consulta agendada<span class="c">2</span></div><div class="hint">presencial ou por vídeo</div>
+          <div class="deal"><div class="co">Marcos Vieira</div><div class="ds">Revisão de contrato de financiamento</div><div class="meta"><span class="chip area civ">Cível</span><span class="chip">sex · 10h</span></div></div>
+          <div class="deal"><div class="co">Camila Rocha</div><div class="ds">Aposentadoria por tempo de contribuição</div><div class="meta"><span class="chip area prev">Previdenciário</span><span class="chip">seg · 15h</span></div></div>
+        </div>
+        <div class="lane"><div class="lh">Proposta de honorários<span class="c">2</span></div><div class="hint">aguardando resposta</div>
+          <div class="deal"><div class="co">Igor Nascimento</div><div class="ds">Defesa em inquérito · lesão corporal</div><div class="meta"><span class="chip area crim">Criminal</span><span class="age">follow-up sáb 10:00</span></div></div>
+          <div class="deal"><div class="co">Débora Freitas</div><div class="ds">Rescisão indireta · assédio moral</div><div class="meta"><span class="chip area trab">Trabalhista</span><button class="btn sm" data-sched="Débora Freitas|fup">Agendar follow-up</button></div></div>
+        </div>
+        <div class="lane"><div class="lh">Contrato assinado<span class="c">2</span></div><div class="hint">pasta criada no Drive</div>
+          <div class="deal"><div class="co">Luciana Moraes</div><div class="ds">Equiparação salarial</div><div class="meta"><span class="chip area trab">Trabalhista</span><span class="saved"><svg><use href="#i-check"/></svg>Drive</span></div></div>
+          <div class="deal"><div class="co">José Almeida</div><div class="ds">Danos morais · negativação indevida</div><div class="meta"><span class="chip area civ">Cível</span><span class="saved"><svg><use href="#i-check"/></svg>Drive</span></div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== CLIENTES ===== -->
+    <section class="view" data-view="clientes" hidden>
+      <div class="vhead">
+        <div><h1>Clientes</h1><p>412 clientes · 186 com caso ativo. Cada cliente tem uma pasta no Google Drive do escritório.</p></div>
+        <div class="ha"><button class="btn">Importar</button><button class="btn primary">Novo cliente</button></div>
+      </div>
+      <div class="filters"><button class="fp on">Todos</button><button class="fp">Com caso ativo</button><button class="fp">Em potencial</button><button class="fp">Documentos pendentes</button><button class="fp">Sem pasta no Drive</button></div>
+      <div class="card" style="padding:6px 6px 2px">
+        <div class="scrollx"><table class="tbl">
+          <thead><tr><th>Cliente</th><th>Área</th><th>Situação</th><th>Responsável</th><th>Documentos</th><th>Pasta no Drive</th></tr></thead>
+          <tbody>
+            <tr><td><div class="who"><span class="av" style="background:var(--av2)">JR</span><div><b>Joana Ribeiro</b><small>CPF ***.482.117-**</small></div></div></td><td><span class="chip area trab">Trabalhista</span></td><td><span class="chip acc">Triagem</span></td><td><div class="who"><div><b>Rafael Dias</b><span class="cargo">Advogado</span></div></div></td><td class="num" style="color:var(--warn)">3 de 5</td><td><a class="btn sm drive" href="https://drive.google.com/" target="_blank" rel="noopener"><svg class="dicon"><use href="#i-folder"/></svg>Abrir</a></td></tr>
+            <tr><td><div class="who"><span class="av" style="background:var(--av6)">MD</span><div><b>Maria das Dores</b><small>CPF ***.903.448-**</small></div></div></td><td><span class="chip area prev">Previdenciário</span></td><td><span class="chip good">Caso ativo</span></td><td><div class="who"><div><b>Thiago Melo</b><span class="cargo">Advogado</span></div></div></td><td class="num" style="color:var(--good)">completo</td><td><a class="btn sm drive" href="https://drive.google.com/" target="_blank" rel="noopener"><svg class="dicon"><use href="#i-folder"/></svg>Abrir</a></td></tr>
+            <tr><td><div class="who"><span class="av" style="background:var(--av5)">PS</span><div><b>Pedro H. Santos</b><small>CPF ***.115.902-**</small></div></div></td><td><span class="chip area crim">Criminal</span></td><td><span class="chip good">Caso ativo</span></td><td><div class="who"><div><b>Bianca Nunes</b><span class="cargo">Advogada</span></div></div></td><td class="num" style="color:var(--good)">completo</td><td><a class="btn sm drive" href="https://drive.google.com/" target="_blank" rel="noopener"><svg class="dicon"><use href="#i-folder"/></svg>Abrir</a></td></tr>
+            <tr><td><div class="who"><span class="av" style="background:var(--av4)">MV</span><div><b>Marcos Vieira</b><small>CPF ***.338.570-**</small></div></div></td><td><span class="chip area civ">Cível</span></td><td><span class="chip">Consulta agendada</span></td><td><div class="who"><div><b>Marina Alves</b><span class="cargo">Advogada · Sócia</span></div></div></td><td class="num" style="color:var(--warn)">1 de 4</td><td><button class="btn sm tonal" data-mkfolder="CÍVEL › MARCOS VIEIRA"><svg class="dicon"><use href="#i-drive"/></svg>Criar pasta</button></td></tr>
+            <tr><td><div class="who"><span class="av" style="background:var(--av3)">CR</span><div><b>Camila Rocha</b><small>CPF ***.660.231-**</small></div></div></td><td><span class="chip area prev">Previdenciário</span></td><td><span class="chip">Consulta agendada</span></td><td><div class="who"><div><b>Thiago Melo</b><span class="cargo">Advogado</span></div></div></td><td class="num" style="color:var(--good)">completo</td><td><a class="btn sm drive" href="https://drive.google.com/" target="_blank" rel="noopener"><svg class="dicon"><use href="#i-folder"/></svg>Abrir</a></td></tr>
+            <tr><td><div class="who"><span class="av" style="background:var(--av1)">FS</span><div><b>Fernanda Santos</b><small>CPF não informado</small></div></div></td><td><span class="chip area crim">Criminal</span></td><td><span class="chip">Primeiro contato</span></td><td><div class="who"><div><b>Bianca Nunes</b><span class="cargo">Advogada</span></div></div></td><td class="num" style="color:var(--dim)">—</td><td><button class="btn sm tonal" data-mkfolder="CRIMINAL › FERNANDA SANTOS"><svg class="dicon"><use href="#i-drive"/></svg>Criar pasta</button></td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <!-- ===== PROCESSOS ===== -->
+    <section class="view" data-view="processos" hidden>
+      <div class="vhead">
+        <div><h1>Processos</h1><p>Movimentações atualizadas pela API pública do CNJ (DataJud). Quando o cliente pergunta pelo WhatsApp, o bot responde com a última movimentação em linguagem simples.</p></div>
+        <div class="ha"><button class="btn">Sincronizar agora</button><button class="btn primary">Cadastrar processo</button></div>
+      </div>
+      <div class="filters"><button class="fp on">Ativos · 186</button><button class="fp">Movimentados esta semana · 23</button><button class="fp">Parados há 60+ dias · 14</button><button class="fp">Arquivados</button></div>
+      <div class="card" style="padding:6px 6px 2px">
+        <div class="scrollx"><table class="tbl">
+          <thead><tr><th>Processo</th><th>Cliente</th><th>Área</th><th>Vara</th><th>Última movimentação</th><th>Pasta</th></tr></thead>
+          <tbody>
+            <tr><td class="cnj">0001234-56.2026.5.02.0011</td><td><b style="font-weight:500">Joana Ribeiro</b><br><small style="color:var(--dim)">× Metalúrgica Fortes</small></td><td><span class="chip area trab">Trabalhista</span></td><td>11ª VT · São Paulo</td><td style="color:var(--muted)">Distribuído · 20/10</td><td><a class="ibtn" href="https://drive.google.com/" target="_blank" rel="noopener" aria-label="Abrir pasta"><svg class="dicon" style="color:var(--drive)"><use href="#i-folder"/></svg></a></td></tr>
+            <tr><td class="cnj">1500321-12.2026.8.26.0050</td><td><b style="font-weight:500">Pedro H. Santos</b><br><small style="color:var(--dim)">réu</small></td><td><span class="chip area crim">Criminal</span></td><td>2ª Vara Criminal · Barra Funda</td><td style="color:var(--muted)">Audiência designada · 09/10</td><td><a class="ibtn" href="https://drive.google.com/" target="_blank" rel="noopener" aria-label="Abrir pasta"><svg class="dicon" style="color:var(--drive)"><use href="#i-folder"/></svg></a></td></tr>
+            <tr><td class="cnj">1004567-89.2025.8.26.0100</td><td><b style="font-weight:500">Cond. Ed. Aurora</b><br><small style="color:var(--dim)">× Construtora Base</small></td><td><span class="chip area civ">Cível</span></td><td>5ª Vara Cível · Foro Central</td><td style="color:var(--muted)">Contestação juntada · 15/10</td><td><a class="ibtn" href="https://drive.google.com/" target="_blank" rel="noopener" aria-label="Abrir pasta"><svg class="dicon" style="color:var(--drive)"><use href="#i-folder"/></svg></a></td></tr>
+            <tr><td class="cnj">5003456-78.2025.4.03.6183</td><td><b style="font-weight:500">Antônio C. Pereira</b><br><small style="color:var(--dim)">× INSS</small></td><td><span class="chip area prev">Previdenciário</span></td><td>3ª Vara Previdenciária · SP</td><td style="color:var(--muted)">Laudo pericial juntado · hoje</td><td><a class="ibtn" href="https://drive.google.com/" target="_blank" rel="noopener" aria-label="Abrir pasta"><svg class="dicon" style="color:var(--drive)"><use href="#i-folder"/></svg></a></td></tr>
+            <tr><td class="cnj">5011987-03.2024.4.03.6301</td><td><b style="font-weight:500">Maria das Dores</b><br><small style="color:var(--dim)">× INSS</small></td><td><span class="chip area prev">Previdenciário</span></td><td>JEF · São Paulo</td><td style="color:var(--muted)">Concluso para sentença · 30/09</td><td><a class="ibtn" href="https://drive.google.com/" target="_blank" rel="noopener" aria-label="Abrir pasta"><svg class="dicon" style="color:var(--drive)"><use href="#i-folder"/></svg></a></td></tr>
+            <tr><td class="cnj">1012345-67.2025.8.26.0002</td><td><b style="font-weight:500">José Almeida</b><br><small style="color:var(--dim)">× Banco Atlas S.A.</small></td><td><span class="chip area civ">Cível</span></td><td>2ª Vara Cível · Santo Amaro</td><td style="color:var(--muted)">Audiência de conciliação designada · 14/10</td><td><a class="ibtn" href="https://drive.google.com/" target="_blank" rel="noopener" aria-label="Abrir pasta"><svg class="dicon" style="color:var(--drive)"><use href="#i-folder"/></svg></a></td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <!-- ===== AUDIÊNCIAS ===== -->
+    <section class="view" data-view="audiencias" hidden>
+      <div class="vhead">
+        <div><h1>Audiências</h1><p>Aparecem no Google Agenda de quem vai à audiência. O cliente recebe a confirmação e um lembrete na véspera pelo WhatsApp.</p></div>
+        <div class="ha"><button class="btn" data-sched="Pedro H. Santos|aud">Agendar lembrete</button><button class="btn primary">Agendar audiência</button></div>
+      </div>
+      <div class="grid cols-2e">
+        <div class="card">
+          <div class="ctitle"><h3>Próximos 7 dias</h3><span class="tag">3 audiências</span></div>
+          <div class="sec" style="margin-top:4px">Sexta, 23 de outubro · amanhã</div>
+          <div class="list mb">
+            <div class="li"><div class="hour">14:00<small>presencial</small></div><div class="bd"><b>Instrução · Débora Freitas × Rede Alfa</b><small>32ª Vara do Trabalho de São Paulo · Rafael Dias</small><small style="color:var(--good)">Cliente confirmou presença · lembrete agendado para hoje, 18:00</small></div><span class="chip area trab">Trabalhista</span></div>
+          </div>
+          <div class="sec">Terça, 27 de outubro</div>
+          <div class="list mb">
+            <div class="li"><div class="hour">10:30<small>vídeo</small></div><div class="bd"><b>Conciliação · José Almeida × Banco Atlas</b><small>CEJUSC Santo Amaro · Marina Alves</small><small style="color:var(--muted)">Link enviado · lembrete agendado para 26/10, 18:00</small></div><span class="chip area civ">Cível</span></div>
+          </div>
+          <div class="sec">Quinta, 29 de outubro</div>
+          <div class="list">
+            <div class="li"><div class="hour">15:00<small>presencial</small></div><div class="bd"><b>Instrução e julgamento · Pedro H. Santos</b><small>2ª Vara Criminal · Barra Funda · Bianca Nunes</small><small style="color:var(--warn)">Testemunhas ainda não confirmadas</small></div><span class="chip area crim">Criminal</span></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="ctitle"><h3>Novembro</h3></div>
+          <div class="list">
+            <div class="li"><div class="datebox"><b>05</b><small>nov</small></div><div class="bd"><b>Perícia médica · Roberto Lins</b><small>09:00 · INSS Agência Lapa</small></div><span class="chip area prev">Previdenciário</span></div>
+            <div class="li"><div class="datebox"><b>11</b><small>nov</small></div><div class="bd"><b>Una · Luciana Moraes × Grupo Vértice</b><small>13:30 · 45ª Vara do Trabalho</small></div><span class="chip area trab">Trabalhista</span></div>
+            <div class="li"><div class="datebox"><b>18</b><small>nov</small></div><div class="bd"><b>Conciliação · Cond. Ed. Aurora</b><small>16:00 · 5ª Vara Cível · por vídeo</small></div><span class="chip area civ">Cível</span></div>
+          </div>
+          <div class="note" style="margin-top:14px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16v.5"/></svg><span>Mensagem da véspera, enviada às 18h: data, horário, endereço ou link, documentos para levar e o nome de quem vai acompanhar.</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== MENSAGENS AGENDADAS ===== -->
+    <section class="view" data-view="agendamentos" hidden>
+      <div class="vhead">
+        <div><h1>Mensagens agendadas</h1><p>Programe uma mensagem de WhatsApp para dia e hora certos: lembrete de audiência, follow-up de quem procurou o escritório ou um recado livre. Lembretes da véspera das audiências entram aqui sozinhos.</p></div>
+      </div>
+      <div class="grid cols-2e">
+        <form class="card" id="schedForm">
+          <div class="ctitle"><h3>Nova mensagem</h3></div>
+          <div class="form">
+            <div class="field full"><label for="sClient">Para</label><select id="sClient"></select></div>
+            <div class="field full"><label>Tipo</label><div class="seg" id="sType"><button type="button" data-t="aud">Lembrete de audiência</button><button type="button" data-t="fup">Follow-up</button><button type="button" data-t="livre">Mensagem livre</button></div></div>
+            <div class="field"><label for="sDate">Dia</label><input id="sDate" type="date"></div>
+            <div class="field"><label for="sTime">Hora</label><input id="sTime" type="time"></div>
+            <div class="field full"><label for="sText">Mensagem</label><textarea id="sText" rows="6"></textarea><div class="vars">Preenchidos sozinhos: <code>{nome}</code> <code>{data}</code> <code>{hora}</code> <code>{local}</code></div></div>
+            <label class="ck"><input type="checkbox" id="sCancel" checked>Cancelar o envio se o cliente responder antes</label>
+          </div>
+          <div class="preview"><span class="when" id="sWhen"></span><div class="bub out" id="sPrev"></div></div>
+          <button class="btn primary" type="submit">Agendar envio</button>
+        </form>
+        <div class="card">
+          <div class="ctitle"><h3>Programadas</h3><span class="tag" id="schedCount"></span></div>
+          <div class="list" id="schedList"></div>
+          <div class="sec" style="margin-top:18px">Últimas enviadas</div>
+          <div class="list">
+            <div class="li sch"><div class="whenbox"><small>ter 21/10</small><b>09:00</b></div><div class="bd"><b>Camila Rocha</b><small>Lembrete: trazer CNIS e carteira de trabalho na consulta</small><div class="chips"><span class="chip">Mensagem</span><span class="chip good">enviada e lida</span></div></div></div>
+            <div class="li sch"><div class="whenbox"><small>seg 20/10</small><b>15:00</b></div><div class="bd"><b>Marcos Vieira</b><small>Follow-up do primeiro contato</small><div class="chips"><span class="chip warn">Follow-up</span><span class="chip">não enviada: o cliente respondeu antes</span></div></div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== TAREFAS ===== -->
+    <section class="view" data-view="tarefas" hidden>
+      <div class="vhead">
+        <div><h1>Tarefas</h1><p>Tarefas ligadas a clientes e processos. Peças feitas por estagiários passam por revisão antes de concluir.</p></div>
+        <div class="ha"><button class="btn primary">Nova tarefa</button></div>
+      </div>
+      <div class="board">
+        <div class="lane"><div class="lh">A fazer<span class="c">3</span></div>
+          <div class="deal"><div class="co">Minutar réplica · Cond. Ed. Aurora</div><div class="meta"><span class="chip">até 26/10</span><span class="av" style="background:var(--av3)">LP</span></div></div>
+          <div class="deal"><div class="co">Pedir extrato do FGTS · Joana Ribeiro</div><div class="meta"><span class="chip">hoje</span><span class="av" style="background:var(--av3)">LP</span></div></div>
+          <div class="deal"><div class="co">Preparar Débora para a audiência</div><div class="meta"><span class="chip warn">amanhã cedo</span><span class="av" style="background:var(--av1)">RD</span></div></div>
+        </div>
+        <div class="lane"><div class="lh">Em andamento<span class="c">2</span></div>
+          <div class="deal"><div class="co">Rol de testemunhas · Pedro H. Santos</div><div class="meta"><span class="chip">até 27/10</span><span class="av" style="background:var(--av5)">BN</span></div></div>
+          <div class="deal"><div class="co">Petição inicial · Joana Ribeiro</div><div class="meta"><span class="chip">esta semana</span><span class="av" style="background:var(--av1)">RD</span></div></div>
+        </div>
+        <div class="lane"><div class="lh">Revisão<span class="c">1</span></div><div class="hint">feita por estagiário, revisão do advogado</div>
+          <div class="deal"><div class="co">Contrarrazões · Luciana Moraes</div><div class="meta"><span class="chip">revisar até 28/10</span><span class="av" style="background:var(--av3)">LP</span></div></div>
+        </div>
+        <div class="lane"><div class="lh">Concluída<span class="c">2</span></div>
+          <div class="deal" style="opacity:.7"><div class="co">Protocolar inicial · José Almeida</div><div class="meta"><span class="chip good">feito</span><span class="av" style="background:var(--av7)">MA</span></div></div>
+          <div class="deal" style="opacity:.7"><div class="co">Juntar procuração · Camila Rocha</div><div class="meta"><span class="chip good">feito</span><span class="av" style="background:var(--av2)">TM</span></div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== INDICADORES ===== -->
+    <section class="view" data-view="indicadores" hidden>
+      <div class="vhead">
+        <div><h1>Indicadores</h1><p>Números para consulta: como você e o escritório estão indo no mês. Sem pontuação e sem ranking.</p></div>
+        <div class="ha"><div class="filters" style="margin:0"><button class="fp on">Outubro</button><button class="fp">Setembro</button><button class="fp">Ano</button></div></div>
+      </div>
+      <div class="grid cols-2e mb">
+        <div class="card">
+          <div class="ctitle"><h3>Seus números</h3><span class="tag">Marina Alves · outubro</span></div>
+          <div class="stats">
+            <div class="stat"><div class="l">Atendimentos</div><div class="n">148</div><div class="d good">+19 vs. setembro</div></div>
+            <div class="stat"><div class="l">1ª resposta (média)</div><div class="n">6 min</div><div class="d good">−4 min</div></div>
+            <div class="stat"><div class="l">Casos sob sua responsabilidade</div><div class="n">41</div><div class="d">+3</div></div>
+            <div class="stat"><div class="l">Audiências no mês</div><div class="n">7</div><div class="d">2 ainda por vir</div></div>
+            <div class="stat"><div class="l">Documentos completos em 7 dias</div><div class="n">71%</div><div class="d">dos casos novos</div></div>
+            <div class="stat"><div class="l">Avaliação dos clientes</div><div class="n">4,8</div><div class="d">32 avaliações</div></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="ctitle"><h3>Atendimentos por semana</h3><span class="tag">escritório</span></div>
+          <svg class="chart" viewBox="0 0 600 222" role="img" aria-label="Atendimentos por semana, de 31 de agosto a 19 de outubro, subindo de 92 para 148">
+            <line class="grid-l" x1="40" y1="20" x2="590" y2="20"/><line class="grid-l" x1="40" y1="62.5" x2="590" y2="62.5"/><line class="grid-l" x1="40" y1="105" x2="590" y2="105"/><line class="grid-l" x1="40" y1="147.5" x2="590" y2="147.5"/><line class="grid-l" x1="40" y1="190" x2="590" y2="190"/>
+            <text class="ax" x="32" y="24" text-anchor="end">160</text><text class="ax" x="32" y="66.5" text-anchor="end">120</text><text class="ax" x="32" y="109" text-anchor="end">80</text><text class="ax" x="32" y="151.5" text-anchor="end">40</text><text class="ax" x="32" y="194" text-anchor="end">0</text>
+            <rect class="bar" x="54.4" y="92.25" width="40" height="97.75" rx="4"/>
+            <rect class="bar" x="123.1" y="79.5" width="40" height="110.5" rx="4"/>
+            <rect class="bar" x="191.9" y="85.9" width="40" height="104.1" rx="4"/>
+            <rect class="bar" x="260.6" y="61.4" width="40" height="128.6" rx="4"/>
+            <rect class="bar" x="329.4" y="65.7" width="40" height="124.3" rx="4"/>
+            <rect class="bar" x="398.1" y="48.7" width="40" height="141.3" rx="4"/>
+            <rect class="bar" x="466.9" y="54" width="40" height="136" rx="4"/>
+            <rect class="bar hl" x="535.6" y="32.75" width="40" height="157.25" rx="4"/>
+            <text class="vl" x="555.6" y="26" text-anchor="middle">148</text>
+            <text class="ax" x="74.4" y="210" text-anchor="middle">31/ago</text><text class="ax" x="143.1" y="210" text-anchor="middle">07/set</text><text class="ax" x="211.9" y="210" text-anchor="middle">14/set</text><text class="ax" x="280.6" y="210" text-anchor="middle">21/set</text><text class="ax" x="349.4" y="210" text-anchor="middle">28/set</text><text class="ax" x="418.1" y="210" text-anchor="middle">05/out</text><text class="ax" x="486.9" y="210" text-anchor="middle">12/out</text><text class="ax" x="555.6" y="210" text-anchor="middle">19/out</text>
+          </svg>
+        </div>
+      </div>
+
+      <div class="grid cols-2">
+        <div class="card" style="padding:6px 6px 2px">
+          <div class="ctitle" style="padding:12px 12px 0"><h3>Equipe</h3><span class="tag">ordem alfabética</span></div>
+          <div class="scrollx"><table class="tbl">
+            <thead><tr><th>Pessoa</th><th>Atendimentos</th><th>1ª resposta</th><th>Casos</th><th>Audiências</th><th>Avaliação</th></tr></thead>
+            <tbody>
+              <tr><td><div class="who"><span class="av" style="background:var(--av5)">BN</span><div><b>Bianca Nunes</b><span class="cargo">Advogada</span></div></div></td><td class="num">96</td><td class="num">9 min</td><td class="num">23</td><td class="num">4</td><td class="num">4,7</td></tr>
+              <tr><td><div class="who"><span class="av" style="background:var(--av3)">LP</span><div><b>Letícia Prado</b><span class="cargo">Estagiária</span></div></div></td><td class="num">121</td><td class="num">5 min</td><td class="num">—</td><td class="num">—</td><td class="num">4,9</td></tr>
+              <tr><td><div class="who"><span class="av" style="background:var(--av7)">MA</span><div><b>Marina Alves</b><span class="cargo">Advogada · Sócia</span></div></div></td><td class="num">148</td><td class="num">6 min</td><td class="num">41</td><td class="num">7</td><td class="num">4,8</td></tr>
+              <tr><td><div class="who"><span class="av" style="background:var(--av1)">RD</span><div><b>Rafael Dias</b><span class="cargo">Advogado</span></div></div></td><td class="num">173</td><td class="num">7 min</td><td class="num">72</td><td class="num">9</td><td class="num">4,8</td></tr>
+              <tr><td><div class="who"><span class="av" style="background:var(--av6)">SC</span><div><b>Sônia Carvalho</b><span class="cargo">Secretária</span></div></div></td><td class="num">204</td><td class="num">3 min</td><td class="num">—</td><td class="num">—</td><td class="num">4,9</td></tr>
+              <tr><td><div class="who"><span class="av" style="background:var(--av2)">TM</span><div><b>Thiago Melo</b><span class="cargo">Advogado</span></div></div></td><td class="num">88</td><td class="num">11 min</td><td class="num">40</td><td class="num">3</td><td class="num">4,6</td></tr>
+            </tbody>
+          </table></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div class="card">
+            <div class="ctitle"><h3>Metas do escritório</h3></div>
+            <div class="goal"><div class="r"><b>Clientes respondidos em até 15 min</b><span>86%</span></div><div class="t"><i style="width:86%"></i></div></div>
+            <div class="goal"><div class="r"><b>Documentos completos em 7 dias</b><span>71%</span></div><div class="t"><i style="width:71%"></i></div></div>
+            <div class="goal"><div class="r"><b>Processos sem movimentação há 60+ dias</b><span>14 de meta 0</span></div><div class="t"><i style="width:36%"></i></div></div>
+            <div class="goal"><div class="r"><b>Avaliação média dos clientes</b><span>4,8 de 5</span></div><div class="t"><i class="good" style="width:96%"></i></div></div>
+          </div>
+          <div class="card">
+            <div class="ctitle"><h3>Marcos do escritório</h3><span class="tag">2026</span></div>
+            <div class="mark-list">
+              <div class="mk"><span class="ic"><svg viewBox="0 0 24 24"><use href="#i-check"/></svg></span><div><b>1.000 atendimentos</b><small>atingido em setembro</small></div></div>
+              <div class="mk"><span class="ic"><svg viewBox="0 0 24 24"><use href="#i-check"/></svg></span><div><b>150 casos ativos</b><small>atingido em agosto</small></div></div>
+              <div class="mk todo"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8"/></svg></span><div><b>200 casos ativos</b><small>faltam 14</small></div></div>
+              <div class="mk todo"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8"/></svg></span><div><b>100 avaliações 5 estrelas</b><small>faltam 23</small></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== ÁREAS ===== -->
+    <section class="view" data-view="areas" hidden>
+      <div class="vhead"><div><h1>Áreas de atuação</h1><p>Cada área vira uma opção no menu do bot, um filtro no atendimento e uma pasta dentro de Clientes no Drive, como vocês já organizam hoje.</p></div></div>
+      <div class="areas" id="areasGrid"></div>
+    </section>
+
+    <!-- ===== EQUIPE ===== -->
+    <section class="view" data-view="equipe" hidden>
+      <div class="vhead"><div><h1>Equipe e cargos</h1><p>Você define quantos usuários o escritório tem e o cargo de cada pessoa. O cargo aparece abaixo do nome em todo o sistema.</p></div></div>
+      <div class="grid cols-2 mb">
+        <div class="card" style="padding:6px 6px 14px">
+          <div class="ctitle" style="padding:12px 12px 0"><h3>Usuários</h3><span class="tag" id="seatTag">6 de 10 vagas</span></div>
+          <div class="scrollx"><table class="tbl" id="teamTbl">
+            <thead><tr><th>Pessoa</th><th>Acesso</th><th>Áreas</th><th>Status</th></tr></thead>
+            <tbody>
+              <tr><td><div class="who"><span class="av" style="background:var(--av7)">MA</span><div><b>Marina Alves</b><span class="cargo">Advogada · Sócia</span><small>OAB/SP 284.117</small></div></div></td><td><span class="chip acc">Administrador</span></td><td><span class="chip area civ">Cível</span></td><td><span class="chip good"><span class="d"></span>online</span></td></tr>
+              <tr><td><div class="who"><span class="av" style="background:var(--av1)">RD</span><div><b>Rafael Dias</b><span class="cargo">Advogado</span><small>OAB/SP 401.552</small></div></div></td><td><span class="chip">Advogado</span></td><td><span class="chip area trab">Trabalhista</span></td><td><span class="chip good"><span class="d"></span>online</span></td></tr>
+              <tr><td><div class="who"><span class="av" style="background:var(--av5)">BN</span><div><b>Bianca Nunes</b><span class="cargo">Advogada</span><small>OAB/SP 433.908</small></div></div></td><td><span class="chip">Advogado</span></td><td><span class="chip area crim">Criminal</span></td><td><span class="chip good"><span class="d"></span>online</span></td></tr>
+              <tr><td><div class="who"><span class="av" style="background:var(--av2)">TM</span><div><b>Thiago Melo</b><span class="cargo">Advogado</span><small>OAB/SP 418.230</small></div></div></td><td><span class="chip">Advogado</span></td><td><span class="chip area prev">Previdenciário</span></td><td><span class="chip">ausente</span></td></tr>
+              <tr><td><div class="who"><span class="av" style="background:var(--av3)">LP</span><div><b>Letícia Prado</b><span class="cargo">Estagiária</span><small>OAB/SP E-61.774</small></div></div></td><td><span class="chip">Estagiário</span></td><td><span class="chip area trab">Trabalhista</span></td><td><span class="chip good"><span class="d"></span>online</span></td></tr>
+              <tr><td><div class="who"><span class="av" style="background:var(--av6)">SC</span><div><b>Sônia Carvalho</b><span class="cargo">Secretária</span><small>recepção e agenda</small></div></div></td><td><span class="chip">Atendimento</span></td><td style="color:var(--dim);font-size:12.5px">todas</td><td><span class="chip">offline</span></td></tr>
+            </tbody>
+          </table></div>
+          <form class="inline-form" id="addMember" style="margin:12px 12px 0;padding-top:14px;border-top:1px solid var(--line)">
+            <div class="field"><label for="mName">Nome</label><input id="mName" placeholder="ex.: Carla Souza"></div>
+            <div class="field"><label for="mMail">E-mail</label><input id="mMail" type="email" placeholder="carla.souza@gmail.com"></div>
+            <div class="field"><label for="mCargo">Cargo</label><select id="mCargo"></select></div>
+            <button class="btn primary" type="submit">Convidar</button>
+          </form>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div class="card">
+            <div class="ctitle"><h3>Vagas de usuário</h3></div>
+            <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+              <div class="stepper"><button type="button" id="seatMinus" aria-label="Menos vagas">−</button><span id="seatN">10</span><button type="button" id="seatPlus" aria-label="Mais vagas">+</button></div>
+              <div class="usebar"><i id="seatBar" style="width:60%"></i></div>
+            </div>
+            <p style="color:var(--muted);font-size:13px;margin:10px 0 0" id="seatTxt">6 usuários ativos · 4 vagas livres</p>
+          </div>
+          <div class="card">
+            <div class="ctitle"><h3>Cargos</h3><span class="tag">aparecem abaixo do nome</span></div>
+            <div class="cargos" id="cargoChips"></div>
+            <form class="inline-form" id="addCargo" style="margin-top:12px">
+              <div class="field"><label for="cName">Novo cargo</label><input id="cName" placeholder="ex.: Paralegal, Correspondente"></div>
+              <button class="btn" type="submit">Adicionar</button>
+            </form>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="ctitle"><h3>Permissões por acesso</h3><span class="tag">sigilo profissional</span></div>
+        <div class="scrollx"><table class="matrix">
+          <thead><tr><th>Permissão</th><th>Administrador</th><th>Advogado</th><th>Estagiário</th><th>Atendimento</th></tr></thead>
+          <tbody>
+            <tr><td>Ver todos os casos do escritório</td><td class="yes">✓</td><td class="yes">✓</td><td class="no">—</td><td class="no">—</td></tr>
+            <tr><td>Ver casos marcados como sigilosos</td><td class="yes">✓</td><td class="no">só os seus</td><td class="no">—</td><td class="no">—</td></tr>
+            <tr><td>Abrir a pasta do cliente no Drive</td><td class="yes">✓</td><td class="yes">✓</td><td class="no">só os casos dele</td><td class="no">—</td></tr>
+            <tr><td>Salvar documentos na pasta do cliente</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+            <tr><td>Concluir tarefa sem revisão</td><td class="yes">✓</td><td class="yes">✓</td><td class="no">revisão</td><td class="no">—</td></tr>
+            <tr><td>Ver indicadores da equipe</td><td class="yes">✓</td><td class="yes">✓</td><td class="no">só os seus</td><td class="no">só os seus</td></tr>
+            <tr><td>Configurar bot, áreas e integrações</td><td class="yes">✓</td><td class="no">—</td><td class="no">—</td><td class="no">—</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <!-- ===== INTEGRAÇÕES ===== -->
+    <section class="view" data-view="integracoes" hidden>
+      <div class="vhead"><div><h1>Integrações</h1><p>WhatsApp pelo Evolution API (gratuito, roda no servidor do escritório) e Google Drive e Agenda pela conta Google do escritório.</p></div><div class="ha"><button class="btn primary">Adicionar número</button></div></div>
+      <div class="grid cols-2e mb">
+        <div class="card intg">
+          <div class="r1"><span class="logo" style="color:var(--good)"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.6 15l-1.3 4.7 4.8-1.3A10 10 0 1 0 12 2zm0 2a8 8 0 1 1-4.1 14.9l-.3-.2-2.4.6.6-2.3-.2-.3A8 8 0 0 1 12 4z"/></svg></span><div class="nm"><b>Número do escritório</b><small>Evolution API · conexão por QR code</small></div><span class="chip good" style="margin-left:auto"><span class="d"></span>Conectado</span></div>
+          <div class="cnj" style="font-size:13px">+55 11 9 4000-2840</div>
+          <div class="meta"><div><b>1.874</b>mensagens no mês</div><div><b>100%</b>no ar em outubro</div><div><b>R$ 0</b>custo</div></div>
+        </div>
+        <div class="card intg">
+          <div class="r1"><span class="logo" style="color:var(--good)"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.6 15l-1.3 4.7 4.8-1.3A10 10 0 1 0 12 2zm0 2a8 8 0 1 1-4.1 14.9l-.3-.2-2.4.6.6-2.3-.2-.3A8 8 0 0 1 12 4z"/></svg></span><div class="nm"><b>Plantão criminal</b><small>Evolution API · conexão por QR code</small></div><span class="chip good" style="margin-left:auto"><span class="d"></span>Conectado</span></div>
+          <div class="cnj" style="font-size:13px">+55 11 9 6620-1185</div>
+          <div class="meta"><div><b>312</b>mensagens no mês</div><div><b>100%</b>no ar em outubro</div><div><b>R$ 0</b>custo</div></div>
+        </div>
+        <div class="card intg">
+          <div class="r1"><span class="logo" style="color:var(--drive)"><svg class="dicon" style="width:26px;height:26px"><use href="#i-drive"/></svg></span><div class="nm"><b>Google Drive</b><small>conta Google do escritório</small></div><span class="chip good" style="margin-left:auto"><span class="d"></span>Conectado</span></div>
+          <div class="idrow"><span class="k">Pasta principal</span><span class="v">Goularte Filho › Clientes</span></div>
+          <div class="idrow"><span class="k">Organização</span><span class="v mono" style="font-size:12px">ÁREA › NOME DO CLIENTE</span></div>
+          <div class="idrow"><span class="k">Pastas que já existiam</span><span class="v">vinculadas pelo nome · 6 para conferir</span></div>
+          <div class="idrow"><span class="k">Criar pasta automaticamente</span><span class="v">ao concluir a triagem</span></div>
+          <div class="idrow"><span class="k">Renomear arquivos</span><span class="v mono" style="font-size:12px">AAAA-MM-DD TIPO - NOME</span></div>
+          <button class="btn sm" id="linkFolders" type="button" style="align-self:flex-start">Conferir vínculos</button>
+        </div>
+        <div class="card intg">
+          <div class="r1"><span class="logo" style="color:var(--accent)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg></span><div class="nm"><b>Google Agenda</b><small>uma agenda por advogado</small></div><span class="chip good" style="margin-left:auto"><span class="d"></span>Conectado</span></div>
+          <div class="idrow"><span class="k">Sincroniza</span><span class="v">audiências e consultas</span></div>
+          <div class="idrow"><span class="k">Lembrete ao cliente</span><span class="v">véspera, às 18h, pelo WhatsApp</span></div>
+        </div>
+      </div>
+      <div class="note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16v.5"/></svg><span>Conexão por QR code não é oficial: use um número só para o escritório, deixe o cliente iniciar a conversa e evite envios em massa, para reduzir o risco de bloqueio.</span></div>
+    </section>
+
+    <!-- ===== PERFIL ===== -->
+    <section class="view" data-view="perfil" hidden>
+      <div class="vhead"><div><h1>Meu perfil</h1><p>Seus dados aparecem nas mensagens enviadas aos clientes e nas petições geradas pelo sistema.</p></div></div>
+      <div class="grid cols-2e">
+        <div class="card">
+          <div class="ctitle"><h3>Dados profissionais</h3></div>
+          <div style="display:flex;align-items:center;gap:16px;margin-bottom:18px"><span class="av" style="width:64px;height:64px;font-size:24px;background:var(--av3)">MA</span><button class="btn sm">Trocar foto</button></div>
+          <form class="form" id="profileForm">
+            <div class="field"><label for="pNome">Nome</label><input id="pNome" value="Marina Alves"></div>
+            <div class="field"><label for="pCargo">Cargo</label><input id="pCargo" value="Advogada · Sócia"></div>
+            <div class="field"><label for="pOab">Inscrição na OAB</label><input id="pOab" value="OAB/SP 284.117"></div>
+            <div class="field"><label for="pTel">Telefone</label><input id="pTel" value="+55 11 9 9000-4075"></div>
+            <div class="field full"><label for="pAss">Assinatura nas mensagens</label><input id="pAss" value="Dra. Marina Alves · Goularte Filho Advocacia"></div>
+            <div style="grid-column:1/-1"><button class="btn primary" type="submit">Salvar</button></div>
+          </form>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div class="card">
+            <div class="ctitle"><h3>Padrão das petições</h3><span class="tag">usado pela IA</span></div>
+            <div class="idrow"><span class="k">Endereçamento</span><span class="v">alinhado à esquerda e justificado</span></div>
+            <div class="idrow"><span class="k">Forma</span><span class="v mono" style="font-size:12px">AO JUÍZO DA X VARA…</span></div>
+            <div class="idrow"><span class="k">Nunca usar</span><span class="v" style="color:var(--crit)">“Excelentíssimo Senhor Doutor Juiz”</span></div>
+            <div class="idrow"><span class="k">Modelos</span><span class="v">pasta “Modelos Trabalhistas” no Drive</span></div>
+          </div>
+          <div class="card">
+            <div class="ctitle"><h3>Conta e segurança</h3></div>
+            <div class="idrow"><span class="k">Entrar com</span><span class="v">Conta Google</span></div>
+            <div class="idrow"><span class="k">Verificação em 2 etapas</span><span class="chip good">ativada</span></div>
+            <div class="idrow"><span class="k">Último acesso</span><span class="v">hoje, 08:12 · São Paulo</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+(function(){
+  "use strict";
+  var app=document.getElementById('app');
+  var views={};
+  document.querySelectorAll('section.view').forEach(function(s){views[s.getAttribute('data-view')]=s;});
+  var KNOWN=Object.keys(views);
+  function go(v,noHash){
+    if(!views[v]) v='dash';
+    KNOWN.forEach(function(k){views[k].hidden=(k!==v);});
+    document.querySelectorAll('.nav[data-view]').forEach(function(n){n.classList.toggle('active',n.getAttribute('data-view')===v);});
+    app.classList.remove('mobopen');
+    if(!noHash){try{history.replaceState(null,'','#'+v);}catch(e){}}
+    var m=views[v].querySelector('.msgs'); if(m) m.scrollTop=m.scrollHeight;
+    window.scrollTo(0,0);
+  }
+  document.querySelectorAll('.nav[data-view],[data-go]').forEach(function(el){
+    el.addEventListener('click',function(e){e.preventDefault();go(el.getAttribute('data-view')||el.getAttribute('data-go'));});
+  });
+  var h=(location.hash||'').replace('#','');
+  go(KNOWN.indexOf(h)>=0?h:'dash',true);
+
+  document.getElementById('toggleRail').addEventListener('click',function(){
+    if(window.matchMedia('(max-width:760px)').matches) app.classList.toggle('mobopen'); else app.classList.toggle('collapsed');
+  });
+  document.querySelector('[data-close-mob]').addEventListener('click',function(){app.classList.remove('mobopen');});
+
+  var toastEl=document.getElementById('toast'),tt;
+  function toast(m){toastEl.textContent=m;toastEl.classList.add('show');clearTimeout(tt);tt=setTimeout(function(){toastEl.classList.remove('show');},2600);}
+  function p(n){return(n<10?'0':'')+n;}
+  function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+  var CHECK='<svg><use href="#i-check"/></svg>';
+
+  document.querySelectorAll('.filters').forEach(function(g){
+    g.addEventListener('click',function(e){var b=e.target.closest('.fp');if(!b)return;g.querySelectorAll('.fp').forEach(function(x){x.classList.remove('on');});b.classList.add('on');});
+  });
+
+  // chat
+  var input=document.getElementById('chatInput'),msgs=document.getElementById('msgs');
+  function bubble(cls,from,text){
+    var d=new Date(),b=document.createElement('div');b.className='bub '+cls;
+    if(from){var f=document.createElement('div');f.className='from';f.textContent=from;b.appendChild(f);}
+    b.appendChild(document.createTextNode(text));
+    var t=document.createElement('div');t.className='tm';t.textContent=p(d.getHours())+':'+p(d.getMinutes());b.appendChild(t);
+    msgs.appendChild(b);msgs.scrollTop=msgs.scrollHeight;
+  }
+  function pushMsg(){var v=(input.value||'').trim();if(!v)return;bubble('out','Marina Alves · Advogada',v);input.value='';
+    setTimeout(function(){bubble('in','','Certo, doutora. Mando o extrato do FGTS ainda hoje.');},1000);}
+  document.getElementById('chatSend').addEventListener('click',pushMsg);
+  input.addEventListener('keydown',function(e){if(e.key==='Enter')pushMsg();});
+
+  // drive: salvar o TRCT na pasta da cliente
+  var files=3;
+  function markTrct(){
+    var a=document.getElementById('trctAct');
+    if(a) a.innerHTML='<span class="saved">'+CHECK+'No Drive · renomeado “2026-10-22 TRCT - JOANA RIBEIRO.pdf”</span>';
+    var ck=document.getElementById('ckTrct'); if(ck){ck.className='y';}
+    files++; document.getElementById('driveCount').textContent='Criada pelo bot na triagem · '+files+' arquivos';
+  }
+  document.getElementById('saveTrct').addEventListener('click',function(){markTrct();toast('Salvo em TRABALHISTA › JOANA RIBEIRO, já renomeado');
+    var dash=document.querySelector('#inboxFiles [data-client="JOANA RIBEIRO"]'); if(dash) dash.outerHTML='<span class="saved">'+CHECK+'Salvo</span>';});
+  document.getElementById('saveChat').addEventListener('click',function(){toast('Conversa salva em PDF na pasta JOANA RIBEIRO');});
+  document.querySelectorAll('[data-drive-open]').forEach(function(b){b.addEventListener('click',function(){toast('No sistema real, abre a pasta do cliente no Google Drive');});});
+
+  // drive: salvar documentos pendentes do painel
+  document.getElementById('inboxFiles').addEventListener('click',function(e){
+    var b=e.target.closest('[data-save]');if(!b)return;
+    var c=b.getAttribute('data-client'),f=b.getAttribute('data-save');
+    if(c==='JOANA RIBEIRO') markTrct();
+    b.outerHTML='<span class="saved">'+CHECK+'Salvo</span>';
+    toast('Salvo em '+f+' › '+c+', já renomeado');
+  });
+  // drive: criar pasta do cliente
+  document.querySelectorAll('[data-mkfolder]').forEach(function(b){
+    b.addEventListener('click',function(){
+      var c=b.getAttribute('data-mkfolder');
+      var a=document.createElement('a');a.className='btn sm drive';a.href='https://drive.google.com/';a.target='_blank';a.rel='noopener';
+      a.innerHTML='<svg class="dicon"><use href="#i-folder"/></svg>Abrir';b.replaceWith(a);
+      toast('Pasta criada em Clientes › '+c);
+    });
+  });
+
+  // áreas
+  var PALETTE=['#0097a7','#ad1457','#f9ab00','#3949ab','#7cb342','#6d4c41'];
+  var areas=[
+    {nome:'Trabalhista',cls:'trab',casos:72,novos:21,docs:'CTPS, holerites, TRCT, extrato do FGTS'},
+    {nome:'Cível',cls:'civ',casos:51,novos:14,docs:'Contratos, comprovantes, notificações'},
+    {nome:'Criminal',cls:'crim',casos:23,novos:9,docs:'BO, decisão de prisão, documentos pessoais'},
+    {nome:'Previdenciário',cls:'prev',casos:40,novos:20,docs:'CNIS, laudos médicos, carta de indeferimento'},
+    {nome:'Família',cls:'fam',casos:18,novos:6,docs:'Certidões de casamento e nascimento, comprovantes de renda'},
+    {nome:'Execução Fiscal',cls:'fisc',casos:11,novos:2,docs:'CDA, notificação, comprovantes de pagamento'}
+  ];
+  var newColor=PALETTE[0];
+  function colorAttr(a){return a.cls?'class="'+a.cls+'"':'style="--c:'+a.cor+'"';}
+  function renderAreas(){
+    var html='';
+    areas.forEach(function(a,i){
+      html+='<div class="card area '+(a.cls||'')+'"'+(a.cls?'':' style="--c:'+a.cor+'"')+'><div class="r1"><span class="ico">'+esc(a.nome.charAt(0))+'</span><div><h3>'+esc(a.nome)+'</h3><div class="opt">Opção '+(i+1)+' no menu do bot</div></div></div>'+
+        '<div class="txt"><div class="sec" style="margin-bottom:3px">Documentos pedidos</div>'+esc(a.docs)+'</div>'+
+        '<div class="txt"><div class="sec" style="margin-bottom:3px">Pasta no Drive</div>Clientes › '+esc(a.nome.toUpperCase())+'</div>'+
+        '<div class="nums"><div><div class="n">'+a.casos+'</div><div class="l">casos ativos</div></div><div><div class="n">'+a.novos+'</div><div class="l">contatos em outubro</div></div></div></div>';
+    });
+    html+='<form class="card area new" id="newArea"><div class="r1"><span class="ico" style="--c:var(--accent)">+</span><div><h3>Nova área</h3><div class="opt">vira a opção '+(areas.length+1)+' do bot</div></div></div>'+
+      '<div class="field"><label for="naNome">Nome da área</label><input id="naNome" placeholder="ex.: Família, Consumidor, Tributário"></div>'+
+      '<div class="field"><label for="naDocs">Documentos pedidos ao cliente</label><input id="naDocs" placeholder="ex.: certidão de casamento, RG"></div>'+
+      '<div class="field"><label>Cor</label><div class="swatches" id="sw"></div></div>'+
+      '<button class="btn primary" type="submit">Adicionar área</button></form>';
+    document.getElementById('areasGrid').innerHTML=html;
+    var sw=document.getElementById('sw');
+    PALETTE.forEach(function(c){var s=document.createElement('button');s.type='button';s.className='sw'+(c===newColor?' on':'');s.style.background=c;s.setAttribute('aria-label','Cor');
+      s.addEventListener('click',function(){newColor=c;sw.querySelectorAll('.sw').forEach(function(x){x.classList.remove('on');});s.classList.add('on');});sw.appendChild(s);});
+    document.getElementById('newArea').addEventListener('submit',function(e){
+      e.preventDefault();var n=document.getElementById('naNome').value.trim();if(!n){document.getElementById('naNome').focus();return;}
+      areas.push({nome:n,cor:newColor,casos:0,novos:0,docs:document.getElementById('naDocs').value.trim()||'Documentos pessoais'});
+      newColor=PALETTE[(PALETTE.indexOf(newColor)+1)%PALETTE.length];
+      renderAreas();renderDash();toast('Área “'+n+'” adicionada. Pasta '+n.toUpperCase()+' criada em Clientes');
+    });
+  }
+  function renderDash(){
+    var max=Math.max.apply(null,areas.map(function(a){return a.casos;}))||1,html='';
+    areas.forEach(function(a){html+='<div class="ab '+(a.cls||'')+'"'+(a.cls?'':' style="--c:'+a.cor+'"')+'><div class="r"><span><span class="adot"></span>'+esc(a.nome)+'</span><span>'+a.casos+'</span></div><div class="t"><i style="width:'+(a.casos/max*100)+'%"></i></div></div>';});
+    document.getElementById('dashAreas').innerHTML=html;
+  }
+  renderAreas();renderDash();
+
+  // equipe
+  var cargos=['Advogado(a) · Sócio(a)','Advogado(a)','Estagiário(a)','Secretário(a)'],active=6,seats=10;
+  function renderCargos(){
+    var c=document.getElementById('cargoChips'),sel=document.getElementById('mCargo');c.innerHTML='';sel.innerHTML='';
+    cargos.forEach(function(k){var s=document.createElement('span');s.textContent=k;c.appendChild(s);var o=document.createElement('option');o.textContent=k;sel.appendChild(o);});
+  }
+  function renderSeats(){
+    document.getElementById('seatN').textContent=seats;
+    document.getElementById('seatBar').style.width=Math.min(100,active/seats*100)+'%';
+    document.getElementById('seatTag').textContent=active+' de '+seats+' vagas';
+    document.getElementById('seatTxt').textContent=active+' usuários ativos · '+Math.max(0,seats-active)+' vagas livres';
+  }
+  document.getElementById('seatPlus').addEventListener('click',function(){seats++;renderSeats();});
+  document.getElementById('seatMinus').addEventListener('click',function(){if(seats>active){seats--;renderSeats();}else toast('Remova um usuário antes de reduzir as vagas');});
+  document.getElementById('addCargo').addEventListener('submit',function(e){e.preventDefault();var v=document.getElementById('cName').value.trim();if(!v)return;cargos.push(v);document.getElementById('cName').value='';renderCargos();toast('Cargo “'+v+'” criado');});
+  document.getElementById('addMember').addEventListener('submit',function(e){
+    e.preventDefault();var n=document.getElementById('mName').value.trim();if(!n){document.getElementById('mName').focus();return;}
+    if(active>=seats){toast('Sem vagas livres. Aumente as vagas ao lado.');return;}
+    var cargo=document.getElementById('mCargo').value,mail=document.getElementById('mMail').value.trim();
+    var ini=n.split(/\s+/).map(function(w){return w.charAt(0);}).slice(0,2).join('').toUpperCase();
+    var tr=document.createElement('tr');
+    tr.innerHTML='<td><div class="who"><span class="av" style="background:var(--av6)">'+esc(ini)+'</span><div><b>'+esc(n)+'</b><span class="cargo">'+esc(cargo)+'</span><small>'+esc(mail||'convite enviado agora')+'</small></div></div></td><td><span class="chip">a definir</span></td><td style="color:var(--dim)">—</td><td><span class="chip warn">convite pendente</span></td>';
+    document.querySelector('#teamTbl tbody').appendChild(tr);active++;renderSeats();
+    document.getElementById('mName').value='';document.getElementById('mMail').value='';toast('Convite enviado para '+n);
+  });
+  renderCargos();renderSeats();
+
+  document.getElementById('profileForm').addEventListener('submit',function(e){e.preventDefault();toast('Perfil salvo');});
+  // ===== mensagens agendadas =====
+  var CLIENTS={
+    'Débora Freitas':{dt:'2026-10-23',hr:'14:00',local:'32ª Vara do Trabalho de São Paulo'},
+    'José Almeida':{dt:'2026-10-27',hr:'10:30',local:'CEJUSC Santo Amaro, por vídeo (link enviado)'},
+    'Pedro H. Santos':{dt:'2026-10-29',hr:'15:00',local:'2ª Vara Criminal, Fórum da Barra Funda'},
+    'Igor Nascimento':{},'Sandra Melo':{},'Joana Ribeiro':{},'Camila Rocha':{}
+  };
+  var TPL={
+    aud:'Olá, {nome}! Passando para lembrar da sua audiência em {data}, às {hora}, em {local}. Chegue com 30 minutos de antecedência e leve um documento com foto. Qualquer dúvida, é só responder aqui.\nGoularte Filho Advocacia',
+    fup:'Olá, {nome}! Tudo bem? Aqui é do escritório Goularte Filho Advocacia. Conseguiu ver a proposta que enviamos? Se quiser, marcamos uma conversa rápida para tirar as suas dúvidas.',
+    livre:'Olá, {nome}! '
+  };
+  var TYPE_CHIP={aud:'<span class="chip acc">Lembrete de audiência</span>',fup:'<span class="chip warn">Follow-up</span>',livre:'<span class="chip">Mensagem</span>'};
+  var sched=[
+    {quando:'2026-10-22T18:00',nome:'Débora Freitas',tipo:'aud',resumo:'Lembrete da audiência de amanhã, às 14:00',auto:true},
+    {quando:'2026-10-24T10:00',nome:'Igor Nascimento',tipo:'fup',resumo:'Retomar a proposta de honorários enviada na quarta',cancel:true},
+    {quando:'2026-10-26T18:00',nome:'José Almeida',tipo:'aud',resumo:'Lembrete da conciliação de 27/10, às 10:30',auto:true},
+    {quando:'2026-10-27T09:00',nome:'Sandra Melo',tipo:'fup',resumo:'Retomar o contato sobre a cobrança do plano de saúde',cancel:true},
+    {quando:'2026-10-28T18:00',nome:'Pedro H. Santos',tipo:'aud',resumo:'Lembrete da audiência de 29/10, às 15:00',auto:true}
+  ];
+  var DOW=['dom','seg','ter','qua','qui','sex','sáb'];
+  function fmtD(iso){var a=iso.split('-');return a[2]+'/'+a[1];}
+  function dow(iso){return DOW[new Date(iso+'T12:00:00').getDay()];}
+  function shift(iso,days){var d=new Date(iso+'T12:00:00');d.setDate(d.getDate()+days);return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());}
+  var sel=document.getElementById('sClient'),txt=document.getElementById('sText'),sDate=document.getElementById('sDate'),sTime=document.getElementById('sTime'),sType='aud';
+  Object.keys(CLIENTS).forEach(function(n){var o=document.createElement('option');o.textContent=n;sel.appendChild(o);});
+  function renderPrev(){
+    var c=CLIENTS[sel.value]||{},first=sel.value.split(' ')[0];
+    var t=(txt.value||'').replace(/\{nome\}/g,first).replace(/\{data\}/g,c.dt?fmtD(c.dt):'(sem audiência marcada)').replace(/\{hora\}/g,c.hr||'—').replace(/\{local\}/g,c.local||'—');
+    document.getElementById('sPrev').textContent=t||'Escreva a mensagem acima.';
+    document.getElementById('sWhen').textContent=sDate.value?('Será enviada '+dow(sDate.value)+', '+fmtD(sDate.value)+' às '+(sTime.value||'—')+', pelo número do escritório'):'Escolha o dia e a hora';
+  }
+  function setType(t){
+    sType=t;
+    document.querySelectorAll('#sType button').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-t')===t);});
+    var c=CLIENTS[sel.value]||{};
+    txt.value=TPL[t];
+    if(t==='aud'&&c.dt){sDate.value=shift(c.dt,-1);sTime.value='18:00';}
+    else if(t==='fup'){sDate.value='2026-10-24';sTime.value='10:00';}
+    else if(!sDate.value){sDate.value='2026-10-23';sTime.value='09:00';}
+    document.getElementById('sCancel').checked=(t==='fup');
+    renderPrev();
+  }
+  document.getElementById('sType').addEventListener('click',function(e){var b=e.target.closest('button');if(b)setType(b.getAttribute('data-t'));});
+  sel.addEventListener('change',function(){setType(sType);});
+  [txt,sDate,sTime].forEach(function(el){el.addEventListener('input',renderPrev);});
+  function renderSched(){
+    sched.sort(function(a,b){return a.quando<b.quando?-1:1;});
+    var html='';
+    sched.forEach(function(s,i){
+      var d=s.quando.slice(0,10),h=s.quando.slice(11,16);
+      html+='<div class="li sch"><div class="whenbox"><small>'+dow(d)+' '+fmtD(d)+'</small><b>'+h+'</b></div><div class="bd"><b>'+esc(s.nome)+'</b><small>'+esc(s.resumo)+'</small><div class="chips">'+TYPE_CHIP[s.tipo]+(s.auto?'<span class="chip">automático</span>':'')+(s.cancel?'<span class="chip">cancela se responder</span>':'')+'</div></div><button class="ibtn" type="button" data-del="'+i+'" aria-label="Cancelar envio para '+esc(s.nome)+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>';
+    });
+    document.getElementById('schedList').innerHTML=html||'<p style="color:var(--dim);margin:6px 0">Nenhuma mensagem programada.</p>';
+    document.getElementById('schedCount').textContent=sched.length+' a enviar';
+    document.getElementById('schedNav').textContent=sched.length;
+  }
+  document.getElementById('schedList').addEventListener('click',function(e){
+    var b=e.target.closest('[data-del]');if(!b)return;
+    var s=sched.splice(+b.getAttribute('data-del'),1)[0];renderSched();toast('Envio para '+s.nome+' cancelado');
+  });
+  document.getElementById('schedForm').addEventListener('submit',function(e){
+    e.preventDefault();
+    if(!sDate.value||!sTime.value){toast('Escolha o dia e a hora do envio');return;}
+    var prevTxt=document.getElementById('sPrev').textContent;
+    if(!(txt.value||'').trim()){txt.focus();return;}
+    sched.push({quando:sDate.value+'T'+sTime.value,nome:sel.value,tipo:sType,resumo:prevTxt.length>70?prevTxt.slice(0,70)+'…':prevTxt,cancel:document.getElementById('sCancel').checked});
+    renderSched();toast('Mensagem para '+sel.value+' agendada para '+fmtD(sDate.value)+' às '+sTime.value);
+  });
+  document.querySelectorAll('[data-sched]').forEach(function(b){
+    b.addEventListener('click',function(e){e.preventDefault();var a=b.getAttribute('data-sched').split('|');go('agendamentos');sel.value=a[0];setType(a[1]);txt.focus();});
+  });
+  sel.value='José Almeida';setType('aud');renderSched();
+
+  document.getElementById('linkFolders').addEventListener('click',function(){toast('6 pastas têm nome parecido com mais de um cliente. No sistema real, você confirma cada uma.');});
+  document.addEventListener('keydown',function(e){var t=document.activeElement.tagName;if(e.key==='/'&&t!=='INPUT'&&t!=='SELECT'&&t!=='TEXTAREA'){e.preventDefault();document.getElementById('gsearch').focus();}});
+})();
+</script>
+
+</html>
