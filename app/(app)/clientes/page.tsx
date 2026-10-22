@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { BotaoAcao } from "@/components/BotaoAcao";
 import { FormAcao } from "@/components/FormAcao";
 import { supabaseServer } from "@/lib/supabase/server";
@@ -72,7 +73,7 @@ export default async function Clientes() {
               <tbody>
                 {lista.map((c) => (
                   <tr key={c.id}>
-                    <td><b style={{ fontWeight: 500 }}>{c.nome}</b>{c.cpf_cnpj && <small>{c.cpf_cnpj}</small>}</td>
+                    <td><Link href={`/clientes/${c.id}`} style={{ fontWeight: 500, color: "var(--accent)" }}>{c.nome}</Link>{c.cpf_cnpj && <small>{c.cpf_cnpj}</small>}</td>
                     <td>{c.areas ? <span className="chip area" style={{ "--c": c.areas.cor } as React.CSSProperties}>{c.areas.nome}</span> : <span className="chip">a definir</span>}</td>
                     <td className="num">{telefone(c.telefone_whatsapp)}</td>
                     <td>{c.perfis?.nome ?? "—"}</td>

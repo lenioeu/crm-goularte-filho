@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition } from "react";
 import { moverCaso } from "@/app/(app)/actions";
 
@@ -19,7 +20,7 @@ export type CasoCartao = {
   sigiloso: boolean;
   motivo_nao_viavel: string | null;
   atualizado_em: string;
-  clientes: { nome: string } | null;
+  clientes: { id: string; nome: string } | null;
   areas: { nome: string; cor: string } | null;
   perfis: { nome: string } | null;
 };
@@ -56,7 +57,7 @@ export function CartaoCaso({ caso }: { caso: CasoCartao }) {
 
   return (
     <div className="deal" style={{ opacity: pendente ? 0.55 : 1 }}>
-      <div className="co">{caso.clientes?.nome ?? "Cliente"}</div>
+      <div className="co">{caso.clientes ? <Link href={`/clientes/${caso.clientes.id}`}>{caso.clientes.nome}</Link> : "Cliente"}</div>
       <div className="ds">{caso.titulo}</div>
       {caso.resumo && <div className="ds" style={{ color: "var(--dim)" }}>{caso.resumo}</div>}
       {caso.etapa === "nao_viavel" && caso.motivo_nao_viavel && (

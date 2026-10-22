@@ -17,7 +17,7 @@ type Processo = {
   ultima_movimentacao_em: string | null;
   sincronizado_em: string | null;
   movimentos: Movimento[] | null;
-  casos: { titulo: string; parte_contraria: string | null; clientes: { nome: string } | null; areas: { nome: string; cor: string } | null } | null;
+  casos: { titulo: string; parte_contraria: string | null; clientes: { id: string; nome: string } | null; areas: { nome: string; cor: string } | null } | null;
 };
 
 const dataBR = (iso: string | null) => (iso ? iso.slice(0, 10).split("-").reverse().join("/") : "—");
@@ -29,7 +29,7 @@ export default async function Processos({ searchParams }: { searchParams: Promis
   const [{ data, error }, { data: casos }] = await Promise.all([
     supabase
       .from("processos")
-      .select("id, numero_cnj, tribunal, vara, classe, ultima_movimentacao, ultima_movimentacao_em, sincronizado_em, movimentos, casos(titulo, parte_contraria, clientes(nome), areas(nome, cor))")
+      .select("id, numero_cnj, tribunal, vara, classe, ultima_movimentacao, ultima_movimentacao_em, sincronizado_em, movimentos, casos(titulo, parte_contraria, clientes(id, nome), areas(nome, cor))")
       .eq("arquivado", false)
       .order("ultima_movimentacao_em", { ascending: false, nullsFirst: false })
       .limit(2000),
@@ -99,7 +99,7 @@ export default async function Processos({ searchParams }: { searchParams: Promis
                       {p.classe && <small>{p.classe}</small>}
                     </td>
                     <td>
-                      <b style={{ fontWeight: 500 }}>{p.casos?.clientes?.nome ?? "—"}</b>
+                      {p.casos?.clientes ? <Link href={`/clientes/${p.casos.clientes.id}`} style={{ fontWeight: 500, color: "var(--accent)" }}>{p.casos.clientes.nome}</Link> : "—"}
                       {p.casos?.parte_contraria && <small>× {p.casos.parte_contraria}</small>}
                       {p.casos?.areas && <span className="chip area" style={{ "--c": p.casos.areas.cor, marginTop: 4 } as React.CSSProperties}>{p.casos.areas.nome}</span>}
                     </td>

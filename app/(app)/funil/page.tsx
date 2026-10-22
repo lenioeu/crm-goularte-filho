@@ -18,7 +18,7 @@ export default async function Funil({ searchParams }: { searchParams: Promise<{ 
 
   let consulta = supabase
     .from("casos")
-    .select("id, titulo, resumo, etapa, sigiloso, motivo_nao_viavel, atualizado_em, clientes(nome), areas(nome, cor), perfis(nome)")
+    .select("id, titulo, resumo, etapa, sigiloso, motivo_nao_viavel, atualizado_em, clientes(id, nome), areas(nome, cor), perfis(nome)")
     .order("atualizado_em", { ascending: false })
     .limit(1000);
   if (area) consulta = consulta.eq("area_id", area);

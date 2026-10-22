@@ -63,6 +63,13 @@ export function Shell({ nome, cargo, children }: { nome: string; cargo: string; 
           </svg>
         </button>
         <Marca />
+        <form action="/busca" className="busca" role="search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+            <circle cx="10.5" cy="10.5" r="6.5" />
+            <path d="M20 20l-4.5-4.5" />
+          </svg>
+          <input name="q" placeholder="Buscar cliente, CPF, telefone ou nº do processo" aria-label="Buscar" />
+        </form>
         <div className="tb-right">
           <div className="me">
             <div className="who">

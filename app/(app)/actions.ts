@@ -305,3 +305,29 @@ export async function excluirAudiencia(id: string): Promise<Resultado> {
   revalidatePath("/");
   return { erro: null, ok: "Audiência excluída." };
 }
+
+// ---------------------------------------------------------------- ficha do cliente
+export async function atualizarCliente(_: Resultado, f: FormData): Promise<Resultado> {
+  const id = texto(f, "id");
+  const nome = texto(f, "nome");
+  if (!id) return { erro: "Cliente não encontrado.", ok: null };
+  if (!nome) return { erro: "O nome não pode ficar vazio.", ok: null };
+  const supabase = await supabaseServer();
+  const { error } = await supabase
+    .from("clientes")
+    .update({
+      nome: nome.toUpperCase(),
+      telefone_whatsapp: texto(f, "telefone")?.replace(/\D/g, "") || null,
+      cpf_cnpj: texto(f, "cpf"),
+      email: texto(f, "email"),
+      area_id: texto(f, "area_id"),
+      responsavel_id: texto(f, "responsavel_id"),
+      origem: texto(f, "origem"),
+      observacoes: texto(f, "observacoes"),
+    })
+    .eq("id", id);
+  if (error) return { erro: traduzirErro(error.message), ok: null };
+  revalidatePath(`/clientes/${id}`);
+  revalidatePath("/clientes");
+  return { erro: null, ok: "Dados salvos." };
+}
