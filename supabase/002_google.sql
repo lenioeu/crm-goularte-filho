@@ -1,5 +1,5 @@
 -- =====================================================================
--- CRM Goularte Filho Advocacia · ligação com o Google (Drive e Agenda)
+-- CRM Goularte Filho Advocacia · ligação com o Google e dados do DataJud
 --
 -- Como usar: no Supabase, abra "SQL Editor", cole este arquivo e clique
 -- em "Run". Pode rodar de novo sem problema.
@@ -18,3 +18,9 @@ create table if not exists google_conexao (
 );
 
 alter table google_conexao enable row level security;
+
+-- ---------------------------------------------------------------------
+-- Processos: dados que vêm do DataJud (CNJ)
+-- ---------------------------------------------------------------------
+alter table processos add column if not exists classe text;
+alter table processos add column if not exists movimentos jsonb;

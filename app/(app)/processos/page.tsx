@@ -1,0 +1,129 @@
+import Link from "next/link";
+import { BotaoAcao } from "@/components/BotaoAcao";
+import { FormAcao } from "@/components/FormAcao";
+import { supabaseServer } from "@/lib/supabase/server";
+import { atualizarProcesso, atualizarTodos, cadastrarProcesso } from "./actions";
+
+export const maxDuration = 60;
+
+type Movimento = { data: string; nome: string };
+type Processo = {
+  id: string;
+  numero_cnj: string;
+  tribunal: string | null;
+  vara: string | null;
+  classe: string | null;
+  ultima_movimentacao: string | null;
+  ultima_movimentacao_em: string | null;
+  sincronizado_em: string | null;
+  movimentos: Movimento[] | null;
+  casos: { titulo: string; parte_contraria: string | null; clientes: { nome: string } | null; areas: { nome: string; cor: string } | null } | null;
+};
+
+const dataBR = (iso: string | null) => (iso ? iso.slice(0, 10).split("-").reverse().join("/") : "—");
+const diasDesde = (iso: string | null) => (iso ? Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000) : null);
+
+export default async function Processos({ searchParams }: { searchParams: Promise<{ filtro?: string }> }) {
+  const { filtro } = await searchParams;
+  const supabase = await supabaseServer();
+  const [{ data, error }, { data: casos }] = await Promise.all([
+    supabase
+      .from("processos")
+      .select("id, numero_cnj, tribunal, vara, classe, ultima_movimentacao, ultima_movimentacao_em, sincronizado_em, movimentos, casos(titulo, parte_contraria, clientes(nome), areas(nome, cor))")
+      .eq("arquivado", false)
+      .order("ultima_movimentacao_em", { ascending: false, nullsFirst: false })
+      .limit(2000),
+    supabase.from("casos").select("id, titulo, clientes(nome)").neq("etapa", "nao_viavel").order("atualizado_em", { ascending: false }).limit(1000),
+  ]);
+
+  const todos = (data ?? []) as unknown as Processo[];
+  const semana = todos.filter((p) => (diasDesde(p.ultima_movimentacao_em) ?? 999) <= 7);
+  const parados = todos.filter((p) => (diasDesde(p.ultima_movimentacao_em) ?? 0) > 60);
+  const lista = filtro === "semana" ? semana : filtro === "parados" ? parados : todos;
+  const listaCasos = (casos ?? []) as unknown as { id: string; titulo: string; clientes: { nome: string } | null }[];
+
+  return (
+    <div className="view">
+      <div className="vhead">
+        <div>
+          <h1>Processos</h1>
+          <p>
+            Dados da consulta pública do CNJ (DataJud), atualizados todo dia de manhã. Os tribunais enviam as movimentações com
+            alguns dias de atraso, e processos em segredo de justiça não aparecem.
+          </p>
+        </div>
+        <div style={{ marginLeft: "auto" }}><BotaoAcao acao={atualizarTodos} rotulo="Atualizar agora" /></div>
+      </div>
+
+      <div className="filtros">
+        <Link className={"fp" + (!filtro ? " on" : "")} href="/processos">Ativos · {todos.length}</Link>
+        <Link className={"fp" + (filtro === "semana" ? " on" : "")} href="/processos?filtro=semana">Movimentados na semana · {semana.length}</Link>
+        <Link className={"fp" + (filtro === "parados" ? " on" : "")} href="/processos?filtro=parados">Parados há mais de 60 dias · {parados.length}</Link>
+      </div>
+
+      <details className="card novo" style={{ marginBottom: 16 }}>
+        <summary><span className="btn primary">+ Cadastrar processo</span></summary>
+        {listaCasos.length === 0 ? (
+          <div className="aviso info">Todo processo fica ligado a um caso. Crie o caso primeiro no Funil de casos.</div>
+        ) : (
+          <FormAcao action={cadastrarProcesso} botao="Cadastrar e consultar no CNJ" className="form">
+            <div className="field">
+              <label htmlFor="caso_id">Caso</label>
+              <select id="caso_id" name="caso_id" required defaultValue="">
+                <option value="" disabled>Escolha o caso</option>
+                {listaCasos.map((c) => <option key={c.id} value={c.id}>{c.clientes?.nome} · {c.titulo}</option>)}
+              </select>
+            </div>
+            <div className="field">
+              <label htmlFor="numero">Número do processo (CNJ)</label>
+              <input id="numero" name="numero" required inputMode="numeric" placeholder="0000000-00.0000.0.00.0000" />
+            </div>
+          </FormAcao>
+        )}
+      </details>
+
+      {error && <div className="aviso erro" style={{ marginBottom: 16 }}>Não foi possível carregar os processos: {error.message}. Se falar em coluna inexistente, rode o script 002_google.sql no Supabase.</div>}
+
+      <div className="card" style={{ padding: "6px 6px 2px" }}>
+        {lista.length === 0 ? (
+          <div className="vazio"><b>Nenhum processo aqui</b>Cadastre pelo botão “+ Cadastrar processo”.</div>
+        ) : (
+          <div className="scrollx">
+            <table className="tbl">
+              <thead><tr><th>Processo</th><th>Cliente</th><th>Tribunal e vara</th><th>Última movimentação</th><th></th></tr></thead>
+              <tbody>
+                {lista.map((p) => (
+                  <tr key={p.id}>
+                    <td>
+                      <span className="num" style={{ fontFamily: "var(--f-mono)", fontSize: 12.5, whiteSpace: "nowrap" }}>{p.numero_cnj}</span>
+                      {p.classe && <small>{p.classe}</small>}
+                    </td>
+                    <td>
+                      <b style={{ fontWeight: 500 }}>{p.casos?.clientes?.nome ?? "—"}</b>
+                      {p.casos?.parte_contraria && <small>× {p.casos.parte_contraria}</small>}
+                      {p.casos?.areas && <span className="chip area" style={{ "--c": p.casos.areas.cor, marginTop: 4 } as React.CSSProperties}>{p.casos.areas.nome}</span>}
+                    </td>
+                    <td>{p.tribunal ?? "—"}{p.vara && <small>{p.vara}</small>}</td>
+                    <td style={{ minWidth: 220 }}>
+                      {p.ultima_movimentacao ? (
+                        <details>
+                          <summary style={{ cursor: "pointer" }}>{p.ultima_movimentacao} <small style={{ display: "inline" }}>· {dataBR(p.ultima_movimentacao_em)}</small></summary>
+                          <ul style={{ margin: "8px 0 0", paddingLeft: 18, fontSize: 12.5, color: "var(--muted)" }}>
+                            {(p.movimentos ?? []).slice(1, 10).map((m, i) => <li key={i}>{dataBR(m.data)} · {m.nome}</li>)}
+                          </ul>
+                        </details>
+                      ) : (
+                        <span style={{ color: "var(--dim)" }}>{p.sincronizado_em ? "sem movimentações no DataJud" : "aguardando consulta"}</span>
+                      )}
+                    </td>
+                    <td><BotaoAcao acao={atualizarProcesso.bind(null, p.id)} rotulo="Atualizar" /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

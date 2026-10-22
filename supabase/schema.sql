@@ -438,3 +438,9 @@ create table if not exists google_conexao (
 );
 
 alter table google_conexao enable row level security;
+
+-- ---------------------------------------------------------------------
+-- Processos: dados que vêm do DataJud (CNJ)
+-- ---------------------------------------------------------------------
+alter table processos add column if not exists classe text;
+alter table processos add column if not exists movimentos jsonb;
