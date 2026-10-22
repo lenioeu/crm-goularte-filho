@@ -47,6 +47,7 @@ Depois abra http://localhost:3000. O sistema já aponta para o projeto Supabase 
 - Processos: cadastro com validação do número CNJ, consulta ao DataJud e atualização diária automática
 - Áreas de atuação: lista e criação
 - Equipe e cargos: liberar acesso, escolher papel e cargo
+- Indicadores do mês (sem ranking)
 - Meu perfil
 
 ## Etapas
@@ -55,5 +56,5 @@ Depois abra http://localhost:3000. O sistema já aponta para o projeto Supabase 
 2. [x] Banco de dados e login (Supabase)
 3. [x] Sistema no ar (Vercel)
 4. [ ] Google Drive e Google Agenda
-5. [ ] WhatsApp (Evolution API)
+5. [ ] WhatsApp (Evolution API): instalação do servidor em [docs/whatsapp.md](docs/whatsapp.md)
 6. [ ] Testes com a equipe
