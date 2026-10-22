@@ -40,7 +40,7 @@ Depois abra http://localhost:3000. O sistema já aponta para o projeto Supabase 
 - Início com números reais do banco
 - Clientes: cadastro e lista
 - Funil de casos: quadro por etapa, filtro por área, não viáveis com motivo
-- Tarefas: quadro com revisão obrigatória para estagiários
+- Tarefas: quadro com coluna de revisão opcional
 - Audiências: cadastro, lista por dia e lembrete ao cliente programado para a véspera
 - Áreas de atuação: lista e criação
 - Equipe e cargos: liberar acesso, escolher papel e cargo

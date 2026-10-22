@@ -33,7 +33,7 @@ export default async function Tarefas({ searchParams }: { searchParams: Promise<
       <div className="vhead">
         <div>
           <h1>Tarefas</h1>
-          <p>Tarefas do escritório, ligadas aos casos. Tarefas de estagiário vão para “Revisão” e são concluídas por um advogado.</p>
+          <p>Tarefas do escritório, ligadas aos casos. Qualquer pessoa da equipe cria, move e conclui tarefas; use “Revisão” quando quiser que alguém confira antes.</p>
         </div>
       </div>
 

@@ -180,24 +180,10 @@ export async function criarTarefa(_: Resultado, f: FormData): Promise<Resultado>
 export async function moverTarefa(id: string, coluna: string): Promise<Resultado> {
   if (!(COLUNAS as readonly string[]).includes(coluna)) return { erro: "Coluna inválida.", ok: null };
   const supabase = await supabaseServer();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { erro: "Sessão expirada. Entre de novo.", ok: null };
-
-  let destino = coluna;
-  let aviso: string | null = null;
-  if (coluna === "concluida") {
-    const { data: eu } = await supabase.from("perfis").select("papel").eq("id", user.id).maybeSingle();
-    if (eu?.papel === "estagiario") {
-      destino = "revisao";
-      aviso = "Enviada para revisão: tarefas de estagiário são concluídas por um advogado.";
-    }
-  }
-  const { error } = await supabase.from("tarefas").update({ coluna: destino }).eq("id", id);
+  const { error } = await supabase.from("tarefas").update({ coluna }).eq("id", id);
   if (error) return { erro: traduzirErro(error.message), ok: null };
   revalidatePath("/tarefas");
-  return { erro: null, ok: aviso ?? "Movida." };
+  return { erro: null, ok: "Movida." };
 }
 
 // ---------------------------------------------------------------- audiências
