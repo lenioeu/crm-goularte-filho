@@ -1,14 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { COLUNAS_TAREFA } from "@/lib/rotulos";
 import { moverTarefa } from "@/app/(app)/actions";
-
-export const COLUNAS_TAREFA = [
-  { id: "a_fazer", rotulo: "A fazer" },
-  { id: "em_andamento", rotulo: "Em andamento" },
-  { id: "revisao", rotulo: "Revisão" },
-  { id: "concluida", rotulo: "Concluída" },
-] as const;
 
 export type Tarefa = {
   id: string;

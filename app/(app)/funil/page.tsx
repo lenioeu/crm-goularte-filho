@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { CartaoCaso, ETAPAS_FUNIL, type CasoCartao } from "@/components/CartaoCaso";
+import { CartaoCaso, type CasoCartao } from "@/components/CartaoCaso";
+import { ETAPAS_FUNIL } from "@/lib/rotulos";
 import { FormAcao } from "@/components/FormAcao";
 import { supabaseServer } from "@/lib/supabase/server";
 import { criarCaso } from "../actions";

@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { CartaoTarefa, COLUNAS_TAREFA, type Tarefa } from "@/components/CartaoTarefa";
+import { CartaoTarefa, type Tarefa } from "@/components/CartaoTarefa";
+import { COLUNAS_TAREFA } from "@/lib/rotulos";
 import { FormAcao } from "@/components/FormAcao";
 import { supabaseServer } from "@/lib/supabase/server";
 import { criarTarefa } from "../actions";

@@ -38,3 +38,19 @@ export const dataHoraBR = (iso: string) =>
 /** "MARIA DA SILVA" → "Maria" */
 export const primeiroNome = (nome: string) =>
   nome.trim().toLowerCase().split(/\s+/)[0]?.replace(/^./, (c) => c.toUpperCase()) ?? "";
+
+// Listas em ordem, usadas tanto no servidor quanto nos cartões (não podem ficar em arquivo "use client").
+export const ETAPAS_FUNIL = [
+  { id: "primeiro_contato", rotulo: "Primeiro contato" },
+  { id: "triagem", rotulo: "Triagem" },
+  { id: "consulta_agendada", rotulo: "Consulta agendada" },
+  { id: "proposta", rotulo: "Proposta de honorários" },
+  { id: "contrato_assinado", rotulo: "Contrato assinado" },
+] as const;
+
+export const COLUNAS_TAREFA = [
+  { id: "a_fazer", rotulo: "A fazer" },
+  { id: "em_andamento", rotulo: "Em andamento" },
+  { id: "revisao", rotulo: "Revisão" },
+  { id: "concluida", rotulo: "Concluída" },
+] as const;

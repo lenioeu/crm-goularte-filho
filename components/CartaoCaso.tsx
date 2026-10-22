@@ -3,14 +3,7 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { moverCaso } from "@/app/(app)/actions";
-
-export const ETAPAS_FUNIL = [
-  { id: "primeiro_contato", rotulo: "Primeiro contato" },
-  { id: "triagem", rotulo: "Triagem" },
-  { id: "consulta_agendada", rotulo: "Consulta agendada" },
-  { id: "proposta", rotulo: "Proposta de honorários" },
-  { id: "contrato_assinado", rotulo: "Contrato assinado" },
-] as const;
+import { ETAPAS_FUNIL } from "@/lib/rotulos";
 
 export type CasoCartao = {
   id: string;
