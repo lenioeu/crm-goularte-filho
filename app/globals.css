@@ -215,3 +215,6 @@ details.novo[open] > summary { margin-bottom: 14px; }
 .busca input::placeholder { color: var(--head-3); }
 .busca:focus-within input::placeholder { color: var(--dim); }
 @media (max-width: 760px) { .busca { margin-left: 6px; padding: 0 12px; } .busca input::placeholder { color: transparent; } }
+
+.cols-2e { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+@media (max-width: 920px) { .cols-2e { grid-template-columns: 1fr; } }
