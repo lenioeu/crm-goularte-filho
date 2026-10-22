@@ -164,3 +164,24 @@ h1, h2, h3 { margin: 0; font-weight: 500; text-wrap: balance; }
 }
 @media (max-width: 480px) { .kpis { grid-template-columns: 1fr; } }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+/* funil */
+.filtros { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+.fp { height: 32px; display: inline-flex; align-items: center; padding: 0 14px; border-radius: 8px; border: 1px solid var(--line-2); font-size: 13px; color: var(--muted); background: var(--panel); }
+.fp.on { background: var(--accent-soft); color: var(--accent-soft-ink); border-color: transparent; font-weight: 500; }
+.board { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(250px, 1fr); gap: 14px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 16px; }
+.lane { background: var(--panel-2); border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 10px; min-width: 250px; align-self: start; }
+.lane .lh { display: flex; align-items: center; gap: 8px; font-weight: 500; font-size: 14px; padding: 2px 4px; }
+.lane .lh .c { margin-left: auto; font-size: 12px; color: var(--muted); }
+.lane .hint { font-size: 12px; color: var(--dim); margin: -6px 4px 0; }
+.lane .vazia { font-size: 12.5px; color: var(--dim); text-align: center; padding: 14px 4px; border: 1px dashed var(--line-2); border-radius: 12px; }
+.deal { background: var(--panel); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 7px; box-shadow: var(--shadow); border: 1px solid var(--line); }
+.deal .co { font-weight: 500; }
+.deal .ds { color: var(--muted); font-size: 12.5px; }
+.deal .meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.deal .age { font-size: 11.5px; color: var(--dim); margin-left: auto; }
+.deal select, .deal input { height: 32px; border-radius: 8px; border: 1px solid var(--line-2); background: var(--panel); color: var(--fg); padding: 0 8px; font-size: 12.5px; font-family: var(--f-body); width: 100%; }
+.deal .erro { color: var(--crit); font-size: 12px; }
+details.novo > summary { cursor: pointer; list-style: none; }
+details.novo > summary::-webkit-details-marker { display: none; }
+details.novo[open] > summary { margin-bottom: 14px; }

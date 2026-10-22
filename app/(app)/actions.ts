@@ -95,3 +95,58 @@ export async function salvarPerfil(_: Resultado, f: FormData): Promise<Resultado
   revalidatePath("/", "layout");
   return { erro: null, ok: "Perfil salvo." };
 }
+
+const ETAPAS = ["primeiro_contato", "triagem", "consulta_agendada", "proposta", "contrato_assinado", "nao_viavel"] as const;
+type Etapa = (typeof ETAPAS)[number];
+const etapaValida = (v: string | null): v is Etapa => !!v && (ETAPAS as readonly string[]).includes(v);
+
+export async function criarCaso(_: Resultado, f: FormData): Promise<Resultado> {
+  const titulo = texto(f, "titulo");
+  if (!titulo) return { erro: "Descreva o caso em poucas palavras (ex.: “Verbas rescisórias”).", ok: null };
+  const supabase = await supabaseServer();
+  const areaId = texto(f, "area_id");
+
+  let clienteId = texto(f, "cliente_id");
+  if (!clienteId) {
+    const nomeNovo = texto(f, "cliente_novo");
+    if (!nomeNovo) return { erro: "Escolha um cliente da lista ou digite o nome de um cliente novo.", ok: null };
+    const { data, error } = await supabase
+      .from("clientes")
+      .insert({ nome: nomeNovo.toUpperCase(), telefone_whatsapp: texto(f, "telefone")?.replace(/\D/g, "") || null, area_id: areaId })
+      .select("id")
+      .single();
+    if (error) return { erro: traduzirErro(error.message), ok: null };
+    clienteId = data.id;
+  }
+
+  const etapa = texto(f, "etapa");
+  const { error } = await supabase.from("casos").insert({
+    cliente_id: clienteId,
+    titulo,
+    area_id: areaId,
+    resumo: texto(f, "resumo"),
+    parte_contraria: texto(f, "parte_contraria"),
+    responsavel_id: texto(f, "responsavel_id"),
+    etapa: etapaValida(etapa) ? etapa : "primeiro_contato",
+    sigiloso: f.get("sigiloso") === "on",
+  });
+  if (error) return { erro: traduzirErro(error.message), ok: null };
+  revalidatePath("/funil");
+  revalidatePath("/clientes");
+  revalidatePath("/");
+  return { erro: null, ok: "Caso criado no funil." };
+}
+
+export async function moverCaso(id: string, etapa: string, motivo: string | null): Promise<Resultado> {
+  if (!etapaValida(etapa)) return { erro: "Etapa inválida.", ok: null };
+  if (etapa === "nao_viavel" && !motivo?.trim()) return { erro: "Informe o motivo de o caso não ser viável.", ok: null };
+  const supabase = await supabaseServer();
+  const { error } = await supabase
+    .from("casos")
+    .update({ etapa, motivo_nao_viavel: etapa === "nao_viavel" ? motivo!.trim() : null })
+    .eq("id", id);
+  if (error) return { erro: traduzirErro(error.message), ok: null };
+  revalidatePath("/funil");
+  revalidatePath("/");
+  return { erro: null, ok: "Movido." };
+}

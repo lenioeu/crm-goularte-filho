@@ -4,7 +4,6 @@ import { notFound } from "next/navigation";
 // Telas que ainda vão ser construídas, na ordem das etapas do projeto.
 const SECOES: Record<string, { titulo: string; etapa: string; texto: string }> = {
   atendimento: { titulo: "Atendimento", etapa: "Etapa 5 · WhatsApp", texto: "Caixa de entrada compartilhada, bot de triagem por área e envio de documentos para a pasta do cliente." },
-  funil: { titulo: "Funil de casos", etapa: "Próxima entrega", texto: "Do primeiro contato ao contrato assinado, com motivo registrado para casos sem viabilidade." },
   processos: { titulo: "Processos", etapa: "Etapa 6", texto: "Número CNJ, vara, fase e última movimentação pela API pública do CNJ (DataJud)." },
   audiencias: { titulo: "Audiências", etapa: "Etapa 4 · Google Agenda", texto: "Audiências no Google Agenda de quem vai e lembrete ao cliente na véspera." },
   agendamentos: { titulo: "Mensagens agendadas", etapa: "Etapa 5 · WhatsApp", texto: "Lembretes de audiência, follow-ups e mensagens livres em dia e hora certos." },
