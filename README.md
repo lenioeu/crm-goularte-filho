@@ -25,10 +25,28 @@ mensagens e salva os documentos do cliente direto na pasta dele no Google Drive.
 | Audiências | Google Agenda | já existente |
 | Processos | API pública do CNJ (DataJud) | grátis |
 
+## Para rodar no computador (opcional)
+
+```bash
+npm install
+npm run dev
+```
+
+Depois abra http://localhost:3000. O sistema já aponta para o projeto Supabase do escritório.
+
+## O que já funciona
+
+- Login e cadastro, com liberação de acesso pelo administrador
+- Início com números reais do banco
+- Clientes: cadastro e lista
+- Áreas de atuação: lista e criação
+- Equipe e cargos: liberar acesso, escolher papel e cargo
+- Meu perfil
+
 ## Etapas
 
 1. [x] Repositório
-2. [ ] Banco de dados e login (Supabase)
+2. [x] Banco de dados e login (Supabase)
 3. [ ] Sistema no ar (Vercel)
 4. [ ] Google Drive e Google Agenda
 5. [ ] WhatsApp (Evolution API)
