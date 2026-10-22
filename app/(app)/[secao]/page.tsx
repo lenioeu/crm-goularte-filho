@@ -4,7 +4,6 @@ import { notFound } from "next/navigation";
 // Telas que ainda vão ser construídas, na ordem das etapas do projeto.
 const SECOES: Record<string, { titulo: string; etapa: string; texto: string }> = {
   atendimento: { titulo: "Atendimento", etapa: "Etapa 5 · WhatsApp", texto: "Caixa de entrada compartilhada, bot de triagem por área e envio de documentos para a pasta do cliente." },
-  indicadores: { titulo: "Indicadores", etapa: "Etapa 6", texto: "Números do mês por pessoa e do escritório, para consulta, sem ranking." },
 };
 
 export default async function EmBreve({ params }: { params: Promise<{ secao: string }> }) {

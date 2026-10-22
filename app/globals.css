@@ -218,3 +218,13 @@ details.novo[open] > summary { margin-bottom: 14px; }
 
 .cols-2e { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 @media (max-width: 920px) { .cols-2e { grid-template-columns: 1fr; } }
+
+/* gráfico dos indicadores */
+.grafico { width: 100%; height: auto; display: block; }
+.grafico .grade { stroke: var(--line); stroke-width: 1; }
+.grafico .eixo { fill: var(--dim); font-size: 11.5px; font-family: var(--f-body); }
+.grafico .valor { fill: var(--fg); font-size: 12.5px; font-weight: 500; font-family: var(--f-body); }
+.grafico .barra { fill: var(--accent-soft); }
+.grafico .barra.sel { fill: var(--accent); }
+.grafico g:hover .barra { filter: brightness(0.94); }
+.tbl th.num, .tbl td.num { text-align: right; }
