@@ -67,6 +67,16 @@ equipe fica em ordem alfabética.
 O padrão de endereçamento é sempre alinhado à esquerda e justificado, na forma
 "AO JUÍZO DA X VARA...", nunca "Excelentíssimo Senhor Doutor Juiz de Direito".
 
+O CRM **não** terá gerador de petições com IA. Decisão do escritório em 23/10/2026: não
+sugerir de novo. Modelos de documentos (procuração, contrato, declaração) são preenchidos
+com os dados do cliente, sem IA.
+
+## Teste antes de publicar
+
+A Vercel roda `scripts/teste-fumaca.mjs` depois de compilar. Ele liga o CRM contra um
+Supabase falso, abre todas as páginas logado e bloqueia a publicação se alguma quebrar.
+Rode no computador com `npm run build && npm run teste`.
+
 ## Visual
 
 Tons do Gmail (fundo claro, pílulas azuis no menu) com cabeçalho azul-marinho do PJe. Modo
