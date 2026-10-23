@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CampoCpf } from "@/components/CampoCpf";
 import { FormAcao } from "@/components/FormAcao";
 import { type LinhaCliente, TabelaClientes } from "@/components/TabelaClientes";
 import { quemSou } from "@/lib/permissoes";
@@ -78,7 +79,7 @@ export default async function Clientes({ searchParams }: { searchParams: Promise
         <FormAcao action={criarCliente} botao="Cadastrar cliente" className="form maiusculas">
           <div className="field full"><label htmlFor="nome">Nome completo</label><input id="nome" name="nome" required placeholder="ex.: MARIA DA SILVA SANTOS" /></div>
           <div className="field"><label htmlFor="telefone">WhatsApp</label><input id="telefone" name="telefone" inputMode="tel" placeholder="(27) 99999-9999" /></div>
-          <div className="field"><label htmlFor="cpf">CPF ou CNPJ</label><input id="cpf" name="cpf" /></div>
+          <div className="field"><label htmlFor="cpf">CPF ou CNPJ</label><CampoCpf /></div>
           <div className="field"><label htmlFor="email">E-mail</label><input id="email" name="email" type="email" /></div>
           <div className="field">
             <label htmlFor="area_id">Área</label>

@@ -22,7 +22,8 @@ export default async function Busca({ searchParams }: { searchParams: Promise<{ 
   }
 
   const filtrosCliente = [`nome.ilike.%${q}%`];
-  if (digitos.length >= 4) filtrosCliente.push(`cpf_cnpj.ilike.%${digitos}%`, `telefone_whatsapp.ilike.%${digitos}%`);
+  // CPF fica gravado com pontuação: procura os dígitos em sequência, com qualquer coisa entre eles
+  if (digitos.length >= 4) filtrosCliente.push(`cpf_cnpj.ilike.%${digitos.split("").join("%")}%`, `telefone_whatsapp.ilike.%${digitos}%`);
 
   // Número do processo: com 20 dígitos busca exato; senão, pelo começo (número sequencial).
   const formatado =

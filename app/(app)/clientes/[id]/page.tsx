@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BotaoAcao } from "@/components/BotaoAcao";
+import { CampoCpf } from "@/components/CampoCpf";
+import { CampoEndereco } from "@/components/CampoEndereco";
 import { FormAcao } from "@/components/FormAcao";
 import { LinhaDoTempo } from "@/components/LinhaDoTempo";
 import { linhaDoTempo } from "@/lib/linhaDoTempo";
@@ -193,7 +195,7 @@ export default async function FichaCliente({ params }: { params: Promise<{ id: s
             <input type="hidden" name="id" value={c.id} />
             <div className="field full"><label htmlFor="nome">Nome completo</label><input id="nome" name="nome" required defaultValue={c.nome} /></div>
             <div className="field"><label htmlFor="telefone">WhatsApp</label><input id="telefone" name="telefone" defaultValue={c.telefone_whatsapp ?? ""} /></div>
-            <div className="field"><label htmlFor="cpf">CPF ou CNPJ</label><input id="cpf" name="cpf" defaultValue={c.cpf_cnpj ?? ""} /></div>
+            <div className="field"><label htmlFor="cpf">CPF ou CNPJ</label><CampoCpf defaultValue={c.cpf_cnpj} /></div>
             <div className="field"><label htmlFor="email">E-mail</label><input id="email" name="email" type="email" defaultValue={c.email ?? ""} /></div>
             <div className="field"><label htmlFor="origem">Como chegou ao escritório</label><input id="origem" name="origem" defaultValue={c.origem ?? ""} placeholder="ex.: indicação, Instagram" /></div>
             <div className="field">
@@ -247,8 +249,7 @@ export default async function FichaCliente({ params }: { params: Promise<{ id: s
               <div className="field"><label htmlFor="nacionalidade">Nacionalidade</label><input id="nacionalidade" name="nacionalidade" defaultValue={qualif?.nacionalidade ?? ""} placeholder="ex.: brasileira" /></div>
               <div className="field"><label htmlFor="estado_civil">Estado civil</label><input id="estado_civil" name="estado_civil" defaultValue={qualif?.estado_civil ?? ""} placeholder="ex.: casado" /></div>
               <div className="field"><label htmlFor="profissao">Profissão</label><input id="profissao" name="profissao" defaultValue={qualif?.profissao ?? ""} placeholder="ex.: mecânico" /></div>
-              <div className="field"><label htmlFor="cep">CEP</label><input id="cep" name="cep" defaultValue={qualif?.cep ?? ""} inputMode="numeric" /></div>
-              <div className="field full"><label htmlFor="endereco">Endereço (rua, número, complemento, bairro, cidade-UF)</label><input id="endereco" name="endereco" defaultValue={qualif?.endereco ?? ""} placeholder="ex.: Rua das Flores, 100, apto 201, Centro, Vitória-ES" /></div>
+              <CampoEndereco cepInicial={qualif?.cep ?? null} enderecoInicial={qualif?.endereco ?? null} />
             </FormAcao>
           )}
         </div>
