@@ -14,6 +14,9 @@ import { atualizarQualificacao } from "./documentos/actions";
 import { IconeDrive } from "@/components/IconeDrive";
 import { Icone } from "@/components/Icone";
 import { corDoNome, iniciais } from "@/lib/avatar";
+import { lerTiposContato } from "@/lib/contatos";
+import { TipoContato } from "@/components/TipoContato";
+import { tornarCliente, voltarAContato } from "../actions";
 
 type Rel<T> = T | T[] | null;
 const um = <T,>(r: Rel<T>): T | null => (Array.isArray(r) ? r[0] ?? null : r);
@@ -51,7 +54,13 @@ export default async function FichaCliente({ params }: { params: Promise<{ id: s
       supabase.from("clientes").select("rg, nacionalidade, estado_civil, profissao, endereco, cep, genero").eq("id", id).maybeSingle(),
     ]);
 
-  const eventos = await linhaDoTempo(supabase, id);
+  // Contato ou cliente (separado: as colunas só existem depois do script 012)
+  const [eventos, { data: situacao }, tiposContato] = await Promise.all([
+    linhaDoTempo(supabase, id),
+    supabase.from("clientes").select("situacao, contato_tipo").eq("id", id).maybeSingle(),
+    lerTiposContato(supabase),
+  ]);
+  const ehContato = situacao?.situacao === "contato";
   const area = um(c.areas as Rel<{ nome: string; cor: string }>);
   const resp = um(c.perfis as Rel<{ nome: string }>);
   const agora = Date.now();
@@ -74,6 +83,13 @@ export default async function FichaCliente({ params }: { params: Promise<{ id: s
               {area ? <span className="chip area" style={{ "--c": area.cor } as React.CSSProperties}>{nomeArea}</span> : <span className="chip">área a definir</span>}
               {(processos ?? []).length > 0 && <span className="chip acc"><Icone nome="balanca" tamanho={14} /> {(processos ?? []).length}</span>}
             </div>
+            {ehContato && (
+              <div className="ficha-contato">
+                <span className="chip warn">Contato · ainda não é cliente</span>
+                <TipoContato id={c.id} atual={situacao?.contato_tipo ?? null} tipos={tiposContato} />
+                <BotaoAcao acao={tornarCliente.bind(null, c.id)} rotulo="Tornar cliente" className="btn primary sm" desfazer={voltarAContato.bind(null, c.id)} />
+              </div>
+            )}
             <div className="ficha-acoes">
               <Link className="btn primary" href={`/atendimento?cliente=${c.id}`}><Icone nome="conversa" tamanho={16} /> Conversar no WhatsApp</Link>
               {c.pasta_drive_url ? (

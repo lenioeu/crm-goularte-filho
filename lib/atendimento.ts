@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { dentroDoExpediente, lerConfigBot, montarTexto } from "@/lib/bot";
+import { semColunaContato, TIPO_NOVO_CONTATO } from "@/lib/contatos";
 import { enviarPush } from "@/lib/push";
 import { primeiroNome } from "@/lib/rotulos";
 import { chaveTelefone, enviarTexto, INSTANCIA, type MensagemRecebida } from "@/lib/whatsapp";
@@ -81,12 +82,12 @@ export async function registrarMensagem(db: Db, m: MensagemRecebida) {
   let cliente = await acharCliente(db, m.numero);
   if (!cliente) {
     if (m.deMim) return; // conversa do celular com quem não é cliente: fica fora do CRM
-    const { data, error } = await db
-      .from("clientes")
-      .insert({ nome: (m.nomeContato || m.numero).toUpperCase(), telefone_whatsapp: m.numero, origem: "WHATSAPP" })
-      .select("id, nome, telefone_whatsapp, area_id")
-      .single();
-    if (error) throw new Error(error.message);
+    // Entra como contato (ainda não é cliente); sem o script 012, como cliente
+    const novo = { nome: (m.nomeContato || m.numero).toUpperCase(), telefone_whatsapp: m.numero, origem: "WHATSAPP" };
+    const inserir = (dados: Record<string, unknown>) => db.from("clientes").insert(dados).select("id, nome, telefone_whatsapp, area_id").single();
+    let { data, error } = await inserir({ ...novo, situacao: "contato", contato_tipo: TIPO_NOVO_CONTATO });
+    if (error && semColunaContato(error.message)) ({ data, error } = await inserir(novo));
+    if (error || !data) throw new Error(error?.message ?? "Não foi possível cadastrar o contato.");
     cliente = data;
   }
 

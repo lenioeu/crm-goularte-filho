@@ -7,6 +7,7 @@ import type { Resultado } from "@/app/(app)/actions";
 import { criarPastaCliente } from "@/app/(app)/integracoes/actions";
 import { conversaAberta, enviarERegistrar } from "@/lib/atendimento";
 import { enviarArquivo, tokenDeAcesso } from "@/lib/google";
+import { semColunaContato, TIPO_NOVO_CONTATO } from "@/lib/contatos";
 import { quemSou } from "@/lib/permissoes";
 import { TZ } from "@/lib/rotulos";
 import { supabaseAdmin } from "@/lib/supabase/admin";
@@ -325,8 +326,12 @@ export async function criarContato(_: Resultado, f: FormData): Promise<Resultado
   const telefone = String(f.get("telefone") ?? "").replace(/\D/g, "");
   if (!nome) return { erro: "Informe o nome.", ok: null };
   if (telefone.length < 10) return { erro: "Informe o WhatsApp com DDD.", ok: null };
-  const { data, error } = await supabase.from("clientes").insert({ nome: nome.toUpperCase(), telefone_whatsapp: telefone, origem: "ATENDIMENTO" }).select("id").single();
-  if (error) return { erro: /duplicate key/i.test(error.message) ? "Esse WhatsApp já está na ficha de outro cliente; procure pelo nome acima." : error.message, ok: null };
+  // Entra como contato; vira cliente pelo botão "Tornar cliente". Sem o script 012, já como cliente
+  const novo = { nome: nome.toUpperCase(), telefone_whatsapp: telefone, origem: "ATENDIMENTO" };
+  const inserir = (dados: Record<string, unknown>) => supabase.from("clientes").insert(dados).select("id").single();
+  let { data, error } = await inserir({ ...novo, situacao: "contato", contato_tipo: TIPO_NOVO_CONTATO });
+  if (error && semColunaContato(error.message)) ({ data, error } = await inserir(novo));
+  if (error || !data) return { erro: /duplicate key/i.test(error?.message ?? "") ? "Esse WhatsApp já está na ficha de outro cliente; procure pelo nome acima." : error?.message ?? "Não foi possível cadastrar.", ok: null };
   redirect(`/atendimento?cliente=${data.id}`);
 }
 

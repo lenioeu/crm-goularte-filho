@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import type { Resultado } from "@/app/(app)/actions";
 import { criarAgendamento } from "@/app/(app)/agendamentos/actions";
+import { adicionarResposta } from "@/app/(app)/atendimento-automatico/actions";
 import { enviarArquivoNaConversa, enviarMensagem } from "@/app/(app)/atendimento/actions";
 import { useAviso } from "@/components/Avisos";
 import { supabaseBrowser } from "@/lib/supabase/client";
@@ -62,10 +63,13 @@ export function ComposerAtendimento({
   const [programar, setProgramar] = useState(false);
   const [quando, setQuando] = useState(() => ({ data: diaSP(Date.now() + 86_400_000), hora: "09:00" }));
   const [cancelarSeResponder, setCancelarSeResponder] = useState(true);
+  const [nova, setNova] = useState<{ atalho: string; texto: string } | null>(null);
+  const [salvandoResposta, setSalvandoResposta] = useState(false);
+  const [erroResposta, setErroResposta] = useState<string | null>(null);
 
   // Respostas rápidas: "/" no começo do campo mostra as opções
   const termo = texto.startsWith("/") && !/\s/.test(texto) ? texto.slice(1).toLowerCase() : null;
-  const opcoes = termo !== null || verRespostas ? respostas.filter((r) => !termo || r.atalho.startsWith(termo)).slice(0, 8) : [];
+  const opcoes = termo !== null || verRespostas ? respostas.filter((r) => !termo || r.atalho.startsWith(termo)).slice(0, verRespostas ? 50 : 8) : [];
   const primeiro = nomeCliente && !/^\d+$/.test(nomeCliente) ? nomeCliente.trim().split(/\s+/)[0] : "";
   const nomeBonito = primeiro ? primeiro.charAt(0) + primeiro.slice(1).toLowerCase() : "";
   function usarResposta(r: { texto: string }) {
@@ -120,6 +124,19 @@ export function ComposerAtendimento({
         router.refresh();
       }
     });
+  }
+
+  /** Guarda uma resposta rápida nova, já disponível com "/" nas próximas conversas. */
+  async function salvarResposta() {
+    if (!nova) return;
+    setSalvandoResposta(true);
+    setErroResposta(null);
+    const res = await adicionarResposta(nova);
+    setSalvandoResposta(false);
+    if (res.erro) return setErroResposta(res.erro);
+    setNova(null);
+    if (aviso && res.ok) aviso(res.ok);
+    router.refresh();
   }
 
   /** Programa o texto do campo para sair sozinho no dia e hora escolhidos (Mensagens agendadas). */
@@ -204,24 +221,46 @@ export function ComposerAtendimento({
               } else if (opcoes.length && (e.key === "Enter" || e.key === "Tab") && !e.ctrlKey && !e.metaKey) {
                 e.preventDefault();
                 usarResposta(opcoes[Math.min(destaque, opcoes.length - 1)]);
-              } else if (e.key === "Escape") setVerRespostas(false);
+              } else if (e.key === "Escape") { setVerRespostas(false); setNova(null); }
               else if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) (programar ? programarEnvio() : enviar());
             }}
             placeholder={arquivo ? "Legenda (opcional)" : respostas.length ? "Escreva a mensagem · / para respostas rápidas · Ctrl+Enter envia" : "Escreva a mensagem · Ctrl+Enter envia"}
             aria-label="Mensagem"
           />
-          {opcoes.length > 0 && (
+          {(opcoes.length > 0 || verRespostas || (termo !== null && respostas.length === 0)) && (
             <div className="respostas-lista" role="listbox" aria-label="Respostas rápidas">
               {opcoes.map((r, i) => (
                 <button key={r.atalho} type="button" role="option" aria-selected={i === destaque} className={"resposta-op" + (i === destaque ? " on" : "")} onMouseDown={(e) => { e.preventDefault(); usarResposta(r); }}>
                   <code>/{r.atalho}</code> <span>{r.texto.slice(0, 90)}{r.texto.length > 90 ? "…" : ""}</span>
                 </button>
               ))}
-            </div>
-          )}
-          {termo !== null && respostas.length === 0 && (
-            <div className="respostas-vazia">
-              Nenhuma resposta rápida cadastrada. Crie as suas em <a href="/atendimento-automatico" style={{ color: "var(--accent)" }}>Atendimento automático</a>.
+              {opcoes.length === 0 && !nova && <div className="respostas-vazia">Nenhuma resposta rápida ainda.</div>}
+              {nova ? (
+                <div className="resposta-nova">
+                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <span style={{ color: "var(--accent)", fontFamily: "var(--f-mono)" }}>/</span>
+                    <input
+                      value={nova.atalho}
+                      onChange={(e) => setNova({ ...nova, atalho: e.target.value })}
+                      placeholder="atalho, ex.: docs"
+                      aria-label="Atalho da resposta"
+                      autoFocus
+                      style={{ maxWidth: 180 }}
+                    />
+                    <small style={{ color: "var(--dim)" }}>Use {"{nome}"} para o primeiro nome do cliente</small>
+                  </div>
+                  <textarea rows={3} value={nova.texto} onChange={(e) => setNova({ ...nova, texto: e.target.value })} placeholder="Texto da resposta" aria-label="Texto da resposta" />
+                  <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                    <button type="button" className="btn primary sm" onClick={salvarResposta} disabled={salvandoResposta}>{salvandoResposta ? "Salvando…" : "Salvar resposta"}</button>
+                    <button type="button" className="btn sm" onClick={() => { setNova(null); setErroResposta(null); }}>Cancelar</button>
+                    {erroResposta && <span className="aviso erro">{erroResposta}</span>}
+                  </div>
+                </div>
+              ) : (
+                <button type="button" className="resposta-op resposta-criar" onMouseDown={(e) => { e.preventDefault(); setVerRespostas(true); setNova({ atalho: termo ?? "", texto: termo === null ? texto.trim() : "" }); }}>
+                  <Icone nome="mais" tamanho={15} /> {texto.trim() && termo === null ? "Salvar o texto escrito como resposta rápida" : "Nova resposta rápida"}
+                </button>
+              )}
             </div>
           )}
           {programar && (
@@ -257,9 +296,9 @@ export function ComposerAtendimento({
                 onChange={(e) => setArquivo(e.target.files?.[0] ?? null)}
                 accept="image/*,video/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx,.odt,.txt,.zip"
               />
-              {respostas.length > 0 && (
-                <button type="button" className="btn" onClick={() => setVerRespostas((v) => !v)} title="Respostas rápidas"><Icone nome="raio" tamanho={16} /> Respostas</button>
-              )}
+              <button type="button" className={"btn" + (verRespostas ? " on" : "")} onClick={() => { setVerRespostas((v) => !v); setNova(null); }} title="Usar ou criar respostas rápidas" aria-pressed={verRespostas}>
+                <Icone nome="raio" tamanho={16} /> Respostas
+              </button>
               <button type="button" className="btn" onClick={() => campoArquivo.current?.click()} disabled={pendente || nota || !conversaId} title={conversaId ? "Foto, vídeo, áudio ou documento" : "Mande um texto primeiro"}>
                 <Icone nome="clipe" tamanho={16} /> Anexar
               </button>

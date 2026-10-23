@@ -21,6 +21,7 @@ const VALORES = {
   telefone_whatsapp: "5551999999999", cpf_cnpj: "00000000000", email: "teste@exemplo.com",
   pasta_drive_url: "https://drive.google.com/drive/folders/x", chave: "pasta_clientes", valor: "x",
   movimentos: [{ data: hoje, nome: "Juntada de petição" }], ordem_bot: 1, oab: "RS 000000",
+  situacao: "contato", contato_tipo: "Interessado",
 };
 function valor(campo) {
   if (campo in VALORES) return VALORES[campo];
@@ -95,7 +96,7 @@ const rotas = paginas("app")
   .map((p) => "/" + relative("app", p).split(sep).slice(0, -1).filter((s) => !s.startsWith("(")).map((s) => EXEMPLO[s] ?? s).join("/"))
   .sort();
 rotas.push(
-  "/busca?q=teste", "/indicadores?mes=2026-01", "/funil?area=" + ID, "/processos?filtro=parados", "/processos?cliente=" + ID, "/modelos/novo",
+  "/busca?q=teste", "/clientes?ver=contatos", "/clientes?ver=contatos&tipo=Interessado", "/indicadores?mes=2026-01", "/funil?area=" + ID, "/processos?filtro=parados", "/processos?cliente=" + ID, "/modelos/novo",
   "/atendimento?c=" + ID, "/atendimento?f=encerradas", "/atendimento?cliente=" + ID,
   ...["procuracao", "hipossuficiencia", "contrato", "renuncia"].map((m) => `/clientes/${ID}/documentos?modelo=${m}`),
   `/clientes/${ID}/documentos?conversa=${ID}`,

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import type { Resultado } from "@/app/(app)/actions";
-import { BOT_PADRAO, type ConfigBot } from "@/lib/bot";
+import { BOT_PADRAO, type ConfigBot, RESPOSTAS_PADRAO } from "@/lib/bot";
 import { quemSou } from "@/lib/permissoes";
 
 const SO_ADMIN = { erro: "Só o administrador altera o atendimento automático.", ok: null };
@@ -39,12 +39,34 @@ export async function salvarConfigBot(_: Resultado, f: FormData): Promise<Result
 
 export type RespostaRapida = { atalho: string; texto: string };
 
+const limpar = (r: RespostaRapida) => ({
+  atalho: r.atalho.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/^\/+/, "").replace(/[^a-z0-9_-]/g, ""),
+  texto: r.texto.replace(/\r\n/g, "\n").trim(),
+});
+
+/** Acrescenta uma resposta pelo botão "Respostas" da conversa. Qualquer pessoa da equipe pode criar. */
+export async function adicionarResposta(nova: RespostaRapida): Promise<Resultado> {
+  const { papel } = await quemSou();
+  if (!papel) return { erro: "Sem permissão.", ok: null };
+  const r = limpar(nova);
+  if (!r.atalho) return { erro: "Dê um atalho, ex.: docs (letras e números, sem espaço).", ok: null };
+  if (!r.texto) return { erro: "Escreva o texto da resposta.", ok: null };
+  // configuracoes só aceita escrita do administrador (RLS): grava pela chave secreta
+  const db = (await import("@/lib/supabase/admin")).supabaseAdmin();
+  const { data } = await db.from("configuracoes").select("valor").eq("chave", "respostas_rapidas").maybeSingle();
+  const atuais = (Array.isArray(data?.valor) ? data.valor : data ? [] : RESPOSTAS_PADRAO) as RespostaRapida[];
+  if (atuais.some((x) => x.atalho === r.atalho)) return { erro: `Já existe a resposta /${r.atalho}. Escolha outro atalho.`, ok: null };
+  const { error } = await db.from("configuracoes").upsert({ chave: "respostas_rapidas", valor: [...atuais, r] });
+  if (error) return { erro: error.message, ok: null };
+  revalidatePath("/atendimento-automatico");
+  revalidatePath("/atendimento");
+  return { erro: null, ok: `Resposta /${r.atalho} salva. Digite /${r.atalho} na próxima conversa.` };
+}
+
 export async function salvarRespostas(lista: RespostaRapida[]): Promise<Resultado> {
   const { supabase, papel } = await quemSou();
   if (papel !== "administrador" && papel !== "advogado") return { erro: "Só administradores e advogados alteram as respostas rápidas.", ok: null };
-  const limpas = lista
-    .map((r) => ({ atalho: r.atalho.trim().toLowerCase().replace(/^\/+/, "").replace(/[^a-z0-9_-]/g, ""), texto: r.texto.replace(/\r\n/g, "\n").trim() }))
-    .filter((r) => r.atalho && r.texto);
+  const limpas = lista.map(limpar).filter((r) => r.atalho && r.texto);
   const repetido = limpas.find((r, i) => limpas.findIndex((x) => x.atalho === r.atalho) !== i);
   if (repetido) return { erro: `O atalho /${repetido.atalho} aparece duas vezes.`, ok: null };
   // configuracoes só aceita escrita do administrador (RLS); advogados gravam pela chave secreta

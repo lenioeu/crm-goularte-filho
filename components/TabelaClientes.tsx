@@ -22,6 +22,7 @@ export type LinhaCliente = {
   processos: number;
   pasta_drive_url: string | null;
   criado_em: string;
+  tipo?: string | null; // tipo do contato (só na aba Contatos)
 };
 
 function telefone(t: string | null) {
@@ -132,7 +133,7 @@ export function TabelaClientes({ linhas, admin, driveLigado }: { linhas: LinhaCl
             {ordenadas.map((c) => (
               <tr key={c.id} className={sel.has(c.id) ? "sel" : undefined}>
                 <td><input type="checkbox" checked={sel.has(c.id)} onChange={() => alternar(c.id)} aria-label={`Selecionar ${c.nome}`} style={{ width: 17, height: 17 }} /></td>
-                <td><Link href={`/clientes/${c.id}`} style={{ fontWeight: 500, color: "var(--accent)" }}>{c.nome}</Link>{c.cpf_cnpj && <small>{c.cpf_cnpj}</small>}</td>
+                <td><Link href={`/clientes/${c.id}`} style={{ fontWeight: 500, color: "var(--accent)" }}>{c.nome}</Link>{c.tipo && <span className="chip warn" style={{ marginLeft: 8 }}>{c.tipo}</span>}{c.cpf_cnpj && <small>{c.cpf_cnpj}</small>}</td>
                 <td>{c.area ? <span className="chip area" style={{ "--c": c.area.cor } as React.CSSProperties}>{c.area.nome}</span> : <span className="chip">a definir</span>}</td>
                 <td className="num">{telefone(c.telefone_whatsapp)}</td>
                 <td>{c.responsavel ?? "—"}</td>

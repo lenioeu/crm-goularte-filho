@@ -598,3 +598,9 @@ drop policy if exists equipe_escreve on notas_cliente;
 create policy equipe_escreve on notas_cliente for insert to authenticated with check (meu_papel() is not null and autor_id = auth.uid());
 drop policy if exists autor_ou_admin_apaga on notas_cliente;
 create policy autor_ou_admin_apaga on notas_cliente for delete to authenticated using (autor_id = auth.uid() or sou_admin());
+
+-- Contatos que ainda não são clientes (mesmo conteúdo de 012_contatos.sql)
+alter table clientes add column if not exists situacao text not null default 'cliente'
+  check (situacao in ('cliente', 'contato'));
+alter table clientes add column if not exists contato_tipo text;
+create index if not exists clientes_situacao on clientes (situacao);

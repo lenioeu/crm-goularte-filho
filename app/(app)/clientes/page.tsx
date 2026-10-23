@@ -4,25 +4,36 @@ import { FormAcao } from "@/components/FormAcao";
 import { type LinhaCliente, TabelaClientes } from "@/components/TabelaClientes";
 import { quemSou } from "@/lib/permissoes";
 import { criarCliente } from "../actions";
+import { lerTiposContato } from "@/lib/contatos";
+import { BotaoAcao } from "@/components/BotaoAcao";
+import { criarTipoContato, removerTipoContato } from "./actions";
 
 type Rel<T> = T | T[] | null;
 const um = <T,>(r: Rel<T>): T | null => (Array.isArray(r) ? r[0] ?? null : r);
-type Busca = { q?: string; area?: string; resp?: string; origem?: string; whatsapp?: string; pasta?: string; processo?: string };
+type Busca = { ver?: string; tipo?: string; q?: string; area?: string; resp?: string; origem?: string; whatsapp?: string; pasta?: string; processo?: string };
 
 export default async function Clientes({ searchParams }: { searchParams: Promise<Busca> }) {
   const f = await searchParams;
   const { supabase, papel } = await quemSou();
-  const [{ data: clientes, error }, { data: areas }, { data: google }, { data: pessoas }, { data: procs }] = await Promise.all([
-    supabase
-      .from("clientes")
-      .select("id, nome, telefone_whatsapp, cpf_cnpj, email, origem, area_id, responsavel_id, pasta_drive_url, criado_em, areas(nome, cor), perfis(nome)")
-      .order("nome")
-      .limit(5000),
+  const verContatos = f.ver === "contatos";
+  const campos = "id, nome, telefone_whatsapp, cpf_cnpj, email, origem, area_id, responsavel_id, pasta_drive_url, criado_em, areas(nome, cor), perfis(nome)";
+  const buscar = (cols: string) => supabase.from("clientes").select(cols).order("nome").limit(5000);
+  // Sem o script 012 não há "situacao": todo mundo conta como cliente
+  const consulta = buscar(campos + ", situacao, contato_tipo").then(async (r) => (r.error ? buscar(campos) : r));
+  const [{ data: cadastros, error }, { data: areas }, { data: google }, { data: pessoas }, { data: procs }, tiposContato] = await Promise.all([
+    consulta,
     supabase.from("areas").select("id, nome").eq("ativa", true).order("ordem_bot"),
     supabase.from("configuracoes").select("chave").in("chave", ["google_email", "pasta_clientes"]),
     supabase.from("perfis").select("id, nome").eq("ativo", true).order("nome"),
     supabase.from("processos").select("casos(cliente_id)").limit(20000),
+    lerTiposContato(supabase),
   ]);
+  type Cadastro = { id: string; nome: string; telefone_whatsapp: string | null; cpf_cnpj: string | null; email: string | null; origem: string | null; area_id: string | null; responsavel_id: string | null; pasta_drive_url: string | null; criado_em: string; areas: unknown; perfis: unknown; situacao?: string; contato_tipo?: string | null };
+  const todosCadastros = (cadastros ?? []) as unknown as Cadastro[];
+  const ehContato = (c: Cadastro) => c.situacao === "contato";
+  const nContatos = todosCadastros.filter(ehContato).length;
+  const nClientes = todosCadastros.length - nContatos;
+  const clientes = todosCadastros.filter((c) => ehContato(c) === verContatos);
   const driveLigado = (google ?? []).length === 2;
 
   const porCliente = new Map<string, number>();
@@ -47,6 +58,7 @@ export default async function Clientes({ searchParams }: { searchParams: Promise
     processos: porCliente.get(c.id) ?? 0,
     pasta_drive_url: c.pasta_drive_url,
     criado_em: c.criado_em,
+    tipo: verContatos ? c.contato_tipo ?? "Sem tipo" : null,
   }));
   const extra = new Map((clientes ?? []).map((c) => [c.id, c]));
   const lista = todas.filter((c) => {
@@ -55,6 +67,7 @@ export default async function Clientes({ searchParams }: { searchParams: Promise
     if (f.area === "sem" ? x.area_id : f.area && x.area_id !== f.area) return false;
     if (f.resp === "sem" ? x.responsavel_id : f.resp && x.responsavel_id !== f.resp) return false;
     if (f.origem && c.origem !== f.origem) return false;
+    if (verContatos && f.tipo && (x.contato_tipo ?? "") !== (f.tipo === "sem" ? "" : f.tipo)) return false;
     if (f.whatsapp === "sem" && c.telefone_whatsapp) return false;
     if (f.whatsapp === "com" && !c.telefone_whatsapp) return false;
     if (f.pasta === "sem" && c.pasta_drive_url) return false;
@@ -63,18 +76,49 @@ export default async function Clientes({ searchParams }: { searchParams: Promise
     if (f.processo === "com" && !c.processos) return false;
     return true;
   });
-  const filtrando = Object.values(f).some(Boolean);
+  const filtrando = Object.entries(f).some(([k, v]) => k !== "ver" && Boolean(v));
+  const base = verContatos ? "/clientes?ver=contatos" : "/clientes";
 
   return (
     <div className="view">
       <div className="vhead">
         <div>
-          <h1>Clientes</h1>
-          <p>{todas.length} {todas.length === 1 ? "cliente cadastrado" : "clientes cadastrados"}{filtrando ? ` · ${lista.length} com esses filtros` : ""}. Quem escreve pela primeira vez no WhatsApp do escritório é cadastrado sozinho.</p>
+          <h1>{verContatos ? "Contatos" : "Clientes"}</h1>
+          <p>
+            {verContatos
+              ? `${todas.length} ${todas.length === 1 ? "contato" : "contatos"} que ainda não ${todas.length === 1 ? "é cliente" : "são clientes"}`
+              : `${todas.length} ${todas.length === 1 ? "cliente cadastrado" : "clientes cadastrados"}`}
+            {filtrando ? ` · ${lista.length} com esses filtros` : ""}.{" "}
+            {verContatos
+              ? "Quem escreve pela primeira vez no WhatsApp entra aqui. Quando fechar com o escritório, use “Tornar cliente” na conversa ou na ficha."
+              : "Contatos do WhatsApp entram em Contatos e passam para cá com “Tornar cliente”."}
+          </p>
         </div>
       </div>
 
-      <div className="card" style={{ marginBottom: 16 }} id="novo">
+      <nav className="abas-clientes" aria-label="Clientes ou contatos">
+        <Link className={"btn" + (verContatos ? "" : " on")} href="/clientes">Clientes · {nClientes}</Link>
+        <Link className={"btn" + (verContatos ? " on" : "")} href="/clientes?ver=contatos">Contatos · {nContatos}</Link>
+      </nav>
+
+      {verContatos && (
+        <div className="card" style={{ marginBottom: 16 }} id="tipos">
+          <div className="ctitle"><h3>Tipos de contato</h3><span className="tag">adicione ou remova quando quiser</span></div>
+          <div className="tipos-lista">
+            {tiposContato.map((t) => (
+              <span key={t} className="chip">
+                <Link href={`/clientes?ver=contatos&tipo=${encodeURIComponent(t)}`}>{t}</Link>
+                <BotaoAcao acao={removerTipoContato.bind(null, t)} rotulo="×" className="tipo-remover" confirmar={`Remover o tipo “${t}”?`} />
+              </span>
+            ))}
+          </div>
+          <FormAcao action={criarTipoContato} botao="+ Adicionar tipo" className="chat-mini" limparAoSalvar>
+            <input name="tipo" required placeholder="ex.: Perito, Imprensa, Correspondente" aria-label="Novo tipo de contato" />
+          </FormAcao>
+        </div>
+      )}
+
+      <div className="card" style={{ marginBottom: 16, display: verContatos ? "none" : undefined }} id="novo">
         <div className="ctitle"><h3>Novo cliente</h3></div>
         <FormAcao action={criarCliente} botao="Cadastrar cliente" className="form maiusculas">
           <div className="field full"><label htmlFor="nome">Nome completo</label><input id="nome" name="nome" required placeholder="ex.: MARIA DA SILVA SANTOS" /></div>
@@ -92,6 +136,14 @@ export default async function Clientes({ searchParams }: { searchParams: Promise
       </div>
 
       <form method="get" className="card filtros-clientes" style={{ marginBottom: 16 }}>
+        {verContatos && <input type="hidden" name="ver" value="contatos" />}
+        {verContatos && (
+          <select name="tipo" defaultValue={f.tipo ?? ""} aria-label="Tipo de contato">
+            <option value="">Todos os tipos</option>
+            {tiposContato.map((t) => <option key={t} value={t}>{t}</option>)}
+            <option value="sem">Sem tipo</option>
+          </select>
+        )}
         <input name="q" defaultValue={f.q ?? ""} placeholder="Nome, CPF ou telefone" aria-label="Procurar" />
         <select name="area" defaultValue={f.area ?? ""} aria-label="Área">
           <option value="">Todas as áreas</option>
@@ -125,15 +177,19 @@ export default async function Clientes({ searchParams }: { searchParams: Promise
           </select>
         )}
         <button className="btn primary" type="submit">Filtrar</button>
-        {filtrando && <Link className="btn" href="/clientes">Limpar</Link>}
+        {filtrando && <Link className="btn" href={base}>Limpar</Link>}
       </form>
 
       <div className="card" style={{ padding: "6px 6px 2px" }}>
         {error && <div className="aviso erro" style={{ margin: 12 }}>Não foi possível carregar os clientes: {error.message}</div>}
         {todas.length === 0 ? (
-          <div className="vazio"><b>Nenhum cliente ainda</b>Cadastre o primeiro no formulário acima.</div>
+          verContatos ? (
+            <div className="vazio"><b>Nenhum contato</b>Quem escrever pela primeira vez no WhatsApp aparece aqui.</div>
+          ) : (
+            <div className="vazio"><b>Nenhum cliente ainda</b>Cadastre o primeiro no formulário acima.</div>
+          )
         ) : lista.length === 0 ? (
-          <div className="vazio"><b>Nenhum cliente com esses filtros</b><Link href="/clientes" style={{ color: "var(--accent)" }}>Limpar filtros</Link></div>
+          <div className="vazio"><b>Nada com esses filtros</b><Link href={base} style={{ color: "var(--accent)" }}>Limpar filtros</Link></div>
         ) : (
           <TabelaClientes linhas={lista} admin={papel === "administrador"} driveLigado={driveLigado} />
         )}

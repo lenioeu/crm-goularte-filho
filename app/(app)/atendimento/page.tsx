@@ -13,9 +13,12 @@ import { corDoNome, iniciais } from "@/lib/avatar";
 import { quemSou } from "@/lib/permissoes";
 import { telefoneBR, TZ } from "@/lib/rotulos";
 import { RESPOSTAS_PADRAO } from "@/lib/bot";
+import { lerTiposContato } from "@/lib/contatos";
+import { TipoContato } from "@/components/TipoContato";
 import { whatsappConfigurado } from "@/lib/whatsapp";
 import { moverTarefa } from "../actions";
 import { cancelarAgendamento, reativarAgendamento } from "../agendamentos/actions";
+import { tornarCliente, voltarAContato } from "../clientes/actions";
 import { criarPastaCliente } from "../integracoes/actions";
 import { cadastrarProcesso } from "../processos/actions";
 import { assumirConversa, criarLembrete, encerrarConversa, mudarArea, reabrirConversa, salvarDocumento } from "./actions";
@@ -127,6 +130,12 @@ export default async function Atendimento({ searchParams }: { searchParams: Prom
 
   // Processos e lembretes (tarefas abertas) do cliente da conversa
   const idCli = atual ? um(atual.clientes)?.id : null;
+  // Contato ou cliente? Sem o script 012 a consulta falha e tudo conta como cliente
+  const [{ data: situacaoCli }, tiposContato] = await Promise.all([
+    idCli ? supabase.from("clientes").select("situacao, contato_tipo").eq("id", idCli).maybeSingle() : Promise.resolve({ data: null }),
+    lerTiposContato(supabase),
+  ]);
+  const ehContato = situacaoCli?.situacao === "contato";
   const [{ data: processosCli }, { data: lembretes }, { data: programadas }] = idCli
     ? await Promise.all([
         supabase.from("processos").select("id, numero_cnj, classe, casos!inner(cliente_id)").eq("casos.cliente_id", idCli).order("criado_em"),
@@ -213,9 +222,16 @@ export default async function Atendimento({ searchParams }: { searchParams: Prom
                     {telefoneBR(cliAtual.telefone_whatsapp)} · <span className={`chip ${STATUS[atual.status]?.classe ?? ""}`}>{STATUS[atual.status]?.rotulo ?? atual.status}</span>
                     {um(atual.perfis) && ` · com ${um(atual.perfis)!.nome}`}
                   </div>
+                  {ehContato && (
+                    <div className="contato-linha">
+                      <span className="chip warn">Contato · ainda não é cliente</span>
+                      <TipoContato id={cliAtual.id} atual={situacaoCli?.contato_tipo ?? null} tipos={tiposContato} />
+                    </div>
+                  )}
                 </div>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                   <BotaoPainel />
+                  {ehContato && <BotaoAcao acao={tornarCliente.bind(null, cliAtual.id)} rotulo="Tornar cliente" desfazer={voltarAContato.bind(null, cliAtual.id)} />}
                   <VincularCliente conversaId={atual.id} clientes={clientes ?? []} atual={cliAtual.id} />
                   {atual.status !== "resolvida" && atual.atendente_id !== user?.id && <BotaoAcao acao={assumirConversa.bind(null, atual.id)} rotulo="Assumir" />}
                   {atual.status !== "resolvida" ? (
