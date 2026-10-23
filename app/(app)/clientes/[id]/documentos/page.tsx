@@ -158,7 +158,7 @@ export default async function Documentos({ params, searchParams }: { params: Pro
           )}
         </div>
 
-        <FolhaPrevia blocos={blocos} escritorio={escritorio} />
+        <FolhaPrevia blocos={blocos} escritorio={escritorio} comRodape={modelo.rodape !== false} />
       </div>
     </div>
   );

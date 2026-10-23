@@ -142,7 +142,7 @@ export default async function Processos({ searchParams }: { searchParams: Promis
                       {p.casos?.areas && <span className="chip area" style={{ "--c": p.casos.areas.cor, marginTop: 4 } as React.CSSProperties}>{p.casos.areas.nome}</span>}
                     </td>
                     <td>{p.tribunal ?? "—"}{p.vara && <small>{p.vara}</small>}</td>
-                    <td style={{ minWidth: 220 }}>
+                    <td style={{ minWidth: 180 }}>
                       {p.ultima_movimentacao ? (
                         <details>
                           <summary style={{ cursor: "pointer" }}>{p.ultima_movimentacao} <small style={{ display: "inline" }}>· {dataBR(p.ultima_movimentacao_em)}</small></summary>

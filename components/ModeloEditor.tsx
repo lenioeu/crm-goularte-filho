@@ -6,7 +6,7 @@ import { FolhaPrevia } from "@/components/FolhaPrevia";
 import { camposDoModelo, CLIENTE_EXEMPLO, type EscritorioDoc, MARCADORES, renderizar } from "@/lib/modelos";
 
 type Acao = (estado: Resultado, dados: FormData) => Promise<Resultado>;
-type Inicial = { id: string; nome: string; arquivo: string; descricao: string; conteudo: string; ordem: number };
+type Inicial = { id: string; nome: string; arquivo: string; descricao: string; conteudo: string; ordem: number; rodape: boolean };
 
 const GRUPOS = ["Cliente", "Escritório", "Data", "Texto", "Assinaturas", "Perguntas"];
 
@@ -15,6 +15,7 @@ export function ModeloEditor({ action, inicial, escritorio, podeEditar }: { acti
   const [estado, enviar, pendente] = useActionState(action, { erro: null, ok: null });
   const [conteudo, setConteudo] = useState(inicial.conteudo);
   const [nome, setNome] = useState(inicial.nome);
+  const [comRodape, setComRodape] = useState(inicial.rodape);
   const texto = useRef<HTMLTextAreaElement>(null);
 
   const hoje = new Date().toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
@@ -61,6 +62,10 @@ export function ModeloEditor({ action, inicial, escritorio, podeEditar }: { acti
             </small>
           </div>
           <div className="field"><label htmlFor="ordem">Posição na lista</label><input id="ordem" name="ordem" type="number" defaultValue={inicial.ordem} disabled={!podeEditar} /></div>
+          <label className="full" style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5 }}>
+            <input type="checkbox" name="rodape" checked={comRodape} onChange={(e) => setComRodape(e.target.checked)} disabled={!podeEditar} style={{ width: 18, height: 18 }} />
+            Rodapé com telefone, e-mail e endereço do escritório
+          </label>
           {podeEditar && (
             <div className="full" style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
               <button className="btn primary" type="submit" disabled={pendente}>{pendente ? "Salvando…" : "Salvar modelo"}</button>
@@ -97,7 +102,7 @@ export function ModeloEditor({ action, inicial, escritorio, podeEditar }: { acti
             "Este modelo não faz perguntas: tudo vem do cadastro."
           )}
         </div>
-        <FolhaPrevia blocos={blocos} escritorio={escritorio} />
+        <FolhaPrevia blocos={blocos} escritorio={escritorio} comRodape={comRodape} />
       </div>
     </div>
   );

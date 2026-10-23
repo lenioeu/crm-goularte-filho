@@ -473,6 +473,7 @@ create table if not exists modelos (
   descricao     text,
   conteudo      text not null,
   ordem         int not null default 0,
+  rodape        boolean not null default true, -- false: sai sem telefone, e-mail e endereço no fim
   ativo         boolean not null default true,
   criado_por    uuid references perfis (id),
   criado_em     timestamptz not null default now(),

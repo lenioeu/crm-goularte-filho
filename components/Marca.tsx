@@ -4,9 +4,8 @@ export function Marca() {
   return (
     <div className="brand">
       <span className="mark" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
-          <path d="M12 4v16M6 7h12M8 7l-3 6.5a3 3 0 0 0 6 0zM16 7l-3 6.5a3 3 0 0 0 6 0zM8.5 20h7" />
-        </svg>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/orion-simbolo.svg" alt="" width={30} height={30} />
       </span>
       <div>
         <b>Órion</b>

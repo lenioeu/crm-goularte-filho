@@ -48,7 +48,7 @@ async function gerarNoDrive(f: FormData): Promise<Gerado> {
     if (!pastaId) return { erro: "Não consegui achar a pasta do cliente." };
   }
 
-  const html = emHtml(renderizar(modelo.conteudo, { cliente, advogados, escritorio, data, extra }), escritorio);
+  const html = emHtml(renderizar(modelo.conteudo, { cliente, advogados, escritorio, data, extra }), escritorio, modelo.rodape !== false);
   const nome = `${data} ${modelo.arquivo} - ${cliente.nome.toUpperCase()}`;
   try {
     const salvo = await enviarArquivo(token, {

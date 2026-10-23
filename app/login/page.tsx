@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Marca } from "@/components/Marca";
+import { NOME_ESCRITORIO } from "@/lib/config";
 import { supabaseBrowser } from "@/lib/supabase/client";
 
 function traduzir(msg: string) {
@@ -61,7 +61,11 @@ export default function LoginPage() {
   return (
     <main className="login-wrap">
       <form className="login card" onSubmit={enviar}>
-        <Marca />
+        <div className="login-logo">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo-orion.svg" alt="Órion · CRM jurídico" width={180} height={209} />
+          <small>{NOME_ESCRITORIO.toUpperCase()}</small>
+        </div>
         <h1 style={{ fontSize: 20, textAlign: "center" }}>{modo === "entrar" ? "Entrar" : "Criar acesso"}</h1>
         {erro && <div className="aviso erro">{erro}</div>}
         {aviso && <div className="aviso ok">{aviso}</div>}

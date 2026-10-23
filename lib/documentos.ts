@@ -33,7 +33,10 @@ export function escolherAdvogados(equipe: { id: string; nome: string; oab: strin
 
 /** Modelos do escritório (aba Modelos). Sem a tabela (script 005) ou vazia, usa os de fábrica. */
 export async function listarModelos(db: SupabaseClient): Promise<{ modelos: ModeloTexto[]; tabela: boolean }> {
-  const { data, error } = await db.from("modelos").select("id, nome, arquivo, descricao, conteudo").eq("ativo", true).order("ordem").order("nome");
+  const buscar = (campos: string) => db.from("modelos").select(campos).eq("ativo", true).order("ordem").order("nome");
+  let { data, error } = await buscar("id, nome, arquivo, descricao, conteudo, rodape");
+  // Sem o script 011 a coluna "rodape" não existe: todos os modelos saem com rodapé
+  if (error && /rodape/.test(error.message)) ({ data, error } = await buscar("id, nome, arquivo, descricao, conteudo"));
   if (error) return { modelos: MODELOS_PADRAO.map((m) => ({ ...m, padrao: true })), tabela: false };
-  return { modelos: data?.length ? (data as ModeloTexto[]) : MODELOS_PADRAO.map((m) => ({ ...m, padrao: true })), tabela: true };
+  return { modelos: data?.length ? (data as unknown as ModeloTexto[]) : MODELOS_PADRAO.map((m) => ({ ...m, padrao: true })), tabela: true };
 }

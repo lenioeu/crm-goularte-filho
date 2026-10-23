@@ -19,7 +19,7 @@ export type ClienteDoc = {
 };
 export type AdvogadoDoc = { nome: string; oab: string | null };
 export type EscritorioDoc = { endereco: string; telefone: string; email: string; cidade: string; foro: string; pagamento: string };
-export type ModeloTexto = { id: string; nome: string; arquivo: string; descricao: string | null; conteudo: string; padrao?: boolean };
+export type ModeloTexto = { id: string; nome: string; arquivo: string; descricao: string | null; conteudo: string; padrao?: boolean; rodape?: boolean };
 export type Campo = { chave: string; rotulo: string; padrao: string; opcional: boolean };
 
 export type DadosDoc = {
@@ -249,7 +249,8 @@ export function trechos(texto: string) {
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 const comNegrito = (s: string) => trechos(s).map((x) => (x.negrito ? `<b>${esc(x.texto)}</b>` : esc(x.texto))).join("");
 
-export function emHtml(blocos: Bloco[], e: EscritorioDoc) {
+/** comRodape: o modelo pode dispensar a linha com telefone, e-mail e endereço do escritório. */
+export function emHtml(blocos: Bloco[], e: EscritorioDoc, comRodape = true) {
   const corpo = blocos
     .map((b) => {
       if (b.t === "assinaturas") {
@@ -271,7 +272,8 @@ export function emHtml(blocos: Bloco[], e: EscritorioDoc) {
   return (
     `<!doctype html><html><head><meta charset="utf-8"></head><body style="font-family:Arial,sans-serif;font-size:12pt">` +
     corpo +
-    `<p style="text-align:center;font-size:9pt;color:#555;margin-top:30pt">${esc(rodape(e))}</p></body></html>`
+    (comRodape ? `<p style="text-align:center;font-size:9pt;color:#555;margin-top:30pt">${esc(rodape(e))}</p>` : "") +
+    `</body></html>`
   );
 }
 

@@ -16,11 +16,14 @@ export default async function EditarModelo({ params }: { params: Promise<{ id: s
   const podeEditar = papel === "administrador" || papel === "advogado";
   const escritorio = await dadosDoEscritorio(supabase);
 
-  let inicial = { id: "", nome: "", arquivo: "", descricao: "", conteudo: ESQUELETO, ordem: 100 };
+  let inicial = { id: "", nome: "", arquivo: "", descricao: "", conteudo: ESQUELETO, ordem: 100, rodape: true };
   if (id !== "novo") {
-    const { data } = await supabase.from("modelos").select("id, nome, arquivo, descricao, conteudo, ordem").eq("id", id).maybeSingle();
+    const campos = "id, nome, arquivo, descricao, conteudo, ordem";
+    let { data, error } = await supabase.from("modelos").select(`${campos}, rodape`).eq("id", id).maybeSingle();
+    // Sem o script 011 ainda não existe a coluna "rodape"
+    if (error && /rodape/.test(error.message)) ({ data } = await supabase.from("modelos").select(campos).eq("id", id).maybeSingle());
     if (!data) notFound();
-    inicial = { ...data, descricao: data.descricao ?? "" };
+    inicial = { ...data, descricao: data.descricao ?? "", rodape: (data as { rodape?: boolean }).rodape !== false };
   }
 
   return (
