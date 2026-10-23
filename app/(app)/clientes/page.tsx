@@ -31,9 +31,10 @@ export default async function Clientes({ searchParams }: { searchParams: Promise
   type Cadastro = { id: string; nome: string; telefone_whatsapp: string | null; cpf_cnpj: string | null; email: string | null; origem: string | null; area_id: string | null; responsavel_id: string | null; pasta_drive_url: string | null; criado_em: string; areas: unknown; perfis: unknown; situacao?: string; contato_tipo?: string | null };
   const todosCadastros = (cadastros ?? []) as unknown as Cadastro[];
   const ehContato = (c: Cadastro) => c.situacao === "contato";
-  const nContatos = todosCadastros.filter(ehContato).length;
-  const nClientes = todosCadastros.length - nContatos;
-  const clientes = todosCadastros.filter((c) => ehContato(c) === verContatos);
+  // Todo cliente também é contato: a aba Contatos mostra todo mundo; a aba Clientes, só quem é cliente
+  const nContatos = todosCadastros.length;
+  const nClientes = todosCadastros.filter((c) => !ehContato(c)).length;
+  const clientes = verContatos ? todosCadastros : todosCadastros.filter((c) => !ehContato(c));
   const driveLigado = (google ?? []).length === 2;
 
   const porCliente = new Map<string, number>();
@@ -58,7 +59,7 @@ export default async function Clientes({ searchParams }: { searchParams: Promise
     processos: porCliente.get(c.id) ?? 0,
     pasta_drive_url: c.pasta_drive_url,
     criado_em: c.criado_em,
-    tipo: verContatos ? c.contato_tipo ?? "Sem tipo" : null,
+    tipo: verContatos ? (ehContato(c) ? c.contato_tipo ?? "Sem tipo" : "Cliente") : null,
   }));
   const extra = new Map((clientes ?? []).map((c) => [c.id, c]));
   const lista = todas.filter((c) => {
@@ -67,7 +68,9 @@ export default async function Clientes({ searchParams }: { searchParams: Promise
     if (f.area === "sem" ? x.area_id : f.area && x.area_id !== f.area) return false;
     if (f.resp === "sem" ? x.responsavel_id : f.resp && x.responsavel_id !== f.resp) return false;
     if (f.origem && c.origem !== f.origem) return false;
-    if (verContatos && f.tipo && (x.contato_tipo ?? "") !== (f.tipo === "sem" ? "" : f.tipo)) return false;
+    if (verContatos && f.tipo === "__cliente" && ehContato(x)) return false;
+    if (verContatos && f.tipo === "__nao_cliente" && !ehContato(x)) return false;
+    if (verContatos && f.tipo && !f.tipo.startsWith("__") && (!ehContato(x) || (x.contato_tipo ?? "") !== (f.tipo === "sem" ? "" : f.tipo))) return false;
     if (f.whatsapp === "sem" && c.telefone_whatsapp) return false;
     if (f.whatsapp === "com" && !c.telefone_whatsapp) return false;
     if (f.pasta === "sem" && c.pasta_drive_url) return false;
@@ -86,11 +89,11 @@ export default async function Clientes({ searchParams }: { searchParams: Promise
           <h1>{verContatos ? "Contatos" : "Clientes"}</h1>
           <p>
             {verContatos
-              ? `${todas.length} ${todas.length === 1 ? "contato" : "contatos"} que ainda não ${todas.length === 1 ? "é cliente" : "são clientes"}`
+              ? `${todas.length} ${todas.length === 1 ? "contato" : "contatos"}, ${nClientes} ${nClientes === 1 ? "deles é cliente" : "deles são clientes"}`
               : `${todas.length} ${todas.length === 1 ? "cliente cadastrado" : "clientes cadastrados"}`}
             {filtrando ? ` · ${lista.length} com esses filtros` : ""}.{" "}
             {verContatos
-              ? "Quem escreve pela primeira vez no WhatsApp entra aqui. Quando fechar com o escritório, use “Tornar cliente” na conversa ou na ficha."
+              ? "Todo cliente também é contato. Quem escreve pela primeira vez no WhatsApp entra só como contato; quando fechar com o escritório, use “Tornar cliente” na conversa ou na ficha."
               : "Contatos do WhatsApp entram em Contatos e passam para cá com “Tornar cliente”."}
           </p>
         </div>
@@ -139,7 +142,9 @@ export default async function Clientes({ searchParams }: { searchParams: Promise
         {verContatos && <input type="hidden" name="ver" value="contatos" />}
         {verContatos && (
           <select name="tipo" defaultValue={f.tipo ?? ""} aria-label="Tipo de contato">
-            <option value="">Todos os tipos</option>
+            <option value="">Todos os contatos</option>
+            <option value="__cliente">Só clientes</option>
+            <option value="__nao_cliente">Só quem ainda não é cliente</option>
             {tiposContato.map((t) => <option key={t} value={t}>{t}</option>)}
             <option value="sem">Sem tipo</option>
           </select>
