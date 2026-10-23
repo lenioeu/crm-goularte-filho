@@ -335,22 +335,39 @@ export async function atualizarCliente(_: Resultado, f: FormData): Promise<Resul
   return { erro: null, ok: "Dados salvos." };
 }
 
-/** Apaga o cliente e tudo ligado a ele no CRM (casos, processos, conversas…). A pasta no Drive fica intacta. */
-export async function excluirCliente(id: string): Promise<Resultado> {
-  const { supabase, papel } = await quemSou();
-  if (papel !== "administrador") return { erro: "Só o administrador exclui clientes.", ok: null };
-
-  // Tira da Google Agenda os eventos das audiências dele
-  const { data: auds } = await supabase.from("audiencias").select("google_event_id, casos!inner(cliente_id)").eq("casos.cliente_id", id).not("google_event_id", "is", null);
+/** Tira da Google Agenda as audiências dos clientes e apaga os cadastros (casos, processos, conversas… vão junto). */
+async function apagarClientes(ids: string[]): Promise<{ apagados: number; erro: string | null }> {
+  const { supabase } = await quemSou();
+  const { data: auds } = await supabase.from("audiencias").select("google_event_id, casos!inner(cliente_id)").in("casos.cliente_id", ids).not("google_event_id", "is", null);
   const token = auds?.length ? await tokenDeAcesso() : null;
   if (token) await Promise.all((auds ?? []).map((a) => excluirEvento(token, a.google_event_id as string).catch(() => null)));
+  const { data, error } = await supabase.from("clientes").delete().in("id", ids).select("id");
+  return { apagados: data?.length ?? 0, erro: error ? traduzirErro(error.message) : null };
+}
 
-  const { data, error } = await supabase.from("clientes").delete().eq("id", id).select("id");
-  if (error) return { erro: traduzirErro(error.message), ok: null };
-  if (!data?.length) return { erro: "Cliente não encontrado.", ok: null };
+/** Apaga o cliente e tudo ligado a ele no CRM (casos, processos, conversas…). A pasta no Drive fica intacta. */
+export async function excluirCliente(id: string): Promise<Resultado> {
+  const { papel } = await quemSou();
+  if (papel !== "administrador") return { erro: "Só o administrador exclui clientes.", ok: null };
+  const r = await apagarClientes([id]);
+  if (r.erro) return { erro: r.erro, ok: null };
+  if (!r.apagados) return { erro: "Cliente não encontrado.", ok: null };
   revalidatePath("/clientes");
   revalidatePath("/");
   redirect("/clientes");
+}
+
+/** Exclui vários clientes de uma vez (lista de Clientes). */
+export async function excluirClientes(ids: string[]): Promise<Resultado> {
+  const { papel } = await quemSou();
+  if (papel !== "administrador") return { erro: "Só o administrador exclui clientes.", ok: null };
+  const lista = ids.filter((x) => /^[0-9a-f-]{36}$/.test(x)).slice(0, 1000);
+  if (!lista.length) return { erro: "Nenhum cliente selecionado.", ok: null };
+  const r = await apagarClientes(lista);
+  if (r.erro) return { erro: r.erro, ok: null };
+  revalidatePath("/clientes");
+  revalidatePath("/");
+  return { erro: null, ok: `${r.apagados} ${r.apagados === 1 ? "cliente excluído" : "clientes excluídos"}.` };
 }
 
 // ------------------------------------------------------------------ Pessoas da equipe

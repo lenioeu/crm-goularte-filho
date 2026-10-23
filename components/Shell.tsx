@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Marca } from "@/components/Marca";
 import { sair } from "@/app/(app)/actions";
 
@@ -28,11 +28,31 @@ const OPERACAO: Item[] = [
 
 const ESCRITORIO: Item[] = [
   { href: "/areas", rotulo: "Áreas de atuação", pronto: true, icone: ic(<><rect x="4" y="4" width="7" height="7" rx="1.5" /><rect x="13" y="4" width="7" height="7" rx="1.5" /><rect x="4" y="13" width="7" height="7" rx="1.5" /><path d="M16.5 13.5v6M13.5 16.5h6" /></>) },
+  { href: "/atendimento-automatico", rotulo: "Atendimento automático", pronto: true, icone: ic(<><rect x="5" y="8" width="14" height="11" rx="3" /><path d="M12 8V5M9.5 13h.01M14.5 13h.01M10 16.5h4" /><circle cx="12" cy="4" r="1" /></>) },
   { href: "/modelos", rotulo: "Modelos", pronto: true, icone: ic(<><path d="M7 3.5h7l4 4V20a.5.5 0 0 1-.5.5h-10.5a.5.5 0 0 1-.5-.5V4a.5.5 0 0 1 .5-.5z" /><path d="M14 3.5V8h4M9 12h6M9 15.5h6" /></>) },
   { href: "/equipe", rotulo: "Equipe e cargos", pronto: true, icone: ic(<><circle cx="8" cy="9" r="2.7" /><circle cx="16" cy="9" r="2.7" /><path d="M3.5 18.5a4.5 4.5 0 0 1 9 0M12.5 18.5a4.5 4.5 0 0 1 8 0" /></>) },
   { href: "/integracoes", rotulo: "Integrações", pronto: true, icone: ic(<path d="M9 6V3M15 6V3M7 6h10v4a5 5 0 0 1-10 0zM12 15v6" />) },
   { href: "/perfil", rotulo: "Meu perfil", pronto: true, icone: ic(<><circle cx="12" cy="8" r="3.4" /><path d="M5 19.5a7 7 0 0 1 14 0" /></>) },
 ];
+
+/** Dois toques curtos (não precisa de arquivo de som). */
+function tocarSom() {
+  try {
+    const ctx = new AudioContext();
+    [0, 0.18].forEach((t, i) => {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.frequency.value = i ? 880 : 660;
+      g.gain.setValueAtTime(0.0001, ctx.currentTime + t);
+      g.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime + t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + t + 0.16);
+      o.connect(g).connect(ctx.destination);
+      o.start(ctx.currentTime + t);
+      o.stop(ctx.currentTime + t + 0.18);
+    });
+    setTimeout(() => ctx.close(), 600);
+  } catch {}
+}
 
 export function Shell({ nome, cargo, children }: { nome: string; cargo: string; children: React.ReactNode }) {
   const caminho = usePathname();
@@ -40,6 +60,34 @@ export function Shell({ nome, cargo, children }: { nome: string; cargo: string; 
   const [aberto, setAberto] = useState(false);
 
   useEffect(() => setAberto(false), [caminho]);
+
+  // Conversas esperando resposta: contador no menu, no título da aba e um som quando chega mensagem nova
+  const [avisos, setAvisos] = useState(0);
+  const ultimaVista = useRef<string | null>(null);
+  useEffect(() => {
+    let ativo = true;
+    async function consultar() {
+      try {
+        const r = await fetch("/api/avisos", { cache: "no-store" });
+        if (!r.ok || !ativo) return;
+        const j = (await r.json()) as { total: number; ultima: { em: string | null } | null };
+        setAvisos(j.total);
+        const marca = j.ultima?.em ?? null;
+        if (ultimaVista.current !== null && marca && marca !== ultimaVista.current && j.total > 0) tocarSom();
+        ultimaVista.current = marca ?? "";
+      } catch {}
+    }
+    consultar();
+    const id = setInterval(consultar, 15000);
+    return () => {
+      ativo = false;
+      clearInterval(id);
+    };
+  }, []);
+  useEffect(() => {
+    const base = document.title.replace(/^\(\d+\) /, "");
+    document.title = avisos ? `(${avisos}) ${base}` : base;
+  }, [avisos, caminho]);
 
   function alternar() {
     if (window.matchMedia("(max-width: 760px)").matches) setAberto((v) => !v);
@@ -52,6 +100,7 @@ export function Shell({ nome, cargo, children }: { nome: string; cargo: string; 
       {i.icone}
       <span>{i.rotulo}</span>
       {!i.pronto && <span className="breve">em breve</span>}
+      {i.href === "/atendimento" && avisos > 0 && <span className="contador" aria-label={`${avisos} esperando resposta`}>{avisos > 99 ? "99+" : avisos}</span>}
     </Link>
   );
 

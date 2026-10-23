@@ -1,10 +1,10 @@
+import Link from "next/link";
 import { BotaoAcao } from "@/components/BotaoAcao";
 import { FormAcao } from "@/components/FormAcao";
 import { ConexaoWhatsApp } from "@/components/ConexaoWhatsApp";
 import { googleConfigurado } from "@/lib/google";
 import { quemSou } from "@/lib/permissoes";
 import { whatsappConfigurado } from "@/lib/whatsapp";
-import { alternarBot } from "../atendimento/actions";
 import { desconectarGoogle, importarClientesDoDrive, procurarPastaDeNovo } from "./actions";
 
 const AVISOS: Record<string, { tipo: "ok" | "erro" | "info"; texto: string }> = {
@@ -26,7 +26,6 @@ export default async function Integracoes({ searchParams }: { searchParams: Prom
   const configurado = googleConfigurado();
 
   const { data: cfg } = await supabase.from("configuracoes").select("chave, valor").in("chave", ["google_email", "pasta_clientes", "whatsapp_bot"]);
-  const botLigado = cfg?.find((c) => c.chave === "whatsapp_bot")?.valor !== false;
   const whatsapp = whatsappConfigurado();
   const email = cfg?.find((c) => c.chave === "google_email")?.valor as string | undefined;
   const pasta = cfg?.find((c) => c.chave === "pasta_clientes")?.valor as PastaConfig | undefined;
@@ -122,14 +121,8 @@ export default async function Integracoes({ searchParams }: { searchParams: Prom
         ) : (
           <>
             <ConexaoWhatsApp admin={admin} />
-            <div style={{ borderTop: "1px solid var(--line)", paddingTop: 14, display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-              <div style={{ flex: 1, minWidth: 240 }}>
-                <b style={{ fontWeight: 500 }}>Triagem automática</b> <span className={"chip" + (botLigado ? " good" : "")}>{botLigado ? "ligada" : "desligada"}</span>
-                <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--muted)" }}>
-                  Quem escreve pela primeira vez recebe o menu das áreas e, ao escolher, a lista de documentos da área. Desligada, a conversa vai direto para a fila.
-                </p>
-              </div>
-              {admin && <BotaoAcao acao={alternarBot.bind(null, !botLigado)} rotulo={botLigado ? "Desligar" : "Ligar"} />}
+            <div style={{ borderTop: "1px solid var(--line)", paddingTop: 14, fontSize: 13.5 }}>
+              Textos do bot, horário de expediente, áreas do menu e respostas rápidas: <Link href="/atendimento-automatico" style={{ color: "var(--accent)" }}>Atendimento automático</Link>.
             </div>
           </>
         )}

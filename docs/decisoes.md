@@ -115,3 +115,15 @@ tarefas e mensagens dela, só sem o nome. Para bloquear sem apagar, basta desmar
 O DataJud não informa o nome das partes (LGPD). Para ligar os processos antigos aos clientes, o
 botão "Procurar processos nas pastas" lê os nomes dos arquivos das pastas dos clientes, acha números
 no formato CNJ (conferindo os dígitos verificadores) e só cadastra depois da revisão.
+
+## Atendimento automático e avisos
+
+A triagem do WhatsApp segue as regras da página Atendimento automático (configuracoes.whatsapp_bot_config):
+sempre, só fora do expediente ou desligada; textos com {nome}, {menu}, {area} e {documentos}; áreas do menu;
+tentativas. Respostas rápidas ficam em configuracoes.respostas_rapidas e aparecem ao digitar "/" na conversa.
+
+Avisos de mensagem nova: conversas.aguardando_resposta liga quando o cliente escreve e desliga quando alguém
+da equipe responde (o bot não conta). O menu mostra o contador e toca um som; com notificações ligadas no
+aparelho (Web Push, chaves geradas pelo próprio CRM e guardadas em chaves_push), avisa mesmo com o CRM fechado.
+No iPhone, só com o app instalado na tela de início.
+

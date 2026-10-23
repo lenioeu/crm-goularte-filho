@@ -170,6 +170,8 @@ const api = [
   ["ícone do app (sem login)", base + "/icone-192.png", {}, 200],
   ["webhook sem senha", base + "/api/whatsapp/webhook", { method: "POST", body: "{}" }, 401],
   ["arquivo de mensagem sem login", base + "/api/whatsapp/midia/" + ID, {}, 401],
+  ["contador de avisos (logado)", base + "/api/avisos", { headers: { cookie } }, 200],
+  ["service worker das notificações (sem login)", base + "/sw.js", {}, 200],
   ["webhook com mensagem", base + "/api/whatsapp/webhook", { method: "POST", headers: { "x-crm-token": token, "content-type": "application/json" }, body: JSON.stringify(aviso) }, 200],
   ["envio dos agendamentos", base + "/api/whatsapp/agendadas", { method: "POST", headers: { authorization: "Bearer teste" } }, 200],
 ];

@@ -2,6 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BotaoAcao } from "@/components/BotaoAcao";
 import { FormAcao } from "@/components/FormAcao";
+import { LinhaDoTempo } from "@/components/LinhaDoTempo";
+import { linhaDoTempo } from "@/lib/linhaDoTempo";
 import { COLUNA_TAREFA, dataBR, dataHoraBR, ETAPA, telefoneBR, TIPO_AGENDAMENTO } from "@/lib/rotulos";
 import { quemSou } from "@/lib/permissoes";
 import { atualizarCliente, excluirCliente } from "../../actions";
@@ -44,6 +46,7 @@ export default async function FichaCliente({ params }: { params: Promise<{ id: s
       supabase.from("clientes").select("rg, nacionalidade, estado_civil, profissao, endereco, cep, genero").eq("id", id).maybeSingle(),
     ]);
 
+  const eventos = await linhaDoTempo(supabase, id);
   const area = um(c.areas as Rel<{ nome: string; cor: string }>);
   const resp = um(c.perfis as Rel<{ nome: string }>);
   const agora = Date.now();
@@ -177,6 +180,11 @@ export default async function FichaCliente({ params }: { params: Promise<{ id: s
           </div>
         </div>
       )}
+
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="ctitle"><h3>Linha do tempo</h3><span className="tag">{eventos.length} {eventos.length === 1 ? "registro" : "registros"}</span></div>
+        <LinhaDoTempo eventos={eventos} />
+      </div>
 
       <details className="card">
         <summary style={{ cursor: "pointer", fontWeight: 500 }}>Dados do cliente</summary>

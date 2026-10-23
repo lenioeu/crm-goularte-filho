@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { AtivarNotificacoes } from "@/components/AtivarNotificacoes";
 import { AtualizarSozinho } from "@/components/AtualizarSozinho";
 import { BotaoAcao } from "@/components/BotaoAcao";
 import { ComposerAtendimento } from "@/components/ComposerAtendimento";
@@ -10,8 +11,10 @@ import { VincularCliente } from "@/components/VincularCliente";
 import { quemSou } from "@/lib/permissoes";
 import { telefoneBR, TZ } from "@/lib/rotulos";
 import { whatsappConfigurado } from "@/lib/whatsapp";
+import { moverTarefa } from "../actions";
 import { criarPastaCliente } from "../integracoes/actions";
-import { assumirConversa, encerrarConversa, mudarArea, reabrirConversa, salvarDocumento } from "./actions";
+import { cadastrarProcesso } from "../processos/actions";
+import { assumirConversa, criarLembrete, encerrarConversa, mudarArea, reabrirConversa, salvarDocumento } from "./actions";
 
 type Rel<T> = T | T[] | null;
 const um = <T,>(r: Rel<T>): T | null => (Array.isArray(r) ? r[0] ?? null : r);
@@ -87,6 +90,19 @@ export default async function Atendimento({ searchParams }: { searchParams: Prom
         .limit(200)
     : { data: [] };
 
+  // Processos e lembretes (tarefas abertas) do cliente da conversa
+  const idCli = atual ? um(atual.clientes)?.id : null;
+  const [{ data: processosCli }, { data: lembretes }] = idCli
+    ? await Promise.all([
+        supabase.from("processos").select("id, numero_cnj, classe, casos!inner(cliente_id)").eq("casos.cliente_id", idCli).order("criado_em"),
+        supabase.from("tarefas").select("id, titulo, vence_em").eq("cliente_id", idCli).neq("coluna", "concluida").order("vence_em", { nullsFirst: false }).limit(10),
+      ])
+    : [{ data: [] }, { data: [] }];
+  const amanha = new Date(Date.now() + 86_400_000).toLocaleDateString("sv-SE", { timeZone: TZ });
+
+  const { data: cfgRespostas } = await supabase.from("configuracoes").select("valor").eq("chave", "respostas_rapidas").maybeSingle();
+  const respostas = (Array.isArray(cfgRespostas?.valor) ? cfgRespostas.valor : []) as { atalho: string; texto: string }[];
+
   const ligado = whatsappConfigurado();
   const abertoAgora = Boolean(atual || novoCliente.data);
   const cliAtual = atual ? um(atual.clientes) : null;
@@ -107,6 +123,7 @@ export default async function Atendimento({ searchParams }: { searchParams: Prom
         </div>
       )}
       {error && <div className="aviso erro" style={{ marginBottom: 16 }}>{error.message}</div>}
+      <AtivarNotificacoes compacto />
 
       <div className="filtros chat-abas" style={{ alignItems: "center" }}>
         {FILTROS.map((x) => (
@@ -177,6 +194,48 @@ export default async function Atendimento({ searchParams }: { searchParams: Prom
                 <Link className="btn sm" href={`/clientes/${cliAtual.id}/documentos?conversa=${atual.id}`}>📝 Documentos para assinar</Link>
               </div>
 
+              <details className="chat-extra">
+                <summary>
+                  {(processosCli ?? []).length ? (
+                    <span className="chip acc">⚖ {(processosCli ?? []).length} {(processosCli ?? []).length === 1 ? "processo" : "processos"}</span>
+                  ) : (
+                    <span className="chip warn">⚖ Nenhum processo cadastrado</span>
+                  )}
+                  {(lembretes ?? []).length > 0 && <span className="chip warn">🔔 {(lembretes ?? []).length} {(lembretes ?? []).length === 1 ? "lembrete" : "lembretes"}</span>}
+                  <span className="chat-extra-dica">processos e lembretes deste cliente</span>
+                </summary>
+                <div className="chat-extra-corpo">
+                  <div>
+                    <div className="dayhead" style={{ margin: "0 0 6px" }}>Processos</div>
+                    {(processosCli ?? []).map((p) => (
+                      <div key={p.id} style={{ fontSize: 13 }}>
+                        <span style={{ fontFamily: "var(--f-mono)" }}>{p.numero_cnj}</span>
+                        {p.classe && <span style={{ color: "var(--muted)" }}> · {p.classe}</span>}
+                      </div>
+                    ))}
+                    <FormAcao action={cadastrarProcesso} botao="+ Cadastrar processo" className="chat-mini" limparAoSalvar>
+                      <input type="hidden" name="cliente_id" value={cliAtual.id} />
+                      <input name="numero" required inputMode="numeric" placeholder="Nº do processo (CNJ)" aria-label="Número do processo" />
+                    </FormAcao>
+                    <small style={{ color: "var(--dim)", fontSize: 12 }}>Um cliente pode ter vários processos; cadastre um de cada vez.</small>
+                  </div>
+                  <div>
+                    <div className="dayhead" style={{ margin: "0 0 6px" }}>Lembretes</div>
+                    {(lembretes ?? []).map((t) => (
+                      <div key={t.id} style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13, marginBottom: 4 }}>
+                        <span style={{ flex: 1 }}>{t.titulo}{t.vence_em && <span style={{ color: "var(--muted)" }}> · até {t.vence_em.split("-").reverse().join("/")}</span>}</span>
+                        <BotaoAcao acao={moverTarefa.bind(null, t.id, "concluida")} rotulo="Feito" />
+                      </div>
+                    ))}
+                    <FormAcao action={criarLembrete} botao="+ Lembrete" className="chat-mini" limparAoSalvar>
+                      <input type="hidden" name="cliente_id" value={cliAtual.id} />
+                      <input name="titulo" required defaultValue={(processosCli ?? []).length ? "" : `Cadastrar o processo de ${cliAtual.nome}`} placeholder="O que precisa ser feito" aria-label="Lembrete" />
+                      <input name="vence_em" type="date" defaultValue={amanha} aria-label="Até quando" style={{ maxWidth: 150 }} />
+                    </FormAcao>
+                  </div>
+                </div>
+              </details>
+
               <FormAcao action={mudarArea} botao="Mudar área" className="chat-area" limparAoSalvar={false}>
                 <input type="hidden" name="conversa_id" value={atual.id} />
                 <select name="area_id" defaultValue={atual.area_id ?? ""} aria-label="Área da conversa">
@@ -213,7 +272,7 @@ export default async function Atendimento({ searchParams }: { searchParams: Prom
                 })}
               </div>
 
-              <ComposerAtendimento conversaId={atual.id} />
+              <ComposerAtendimento conversaId={atual.id} respostas={respostas} nomeCliente={cliAtual.nome} />
             </>
           ) : novoCliente.data ? (
             <>
@@ -225,7 +284,7 @@ export default async function Atendimento({ searchParams }: { searchParams: Prom
                 </div>
               </div>
               <div className="chat-msgs"><div className="vazio">Escreva abaixo para começar a conversa.</div></div>
-              <ComposerAtendimento clienteId={novoCliente.data.id} />
+              <ComposerAtendimento clienteId={novoCliente.data.id} respostas={respostas} nomeCliente={novoCliente.data.nome} />
             </>
           ) : (
             <div className="vazio" style={{ margin: "auto" }}><b>Escolha uma conversa</b>As que esperam resposta ficam na Fila.</div>

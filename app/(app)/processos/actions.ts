@@ -64,6 +64,7 @@ export async function cadastrarProcesso(_: Resultado, f: FormData): Promise<Resu
   const r = await registrar(supabase, user.id, numero, casoId, clienteId);
   if (r.ok) {
     revalidatePath("/processos");
+    revalidatePath("/atendimento");
     if (clienteId) revalidatePath(`/clientes/${clienteId}`);
   }
   return r;

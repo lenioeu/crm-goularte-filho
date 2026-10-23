@@ -77,6 +77,7 @@ export async function encerrarConversa(id: string): Promise<Resultado> {
   if (!papel) return { erro: "Sem permissão.", ok: null };
   const { error } = await supabase.from("conversas").update({ status: "resolvida" }).eq("id", id);
   if (error) return { erro: error.message, ok: null };
+  await supabase.from("conversas").update({ aguardando_resposta: false }).eq("id", id);
   revalidatePath("/atendimento");
   return { erro: null, ok: "Conversa encerrada." };
 }
@@ -194,14 +195,6 @@ export async function desconectarWhatsApp(): Promise<Resultado> {
   return { erro: null, ok: "WhatsApp desconectado. O celular sai da lista de aparelhos conectados." };
 }
 
-export async function alternarBot(ligar: boolean): Promise<Resultado> {
-  const { supabase, papel } = await quemSou();
-  if (papel !== "administrador") return { erro: "Só o administrador muda isso.", ok: null };
-  const { error } = await supabase.from("configuracoes").upsert({ chave: "whatsapp_bot", valor: ligar });
-  if (error) return { erro: error.message, ok: null };
-  revalidatePath("/integracoes");
-  return { erro: null, ok: ligar ? "Triagem automática ligada." : "Triagem automática desligada." };
-}
 
 // ------------------------------------------------------------------ Arquivos (áudio, vídeo, foto, documento)
 const ROTULO_MIDIA = { image: "imagem", video: "video", audio: "audio", document: "documento" } as const;
@@ -248,6 +241,7 @@ export async function enviarArquivoNaConversa(dados: {
     const atualizar: Record<string, unknown> = { ultima_mensagem_em: new Date().toISOString() };
     if (conv.status !== "em_atendimento" || !conv.atendente_id) Object.assign(atualizar, { status: "em_atendimento", atendente_id: conv.atendente_id ?? user.id });
     await supabase.from("conversas").update(atualizar).eq("id", dados.conversaId);
+    await supabase.from("conversas").update({ aguardando_resposta: false }).eq("id", dados.conversaId);
   } catch (e) {
     return { erro: `Não foi enviado: ${falha(e)}`, ok: null };
   }
@@ -320,4 +314,38 @@ export async function criarContato(_: Resultado, f: FormData): Promise<Resultado
   const { data, error } = await supabase.from("clientes").insert({ nome: nome.toUpperCase(), telefone_whatsapp: telefone, origem: "Atendimento" }).select("id").single();
   if (error) return { erro: /duplicate key/i.test(error.message) ? "Esse WhatsApp já está na ficha de outro cliente; procure pelo nome acima." : error.message, ok: null };
   redirect(`/atendimento?cliente=${data.id}`);
+}
+
+/** Lembrete deixado na conversa: vira uma tarefa ligada ao cliente, com você como responsável. */
+export async function criarLembrete(_: Resultado, f: FormData): Promise<Resultado> {
+  const { supabase, user, papel } = await quemSou();
+  if (!user || !papel) return { erro: "Sem permissão.", ok: null };
+  const clienteId = String(f.get("cliente_id") ?? "");
+  const titulo = String(f.get("titulo") ?? "").trim();
+  const vence = String(f.get("vence_em") ?? "").trim() || null;
+  if (!titulo) return { erro: "Escreva o lembrete.", ok: null };
+  const { error } = await supabase.from("tarefas").insert({ titulo, cliente_id: clienteId, responsavel_id: user.id, vence_em: vence });
+  if (error) return { erro: error.message, ok: null };
+  revalidatePath("/atendimento");
+  revalidatePath("/tarefas");
+  return { erro: null, ok: "Lembrete criado (aparece também em Tarefas)." };
+}
+
+// ------------------------------------------------------------------ Notificações no celular/computador
+export async function salvarInscricaoPush(sub: { endpoint: string; keys: { p256dh: string; auth: string } }): Promise<Resultado> {
+  const { supabase, user, papel } = await quemSou();
+  if (!user || !papel) return { erro: "Sem permissão.", ok: null };
+  if (!sub?.endpoint?.startsWith("https://") || !sub.keys?.p256dh || !sub.keys?.auth) return { erro: "Inscrição inválida.", ok: null };
+  const { error } = await supabase
+    .from("push_inscricoes")
+    .upsert({ perfil_id: user.id, endpoint: sub.endpoint, p256dh: sub.keys.p256dh, auth: sub.keys.auth }, { onConflict: "endpoint" });
+  if (error) return { erro: /relation|does not exist|schema cache/i.test(error.message) ? "Falta rodar o script supabase/008_avisos.sql no Supabase." : error.message, ok: null };
+  return { erro: null, ok: "Notificações ligadas neste aparelho." };
+}
+
+export async function removerInscricaoPush(endpoint: string): Promise<Resultado> {
+  const { supabase, papel } = await quemSou();
+  if (!papel) return { erro: "Sem permissão.", ok: null };
+  await supabase.from("push_inscricoes").delete().eq("endpoint", endpoint);
+  return { erro: null, ok: "Notificações desligadas neste aparelho." };
 }

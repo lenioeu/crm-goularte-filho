@@ -14,7 +14,17 @@ function nomeSeguro(nome: string) {
 const tamanho = (b: number) => (b > 1048576 ? `${(b / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`);
 
 // Campo de escrever da conversa: texto, nota interna, anexo (foto, vídeo, áudio, documento) e áudio gravado.
-export function ComposerAtendimento({ conversaId, clienteId }: { conversaId?: string; clienteId?: string }) {
+export function ComposerAtendimento({
+  conversaId,
+  clienteId,
+  respostas = [],
+  nomeCliente = "",
+}: {
+  conversaId?: string;
+  clienteId?: string;
+  respostas?: { atalho: string; texto: string }[];
+  nomeCliente?: string;
+}) {
   const router = useRouter();
   const [texto, setTexto] = useState("");
   const [nota, setNota] = useState(false);
@@ -28,6 +38,19 @@ export function ComposerAtendimento({ conversaId, clienteId }: { conversaId?: st
   const pedacos = useRef<Blob[]>([]);
   const cancelado = useRef(false);
   const campoArquivo = useRef<HTMLInputElement>(null);
+  const [verRespostas, setVerRespostas] = useState(false);
+  const [destaque, setDestaque] = useState(0);
+
+  // Respostas rápidas: "/" no começo do campo mostra as opções
+  const termo = texto.startsWith("/") && !/\s/.test(texto) ? texto.slice(1).toLowerCase() : null;
+  const opcoes = termo !== null || verRespostas ? respostas.filter((r) => !termo || r.atalho.startsWith(termo)).slice(0, 8) : [];
+  const primeiro = nomeCliente && !/^\d+$/.test(nomeCliente) ? nomeCliente.trim().split(/\s+/)[0] : "";
+  const nomeBonito = primeiro ? primeiro.charAt(0) + primeiro.slice(1).toLowerCase() : "";
+  function usarResposta(r: { texto: string }) {
+    setTexto(r.texto.replace(/\{nome\}/g, nomeBonito).replace(/,\s*([!?.])/g, "$1"));
+    setVerRespostas(false);
+    setDestaque(0);
+  }
 
   useEffect(() => {
     if (!gravando) return;
@@ -130,11 +153,27 @@ export function ComposerAtendimento({ conversaId, clienteId }: { conversaId?: st
             value={texto}
             onChange={(e) => setTexto(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) enviar();
+              if (opcoes.length && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
+                e.preventDefault();
+                setDestaque((d) => (d + (e.key === "ArrowDown" ? 1 : opcoes.length - 1)) % opcoes.length);
+              } else if (opcoes.length && (e.key === "Enter" || e.key === "Tab") && !e.ctrlKey && !e.metaKey) {
+                e.preventDefault();
+                usarResposta(opcoes[Math.min(destaque, opcoes.length - 1)]);
+              } else if (e.key === "Escape") setVerRespostas(false);
+              else if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) enviar();
             }}
-            placeholder={arquivo ? "Legenda (opcional)" : "Escreva a mensagem · Ctrl+Enter envia"}
+            placeholder={arquivo ? "Legenda (opcional)" : respostas.length ? "Escreva a mensagem · / para respostas rápidas · Ctrl+Enter envia" : "Escreva a mensagem · Ctrl+Enter envia"}
             aria-label="Mensagem"
           />
+          {opcoes.length > 0 && (
+            <div className="respostas-lista" role="listbox" aria-label="Respostas rápidas">
+              {opcoes.map((r, i) => (
+                <button key={r.atalho} type="button" role="option" aria-selected={i === destaque} className={"resposta-op" + (i === destaque ? " on" : "")} onMouseDown={(e) => { e.preventDefault(); usarResposta(r); }}>
+                  <code>/{r.atalho}</code> <span>{r.texto.slice(0, 90)}{r.texto.length > 90 ? "…" : ""}</span>
+                </button>
+              ))}
+            </div>
+          )}
           {arquivo && (
             <div className="anexo">
               📎 {arquivo.name} <small>({tamanho(arquivo.size)})</small>
@@ -153,6 +192,9 @@ export function ComposerAtendimento({ conversaId, clienteId }: { conversaId?: st
                 onChange={(e) => setArquivo(e.target.files?.[0] ?? null)}
                 accept="image/*,video/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx,.odt,.txt,.zip"
               />
+              {respostas.length > 0 && (
+                <button type="button" className="btn" onClick={() => setVerRespostas((v) => !v)} title="Respostas rápidas">⚡ Respostas</button>
+              )}
               <button type="button" className="btn" onClick={() => campoArquivo.current?.click()} disabled={pendente || nota || !conversaId} title={conversaId ? "Foto, vídeo, áudio ou documento" : "Mande um texto primeiro"}>
                 📎 Anexar
               </button>

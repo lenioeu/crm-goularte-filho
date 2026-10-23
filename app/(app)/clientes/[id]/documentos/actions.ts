@@ -115,6 +115,7 @@ export async function enviarDocumentoWhatsApp(_: Resultado, f: FormData): Promis
       whatsapp_id: whatsappId,
     });
     await supabase.from("conversas").update({ ultima_mensagem_em: new Date().toISOString() }).eq("id", conversa.id);
+    await supabase.from("conversas").update({ aguardando_resposta: false }).eq("id", conversa.id);
   } catch (e) {
     return { erro: `Salvei no Drive, mas não consegui mandar pelo WhatsApp: ${e instanceof Error ? e.message : e}`, ok: null };
   }
