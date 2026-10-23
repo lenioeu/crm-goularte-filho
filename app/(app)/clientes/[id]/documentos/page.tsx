@@ -7,7 +7,7 @@ import { advogadosDaEquipe, carregarCliente, dadosDoEscritorio, escolherAdvogado
 import { camposDoModelo, faltando, renderizar, usaAdvogados } from "@/lib/modelos";
 import { quemSou } from "@/lib/permissoes";
 import { TZ } from "@/lib/rotulos";
-import { gerarDocumento, salvarEscritorio } from "./actions";
+import { enviarDocumentoWhatsApp, gerarDocumento, salvarEscritorio } from "./actions";
 
 type Busca = Record<string, string | string[] | undefined>;
 const um = (x: string | string[] | undefined) => (Array.isArray(x) ? x[0] : x) ?? "";
@@ -15,6 +15,8 @@ const um = (x: string | string[] | undefined) => (Array.isArray(x) ? x[0] : x) ?
 export default async function Documentos({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Busca> }) {
   const { id } = await params;
   const q = await searchParams;
+  const conversa = /^[0-9a-f-]{36}$/.test(um(q.conversa)) ? um(q.conversa) : "";
+  const extraUrl = conversa ? `&conversa=${conversa}` : "";
   const { supabase, papel } = await quemSou();
   const [{ cliente, erro }, equipe, escritorio, { modelos }] = await Promise.all([
     carregarCliente(supabase, id),
@@ -37,7 +39,11 @@ export default async function Documentos({ params, searchParams }: { params: Pro
     <div className="view">
       <div className="vhead">
         <div>
-          <Link href={`/clientes/${id}`} style={{ color: "var(--accent)", fontSize: 13 }}>‹ {cliente?.nome ?? "Cliente"}</Link>
+          {conversa ? (
+            <Link href={`/atendimento?c=${conversa}`} style={{ color: "var(--accent)", fontSize: 13 }}>‹ Voltar para a conversa</Link>
+          ) : (
+            <Link href={`/clientes/${id}`} style={{ color: "var(--accent)", fontSize: 13 }}>‹ {cliente?.nome ?? "Cliente"}</Link>
+          )}
           <h1 style={{ marginTop: 4 }}>Documentos</h1>
           <p>
             Modelos do escritório preenchidos com os dados do cliente. Salve no Drive para revisar no Google Docs ou imprima direto. Para mudar o
@@ -50,7 +56,7 @@ export default async function Documentos({ params, searchParams }: { params: Pro
 
       <div className="filtros">
         {modelos.map((m) => (
-          <Link key={m.id} className={"fp" + (m.id === modelo.id ? " on" : "")} href={`/clientes/${id}/documentos?modelo=${m.id}`}>{m.nome}</Link>
+          <Link key={m.id} className={"fp" + (m.id === modelo.id ? " on" : "")} href={`/clientes/${id}/documentos?modelo=${m.id}${extraUrl}`}>{m.nome}</Link>
         ))}
       </div>
 
@@ -67,6 +73,7 @@ export default async function Documentos({ params, searchParams }: { params: Pro
             )}
             <form method="get" className="form">
               <input type="hidden" name="modelo" value={modelo.id} />
+              {conversa && <input type="hidden" name="conversa" value={conversa} />}
               {campos.map((c) => (
                 <div className="field full" key={c.chave}>
                   <label htmlFor={`campo_${c.chave}`}>{c.rotulo.charAt(0).toUpperCase() + c.rotulo.slice(1)}</label>
@@ -109,6 +116,26 @@ export default async function Documentos({ params, searchParams }: { params: Pro
                 </p>
               </FormAcao>
               <div style={{ marginTop: 10 }}><BotaoImprimir /></div>
+            </div>
+          )}
+
+          {cliente && conversa && (
+            <div className="card">
+              <div className="ctitle"><h3>Mandar para o cliente assinar</h3></div>
+              <FormAcao action={enviarDocumentoWhatsApp} botao="Enviar pelo WhatsApp (PDF)" className="form" limparAoSalvar={false}>
+                <input type="hidden" name="cliente_id" value={id} />
+                <input type="hidden" name="modelo" value={modelo.id} />
+                <input type="hidden" name="data" value={data} />
+                {idsAdv.map((a) => <input key={a} type="hidden" name="advogado" value={a} />)}
+                {campos.map((c) => <input key={c.chave} type="hidden" name={`campo_${c.chave}`} value={extra[c.chave]} />)}
+                <div className="field full">
+                  <label htmlFor="legenda">Mensagem junto com o arquivo</label>
+                  <textarea id="legenda" name="legenda" rows={2} defaultValue={`Segue o documento para assinatura. Qualquer dúvida, é só chamar por aqui.`} />
+                </div>
+                <p style={{ margin: 0, fontSize: 12.5, color: "var(--muted)", gridColumn: "1 / -1" }}>
+                  Manda o que está na prévia, em PDF, e guarda uma cópia na pasta do cliente. Confira a prévia antes.
+                </p>
+              </FormAcao>
             </div>
           )}
 

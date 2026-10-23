@@ -160,6 +160,16 @@ export async function enviarArquivo(
   });
 }
 
+/** Baixa um Google Docs convertido em PDF. */
+export async function exportarPdf(token: string, fileId: string): Promise<Buffer> {
+  const r = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}/export?mimeType=application/pdf`, {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: "no-store",
+  });
+  if (!r.ok) throw new Error(`Google respondeu ${r.status} ao gerar o PDF`);
+  return Buffer.from(await r.arrayBuffer());
+}
+
 // ------------------------------------------------------------------ Agenda
 export async function criarEvento(
   token: string,

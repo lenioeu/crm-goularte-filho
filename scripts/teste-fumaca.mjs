@@ -97,6 +97,7 @@ rotas.push(
   "/busca?q=teste", "/indicadores?mes=2026-01", "/funil?area=" + ID, "/processos?filtro=parados", "/processos?cliente=" + ID, "/modelos/novo",
   "/atendimento?c=" + ID, "/atendimento?f=encerradas", "/atendimento?cliente=" + ID,
   ...["procuracao", "hipossuficiencia", "contrato", "renuncia"].map((m) => `/clientes/${ID}/documentos?modelo=${m}`),
+  `/clientes/${ID}/documentos?conversa=${ID}`,
 );
 
 // ---------- CRM ----------

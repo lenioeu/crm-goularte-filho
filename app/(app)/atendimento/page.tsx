@@ -4,11 +4,13 @@ import { AtualizarSozinho } from "@/components/AtualizarSozinho";
 import { BotaoAcao } from "@/components/BotaoAcao";
 import { ComposerAtendimento } from "@/components/ComposerAtendimento";
 import { FormAcao } from "@/components/FormAcao";
+import { NovaConversa } from "@/components/NovaConversa";
 import { SalvarDocumento } from "@/components/SalvarDocumento";
 import { VincularCliente } from "@/components/VincularCliente";
 import { quemSou } from "@/lib/permissoes";
 import { telefoneBR, TZ } from "@/lib/rotulos";
 import { whatsappConfigurado } from "@/lib/whatsapp";
+import { criarPastaCliente } from "../integracoes/actions";
 import { assumirConversa, encerrarConversa, mudarArea, reabrirConversa, salvarDocumento } from "./actions";
 
 type Rel<T> = T | T[] | null;
@@ -45,7 +47,7 @@ type Conversa = {
   status: string;
   ultima_mensagem_em: string | null;
   atendente_id: string | null;
-  clientes: Rel<{ id: string; nome: string; telefone_whatsapp: string | null }>;
+  clientes: Rel<{ id: string; nome: string; telefone_whatsapp: string | null; pasta_drive_url: string | null }>;
   areas: Rel<{ nome: string; cor: string }>;
   perfis: Rel<{ nome: string }>;
 };
@@ -61,7 +63,7 @@ export default async function Atendimento({ searchParams }: { searchParams: Prom
     if (aberta) redirect(`/atendimento?c=${aberta.id}`);
   }
 
-  const campos = "id, status, ultima_mensagem_em, atendente_id, clientes(id, nome, telefone_whatsapp), areas(nome, cor), perfis(nome)";
+  const campos = "id, status, ultima_mensagem_em, atendente_id, clientes(id, nome, telefone_whatsapp, pasta_drive_url), areas(nome, cor), perfis(nome)";
   let consulta = supabase.from("conversas").select(campos).in("status", filtro.status).order("ultima_mensagem_em", { ascending: false, nullsFirst: false }).limit(100);
   if (filtro.id === "meus" && user) consulta = consulta.eq("atendente_id", user.id);
 
@@ -71,7 +73,7 @@ export default async function Atendimento({ searchParams }: { searchParams: Prom
     supabase.from("areas").select("id, nome").eq("ativa", true).order("ordem_bot"),
     c ? supabase.from("conversas").select(campos + ", area_id").eq("id", c).maybeSingle() : Promise.resolve({ data: null }),
     clienteParam && !c ? supabase.from("clientes").select("id, nome, telefone_whatsapp").eq("id", clienteParam).maybeSingle() : Promise.resolve({ data: null }),
-    c ? supabase.from("clientes").select("id, nome, cpf_cnpj").order("nome").limit(5000) : Promise.resolve({ data: [] as { id: string; nome: string; cpf_cnpj: string | null }[] }),
+    supabase.from("clientes").select("id, nome, cpf_cnpj, telefone_whatsapp").order("nome").limit(5000),
   ]);
   const conversas = (lista ?? []) as unknown as Conversa[];
   const atual = sel.data as unknown as (Conversa & { area_id: string | null }) | null;
@@ -106,13 +108,14 @@ export default async function Atendimento({ searchParams }: { searchParams: Prom
       )}
       {error && <div className="aviso erro" style={{ marginBottom: 16 }}>{error.message}</div>}
 
-      <div className="filtros chat-abas">
+      <div className="filtros chat-abas" style={{ alignItems: "center" }}>
         {FILTROS.map((x) => (
           <Link key={x.id} className={"fp" + (x.id === filtro.id ? " on" : "")} href={`/atendimento?f=${x.id}`}>
             {x.rotulo}
             {x.id === "fila" && naFila ? ` · ${naFila}` : ""}
           </Link>
         ))}
+        <NovaConversa clientes={clientes ?? []} />
       </div>
 
       <div className={"chat" + (abertoAgora ? " aberto" : "")}>
@@ -162,6 +165,16 @@ export default async function Atendimento({ searchParams }: { searchParams: Prom
                     <BotaoAcao acao={reabrirConversa.bind(null, atual.id)} rotulo="Reabrir" />
                   )}
                 </div>
+              </div>
+
+              <div className="chat-atalhos">
+                <Link className="btn sm" href={`/clientes/${cliAtual.id}`}>👤 Ficha do cliente</Link>
+                {cliAtual.pasta_drive_url ? (
+                  <a className="btn sm" href={cliAtual.pasta_drive_url} target="_blank" rel="noopener">📁 Abrir pasta no Drive</a>
+                ) : (
+                  <BotaoAcao acao={criarPastaCliente.bind(null, cliAtual.id)} rotulo="📁 Criar pasta no Drive" />
+                )}
+                <Link className="btn sm" href={`/clientes/${cliAtual.id}/documentos?conversa=${atual.id}`}>📝 Documentos para assinar</Link>
               </div>
 
               <FormAcao action={mudarArea} botao="Mudar área" className="chat-area" limparAoSalvar={false}>

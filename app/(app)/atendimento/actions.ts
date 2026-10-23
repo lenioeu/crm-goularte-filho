@@ -308,3 +308,16 @@ export async function vincularCliente(conversaId: string, clienteId: string): Pr
   revalidatePath("/clientes");
   return { erro: null, ok: `Conversa ligada a ${para.nome}.${provisorio ? " O cadastro provisório foi juntado e apagado." : ""}${aviso}` };
 }
+
+/** Cadastra um contato novo (nome + WhatsApp) e abre a conversa com ele. */
+export async function criarContato(_: Resultado, f: FormData): Promise<Resultado> {
+  const { supabase, papel } = await quemSou();
+  if (!papel) return { erro: "Sem permissão.", ok: null };
+  const nome = String(f.get("nome") ?? "").trim();
+  const telefone = String(f.get("telefone") ?? "").replace(/\D/g, "");
+  if (!nome) return { erro: "Informe o nome.", ok: null };
+  if (telefone.length < 10) return { erro: "Informe o WhatsApp com DDD.", ok: null };
+  const { data, error } = await supabase.from("clientes").insert({ nome: nome.toUpperCase(), telefone_whatsapp: telefone, origem: "Atendimento" }).select("id").single();
+  if (error) return { erro: /duplicate key/i.test(error.message) ? "Esse WhatsApp já está na ficha de outro cliente; procure pelo nome acima." : error.message, ok: null };
+  redirect(`/atendimento?cliente=${data.id}`);
+}

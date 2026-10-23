@@ -329,3 +329,7 @@ details.novo[open] > summary { margin-bottom: 14px; }
 .vincular-item small { color: var(--muted); }
 .vincular-vazio { font-size: 13px; color: var(--muted); padding: 6px 10px; }
 .doc-link { font-size: 13.5px; color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.chat-atalhos { display: flex; gap: 8px; flex-wrap: wrap; }
+.nova-contato { display: flex; flex-direction: column; gap: 6px; border-top: 1px solid var(--line); margin-top: 6px; padding-top: 4px; }
+.nova-contato input { height: 34px; border-radius: 8px; border: 1px solid var(--line-2); background: var(--panel); color: var(--fg); padding: 0 10px; font-size: 13.5px; }
+a.vincular-item { display: block; text-decoration: none; }
