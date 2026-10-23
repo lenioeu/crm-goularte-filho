@@ -601,3 +601,17 @@ kbd { font-family: var(--f-mono); font-size: 11px; border: 1px solid var(--line-
 .ficha-novo > summary::-webkit-details-marker { display: none; }
 .ficha-novo[open] > summary .btn { background: var(--accent-soft); color: var(--accent-soft-ink); border-color: transparent; }
 .form.form-compacto { grid-template-columns: 1fr; margin-top: 10px; }
+/* janela por cima da tela (ex.: cadastrar como cliente) */
+.modal-fundo { position: fixed; inset: 0; z-index: 90; background: rgba(0, 0, 0, 0.35); display: grid; place-items: start center; padding: 6vh 16px 16px; overflow-y: auto; }
+.modal { width: min(640px, 100%); box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); }
+.hbtn-claro { margin-left: auto; width: 34px; height: 34px; border-radius: 50%; border: none; background: none; color: var(--muted); display: grid; place-items: center; cursor: pointer; }
+.hbtn-claro:hover { background: var(--panel-2); }
+.modelos-aud { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; margin: 0; }
+.modelos-aud legend { font-size: 12.5px; color: var(--muted); padding: 0 6px; }
+.modelos-aud label { display: flex; align-items: center; gap: 8px; font-size: 13.5px; }
+.modelos-aud small { color: var(--dim); }
+.dica-link { font-size: 12.5px; color: var(--accent); align-self: flex-start; }
+.modelo-msg { display: block; }
+.modelo-msg > summary { cursor: pointer; display: flex; flex-direction: column; gap: 2px; }
+.modelo-msg > summary small { color: var(--muted); font-size: 12.5px; }
+.modelo-msg[open] > summary { margin-bottom: 12px; }

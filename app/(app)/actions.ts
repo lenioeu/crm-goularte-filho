@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { criarEvento, excluirEvento, tokenDeAcesso } from "@/lib/google";
 import { randomInt } from "node:crypto";
+import { ehDeAudiencia, lerModelosMensagem, preencherMensagem, quandoEnviar } from "@/lib/modelosMensagem";
 import { quemSou } from "@/lib/permissoes";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { supabaseServer } from "@/lib/supabase/server";
@@ -191,12 +192,6 @@ export async function moverTarefa(id: string, coluna: string): Promise<Resultado
 }
 
 // ---------------------------------------------------------------- audiências
-const nomeProprio = (nome: string) =>
-  nome
-    .toLowerCase()
-    .split(/\s+/)[0]
-    .replace(/^./, (c) => c.toUpperCase());
-
 export async function criarAudiencia(_: Resultado, f: FormData): Promise<Resultado> {
   const processoId = texto(f, "processo_id");
   const tipo = texto(f, "tipo_outro") ?? texto(f, "tipo");
@@ -262,49 +257,28 @@ export async function criarAudiencia(_: Resultado, f: FormData): Promise<Resulta
     agenda = " Não foi possível adicionar ao Google Agenda agora.";
   }
 
-  // Lembretes ao cliente pelo WhatsApp: 3 dias antes (10h) e/ou na véspera (18h)
-  const [, m, d] = data.split("-");
-  const onde = local ? `, em ${local}` : modalidade === "video" ? ", por vídeo (o link foi enviado)" : "";
-  const saudacao = `Olá, ${nomeProprio(nomeCliente) || "tudo bem"}!`;
-  const diaSemana = new Date(`${data}T12:00:00-03:00`).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo", weekday: "long" });
-  const pedidos: { diasAntes: number; hora: string; texto: string }[] = [];
-  if (f.get("lembrete3") === "on") {
-    pedidos.push({
-      diasAntes: 3,
-      hora: "10:00",
-      texto:
-        `${saudacao} Passando para lembrar que a sua audiência de ${tipo.toLowerCase()} é na ${diaSemana}, ${d}/${m}, às ${hora}${onde}. ` +
-        `Se tiver algum documento ou testemunha para a audiência, fale com a gente por aqui até a véspera.\nGoularte Filho Advocacia`,
-    });
-  }
-  if (f.get("lembrete") === "on") {
-    pedidos.push({
-      diasAntes: 1,
-      hora: "18:00",
-      texto:
-        `${saudacao} Passando para lembrar da sua audiência de ${tipo.toLowerCase()} amanhã, ${d}/${m}, às ${hora}${onde}. ` +
-        `Chegue com 30 minutos de antecedência e leve um documento com foto. Qualquer dúvida, é só responder aqui.\nGoularte Filho Advocacia`,
-    });
-  }
+  // Mensagens ao cliente pelos modelos marcados no formulário (Mensagens agendadas › Modelos)
+  const { modelos } = await lerModelosMensagem(supabase);
+  const dadosAud = { inicio, tipo, local, modalidade, processo: processo.numero_cnj };
   const programados: string[] = [];
-  for (const p of pedidos) {
-    const dia = new Date(`${data}T12:00:00-03:00`);
-    dia.setUTCDate(dia.getUTCDate() - p.diasAntes);
-    const diaIso = dia.toISOString().slice(0, 10);
-    const enviarEm = `${diaIso}T${p.hora}:00-03:00`;
+  for (const m of modelos.filter((x) => ehDeAudiencia(x.gatilho) && f.get(`modelo_${x.id}`) === "on")) {
+    const q = quandoEnviar(m, inicio);
+    if (!q) continue;
+    const enviarEm = `${q.data}T${q.hora}:00-03:00`;
     if (!caso?.cliente_id || new Date(enviarEm).getTime() <= Date.now()) continue; // já passou: não programa
     const { error: e2 } = await supabase.from("mensagens_agendadas").insert({
       cliente_id: caso.cliente_id,
       audiencia_id: aud.id,
       tipo: "lembrete_audiencia",
-      texto: p.texto,
+      texto: preencherMensagem(m.texto, nomeCliente, dadosAud),
       enviar_em: enviarEm,
+      cancelar_se_responder: m.cancelar_se_responder,
       automatico: true,
       criado_por: user?.id ?? null,
     });
-    if (!e2) programados.push(`${diaIso.slice(8, 10)}/${diaIso.slice(5, 7)} às ${p.hora.replace(":00", "h")}`);
+    if (!e2) programados.push(`${q.data.slice(8, 10)}/${q.data.slice(5, 7)} às ${q.hora.replace(":00", "h")}`);
   }
-  const lembrete = programados.length ? ` Lembrete${programados.length > 1 ? "s" : ""} ao cliente: ${programados.join(" e ")}.` : "";
+  const lembrete = programados.length ? ` Mensage${programados.length > 1 ? "ns" : "m"} ao cliente: ${programados.join(", ")}.` : "";
 
   revalidatePath("/audiencias");
   revalidatePath("/");

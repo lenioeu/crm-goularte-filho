@@ -1,9 +1,12 @@
 import Link from "next/link";
 import { BotaoAcao } from "@/components/BotaoAcao";
+import { CamposModeloMensagem } from "@/components/CamposModeloMensagem";
+import { FormAcao } from "@/components/FormAcao";
 import { FormAgendamento } from "@/components/FormAgendamento";
+import { type DadosAudiencia, GATILHOS, lerModelosMensagem } from "@/lib/modelosMensagem";
 import { TIPO_AGENDAMENTO, TZ } from "@/lib/rotulos";
 import { supabaseServer } from "@/lib/supabase/server";
-import { cancelarAgendamento, criarAgendamento, reativarAgendamento } from "./actions";
+import { cancelarAgendamento, criarAgendamento, excluirModeloMensagem, reativarAgendamento, salvarModeloMensagem } from "./actions";
 
 type Item = {
   id: string;
@@ -56,11 +59,19 @@ export default async function Agendamentos({ searchParams }: { searchParams: Pro
   const { cliente } = await searchParams;
   const supabase = await supabaseServer();
   const campos = "id, tipo, texto, enviar_em, status, automatico, cancelar_se_responder, erro, clientes(id, nome)";
-  const [{ data: clientes }, { data: programadas, error }, { data: recentes }] = await Promise.all([
+  const [{ data: clientes }, { data: programadas, error }, { data: recentes }, { modelos, tabela }, { data: auds }] = await Promise.all([
     supabase.from("clientes").select("id, nome").order("nome").limit(3000),
     supabase.from("mensagens_agendadas").select(campos).eq("status", "programada").order("enviar_em").limit(300),
     supabase.from("mensagens_agendadas").select(campos).neq("status", "programada").order("enviar_em", { ascending: false }).limit(20),
+    lerModelosMensagem(supabase),
+    supabase.from("audiencias").select("inicio, tipo, local, modalidade, processos(numero_cnj), casos(cliente_id)").gte("inicio", new Date().toISOString()).order("inicio").limit(500),
   ]);
+  // Próxima audiência de cada cliente, para os modelos "antes/depois da audiência"
+  const audiencias: Record<string, DadosAudiencia> = {};
+  for (const a of (auds ?? []) as unknown as { inicio: string; tipo: string; local: string | null; modalidade: string; processos: { numero_cnj: string } | null; casos: { cliente_id: string } | null }[]) {
+    const id = a.casos?.cliente_id;
+    if (id && !audiencias[id]) audiencias[id] = { inicio: a.inicio, tipo: a.tipo, local: a.local, modalidade: a.modalidade, processo: a.processos?.numero_cnj ?? null };
+  }
   const fila = (programadas ?? []) as unknown as Item[];
 
   return (
@@ -69,8 +80,8 @@ export default async function Agendamentos({ searchParams }: { searchParams: Pro
         <div>
           <h1>Mensagens agendadas</h1>
           <p>
-            Programe uma mensagem de WhatsApp para dia e hora certos. Os lembretes da véspera das audiências entram aqui sozinhos.
-            Os envios começam quando o WhatsApp do escritório for ligado ao sistema.
+            Programe uma mensagem de WhatsApp para dia e hora certos, do zero ou por um modelo. As mensagens das audiências entram aqui
+            sozinhas, pelos modelos marcados ao agendar a audiência.
           </p>
         </div>
       </div>
@@ -78,7 +89,7 @@ export default async function Agendamentos({ searchParams }: { searchParams: Pro
       <div className="grid cols-2e">
         <div className="card">
           <div className="ctitle"><h3>Nova mensagem</h3></div>
-          <FormAgendamento action={criarAgendamento} clientes={clientes ?? []} clienteInicial={cliente} />
+          <FormAgendamento action={criarAgendamento} clientes={clientes ?? []} clienteInicial={cliente} modelos={modelos} audiencias={audiencias} />
           <p style={{ fontSize: 12, color: "var(--dim)", margin: "12px 0 0" }}>
             Follow-up é só para quem procurou o escritório: mensagem para quem nunca fez contato esbarra na regra da OAB contra captação de clientes.
           </p>
@@ -94,6 +105,45 @@ export default async function Agendamentos({ searchParams }: { searchParams: Pro
             </>
           )}
         </div>
+      </div>
+
+      <div className="card" id="modelos" style={{ marginTop: 16 }}>
+        <div className="ctitle"><h3>Modelos de mensagem</h3><span className="tag">{modelos.length} {modelos.length === 1 ? "modelo" : "modelos"}</span></div>
+        <p style={{ margin: "0 0 12px", color: "var(--muted)", fontSize: 13.5 }}>
+          Mensagens prontas que já sabem quando sair. Os modelos ligados à audiência viram caixinhas no formulário de audiência; todos aparecem em
+          “Usar modelo” aqui e no “Programar” da conversa.
+        </p>
+        {!tabela && <div className="aviso info" style={{ marginBottom: 12 }}>Estes são os modelos de fábrica. Para editar, criar ou apagar, rode o script supabase/013_modelos_mensagem.sql no Supabase.</div>}
+        <div className="list">
+          {modelos.map((m) => (
+            <details key={m.id} className="li modelo-msg">
+              <summary>
+                <b>{m.nome}</b>
+                <small>
+                  {m.gatilho === "livre" ? "quando você escolher" : `${m.dias} ${GATILHOS.find((g) => g.id === m.gatilho)?.rotulo.replace("dias", m.dias === 1 ? "dia" : "dias")}`}
+                  {m.gatilho !== "livre" && `, às ${m.hora}`}
+                  {m.marcado && " · já vem marcado na audiência"}
+                </small>
+              </summary>
+              <FormAcao action={salvarModeloMensagem} botao="Salvar modelo" className="form" limparAoSalvar={false}>
+                <CamposModeloMensagem m={m} />
+              </FormAcao>
+              {tabela && (
+                <div style={{ marginTop: 10 }}>
+                  <BotaoAcao acao={excluirModeloMensagem.bind(null, m.id)} rotulo="Apagar modelo" className="btn sm perigo" confirmar={`Apagar o modelo “${m.nome}”?`} />
+                </div>
+              )}
+            </details>
+          ))}
+        </div>
+        {tabela && (
+          <details className="ficha-novo" style={{ marginTop: 12 }}>
+            <summary><span className="btn sm">+ Novo modelo</span></summary>
+            <FormAcao action={salvarModeloMensagem} botao="Criar modelo" className="form" limparAoSalvar>
+              <CamposModeloMensagem />
+            </FormAcao>
+          </details>
+        )}
       </div>
     </div>
   );

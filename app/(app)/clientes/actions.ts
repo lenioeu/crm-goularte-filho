@@ -73,3 +73,45 @@ export async function removerTipoContato(nome: string): Promise<Resultado> {
 export async function criarTipoContato(_: Resultado, f: FormData): Promise<Resultado> {
   return adicionarTipoContato(String(f.get("tipo") ?? ""));
 }
+
+/** "Tornar cliente" pela conversa: completa o cadastro do contato e passa para a lista de Clientes. */
+export async function cadastrarComoCliente(_: Resultado, f: FormData): Promise<Resultado> {
+  const { supabase, papel } = await quemSou();
+  if (!papel) return { erro: "Sem permissão.", ok: null };
+  const valor = (k: string) => {
+    const v = f.get(k);
+    return typeof v === "string" && v.trim() ? v.trim() : null;
+  };
+  const id = valor("id");
+  const nome = valor("nome");
+  if (!id) return { erro: "Cadastro não encontrado.", ok: null };
+  if (!nome) return { erro: "Informe o nome completo.", ok: null };
+  const basicos = {
+    nome: nome.toUpperCase(),
+    cpf_cnpj: valor("cpf")?.toUpperCase() ?? null,
+    email: valor("email"),
+    area_id: valor("area_id"),
+    origem: valor("origem")?.toUpperCase() ?? null,
+  };
+  const endereco = { cep: valor("cep"), endereco: valor("endereco")?.toUpperCase() ?? null };
+  // Tenta tudo; sem o script 004 (endereço) ou 012 (situação), grava o que der
+  const tentativas: Record<string, unknown>[] = [
+    { ...basicos, ...endereco, situacao: "cliente" },
+    { ...basicos, situacao: "cliente" },
+    { ...basicos, ...endereco },
+    basicos,
+  ];
+  let erro: string | null = null;
+  for (const dados of tentativas) {
+    const { error } = await supabase.from("clientes").update(dados).eq("id", id);
+    if (!error) {
+      erro = null;
+      break;
+    }
+    erro = error.message;
+    if (!/column|schema cache|situacao|cep|endereco/i.test(error.message)) break;
+  }
+  if (erro) return { erro: /duplicate key/i.test(erro) ? "Já existe outro cadastro com esse WhatsApp ou CPF. Use “Vincular a cliente”." : erro, ok: null };
+  atualizarTelas(id);
+  return { erro: null, ok: `${nome.toUpperCase()} agora é cliente.` };
+}

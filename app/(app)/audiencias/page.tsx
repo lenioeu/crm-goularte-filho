@@ -1,5 +1,6 @@
 import { ExcluirAudiencia } from "@/components/ExcluirAudiencia";
 import { FormAudiencia, type ProcessoOpcao } from "@/components/FormAudiencia";
+import { lerModelosMensagem } from "@/lib/modelosMensagem";
 import { supabaseServer } from "@/lib/supabase/server";
 
 const TZ = "America/Sao_Paulo";
@@ -51,11 +52,12 @@ export default async function Audiencias({ searchParams }: { searchParams: Promi
   const ha30 = new Date(Date.now() - 30 * 86_400_000).toISOString();
   const campos = "id, tipo, inicio, local, modalidade, observacoes, perfis(nome), processos(numero_cnj), casos(titulo, clientes(nome), areas(nome, cor))";
 
-  const [{ data: proximas, error }, { data: passadas }, { data: procs }, { data: pessoas }] = await Promise.all([
+  const [{ data: proximas, error }, { data: passadas }, { data: procs }, { data: pessoas }, { modelos: modelosMensagem }] = await Promise.all([
     supabase.from("audiencias").select(campos).gte("inicio", inicioHoje).order("inicio").limit(300),
     supabase.from("audiencias").select(campos).lt("inicio", inicioHoje).gte("inicio", ha30).order("inicio", { ascending: false }).limit(100),
     supabase.from("processos").select("id, numero_cnj, vara, casos(clientes(nome))").order("criado_em", { ascending: false }).limit(3000),
     supabase.from("perfis").select("id, nome").eq("ativo", true).order("nome"),
+    lerModelosMensagem(supabase),
   ]);
 
   const lista = (proximas ?? []) as unknown as Audiencia[];
@@ -78,8 +80,8 @@ export default async function Audiencias({ searchParams }: { searchParams: Promi
         <div>
           <h1>Audiências</h1>
           <p>
-            Cada audiência entra na Google Agenda do escritório e programa lembretes ao cliente pelo WhatsApp: 3 dias antes, às 10h, e na
-            véspera, às 18h (dá para desmarcar qualquer um ao cadastrar).
+            Cada audiência entra na Google Agenda do escritório e programa mensagens ao cliente pelo WhatsApp, pelos modelos que você marcar
+            ao cadastrar (os modelos ficam em Mensagens agendadas).
           </p>
         </div>
       </div>
@@ -89,7 +91,7 @@ export default async function Audiencias({ searchParams }: { searchParams: Promi
         {opcoes.length === 0 ? (
           <div className="aviso info">Toda audiência fica ligada a um processo. Cadastre o processo primeiro em Processos.</div>
         ) : (
-          <FormAudiencia processos={opcoes} pessoas={pessoas ?? []} />
+          <FormAudiencia processos={opcoes} pessoas={pessoas ?? []} modelosMensagem={modelosMensagem} />
         )}
       </details>
 

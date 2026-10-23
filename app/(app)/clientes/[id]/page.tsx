@@ -16,6 +16,7 @@ import { IconeDrive } from "@/components/IconeDrive";
 import { Icone } from "@/components/Icone";
 import { corDoNome, iniciais } from "@/lib/avatar";
 import { lerTiposContato } from "@/lib/contatos";
+import { lerModelosMensagem } from "@/lib/modelosMensagem";
 import { TipoContato } from "@/components/TipoContato";
 import { tornarCliente, voltarAContato } from "../actions";
 
@@ -56,10 +57,11 @@ export default async function FichaCliente({ params }: { params: Promise<{ id: s
     ]);
 
   // Contato ou cliente (separado: as colunas só existem depois do script 012)
-  const [eventos, { data: situacao }, tiposContato] = await Promise.all([
+  const [eventos, { data: situacao }, tiposContato, { modelos: modelosMensagem }] = await Promise.all([
     linhaDoTempo(supabase, id),
     supabase.from("clientes").select("situacao, contato_tipo").eq("id", id).maybeSingle(),
     lerTiposContato(supabase),
+    lerModelosMensagem(supabase),
   ]);
   const ehContato = situacao?.situacao === "contato";
   const area = um(c.areas as Rel<{ nome: string; cor: string }>);
@@ -224,7 +226,7 @@ export default async function FichaCliente({ params }: { params: Promise<{ id: s
                   A audiência fica ligada a um processo. <Link href={`/processos?cliente=${c.id}`} style={{ color: "var(--accent)" }}>Cadastre o processo</Link> primeiro.
                 </div>
               ) : (
-                <FormAudiencia processos={(processos ?? []).map((p) => ({ id: p.id, numero_cnj: p.numero_cnj, vara: p.vara }))} pessoas={pessoas ?? []} compacto />
+                <FormAudiencia processos={(processos ?? []).map((p) => ({ id: p.id, numero_cnj: p.numero_cnj, vara: p.vara }))} pessoas={pessoas ?? []} modelosMensagem={modelosMensagem} compacto />
               )}
             </details>
             {proximas.length + passadas.length === 0 ? (

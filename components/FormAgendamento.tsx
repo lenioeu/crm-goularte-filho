@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useMemo, useState } from "react";
 import type { Resultado } from "@/app/(app)/actions";
+import { type DadosAudiencia, ehDeAudiencia, type ModeloMensagem, preencherMensagem, quandoEnviar } from "@/lib/modelosMensagem";
 import { primeiroNome } from "@/lib/rotulos";
 
 type Acao = (estado: Resultado, dados: FormData) => Promise<Resultado>;
@@ -21,14 +22,21 @@ export function FormAgendamento({
   action,
   clientes,
   clienteInicial,
+  modelos = [],
+  audiencias = {},
 }: {
   action: Acao;
   clientes: { id: string; nome: string }[];
   clienteInicial?: string;
+  modelos?: ModeloMensagem[];
+  /** Próxima audiência de cada cliente, para os modelos ligados à audiência */
+  audiencias?: Record<string, DadosAudiencia>;
 }) {
   const [estado, enviar, pendente] = useActionState(action, { erro: null, ok: null });
   const [clienteId, setClienteId] = useState(clienteInicial ?? "");
-  const [tipo, setTipo] = useState<"follow_up" | "livre">("follow_up");
+  const [tipo, setTipo] = useState<"follow_up" | "livre" | "lembrete_audiencia">("follow_up");
+  const [modeloId, setModeloId] = useState("");
+  const [avisoModelo, setAvisoModelo] = useState<string | null>(null);
   const [texto, setTexto] = useState(MODELOS.follow_up);
   const [data, setData] = useState(diaMais(2));
   const [hora, setHora] = useState("10:00");
@@ -38,9 +46,30 @@ export function FormAgendamento({
 
   useEffect(() => {
     if (estado.ok) {
-      setTexto(MODELOS[tipo]);
+      setTexto(MODELOS[tipo] ?? MODELOS.livre);
+      setModeloId("");
     }
   }, [estado, tipo]);
+
+  /** "Usar modelo": texto, dia e hora vêm do modelo (e da próxima audiência do cliente, quando for o caso). */
+  function usarModelo(id: string) {
+    setModeloId(id);
+    setAvisoModelo(null);
+    const m = modelos.find((x) => x.id === id);
+    if (!m) return;
+    const aud = audiencias[clienteId] ?? null;
+    if (ehDeAudiencia(m.gatilho) && !aud) {
+      setAvisoModelo(clienteId ? "Este cliente não tem audiência marcada: o texto entrou, mas confira os dados e escolha o dia." : "Escolha o cliente primeiro para preencher os dados da audiência.");
+    }
+    setTexto(preencherMensagem(m.texto, "", aud));
+    const q = quandoEnviar(m, aud?.inicio);
+    if (q) {
+      setData(q.data);
+      setHora(q.hora);
+    }
+    setCancelar(m.cancelar_se_responder);
+    setTipo(ehDeAudiencia(m.gatilho) ? "lembrete_audiencia" : m.gatilho === "depois_de_hoje" ? "follow_up" : "livre");
+  }
 
   function trocarTipo(t: "follow_up" | "livre") {
     setTipo(t);
@@ -64,12 +93,23 @@ export function FormAgendamento({
           {clientes.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
         </select>
       </div>
+      {modelos.length > 0 && (
+        <div className="field full">
+          <label htmlFor="modelo_msg">Usar modelo</label>
+          <select id="modelo_msg" value={modeloId} onChange={(e) => usarModelo(e.target.value)}>
+            <option value="">Escrever do zero</option>
+            {modelos.map((m) => <option key={m.id} value={m.id}>{m.nome}</option>)}
+          </select>
+          {avisoModelo && <small style={{ color: "var(--warn)", fontSize: 12 }}>{avisoModelo}</small>}
+        </div>
+      )}
       <div className="field full">
         <label>Tipo</label>
         <input type="hidden" name="tipo" value={tipo} />
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button type="button" className={"fp" + (tipo === "follow_up" ? " on" : "")} onClick={() => trocarTipo("follow_up")}>Follow-up</button>
           <button type="button" className={"fp" + (tipo === "livre" ? " on" : "")} onClick={() => trocarTipo("livre")}>Mensagem livre</button>
+          {tipo === "lembrete_audiencia" && <button type="button" className="fp on">Lembrete de audiência</button>}
         </div>
       </div>
       <div className="field"><label htmlFor="data">Dia</label><input id="data" name="data" type="date" required value={data} onChange={(e) => setData(e.target.value)} /></div>

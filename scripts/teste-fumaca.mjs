@@ -22,6 +22,7 @@ const VALORES = {
   pasta_drive_url: "https://drive.google.com/drive/folders/x", chave: "pasta_clientes", valor: "x",
   movimentos: [{ data: hoje, nome: "Juntada de petição" }], ordem_bot: 1, oab: "RS 000000",
   situacao: "contato", contato_tipo: "Interessado",
+  gatilho: "antes_audiencia", dias: 2, hora: "10:00", marcado: true,
 };
 function valor(campo) {
   if (campo in VALORES) return VALORES[campo];

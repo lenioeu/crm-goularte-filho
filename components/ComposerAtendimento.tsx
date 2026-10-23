@@ -38,11 +38,14 @@ export function ComposerAtendimento({
   clienteId,
   respostas = [],
   nomeCliente = "",
+  modelos = [],
 }: {
   conversaId?: string;
   clienteId?: string;
   respostas?: { atalho: string; texto: string }[];
   nomeCliente?: string;
+  /** Modelos de mensagem já preenchidos para este cliente, com o dia e a hora sugeridos */
+  modelos?: { id: string; nome: string; texto: string; quando: { data: string; hora: string }; cancelar: boolean }[];
 }) {
   const router = useRouter();
   const [texto, setTexto] = useState("");
@@ -265,6 +268,23 @@ export function ComposerAtendimento({
           )}
           {programar && (
             <div className="programar-linha">
+              {modelos.length > 0 && (
+                <select
+                  className="tipo-contato"
+                  defaultValue=""
+                  aria-label="Usar modelo"
+                  onChange={(e) => {
+                    const m = modelos.find((x) => x.id === e.target.value);
+                    if (!m) return;
+                    setTexto(m.texto);
+                    setQuando(m.quando);
+                    setCancelarSeResponder(m.cancelar);
+                  }}
+                >
+                  <option value="" disabled>Usar modelo…</option>
+                  {modelos.map((m) => <option key={m.id} value={m.id}>{m.nome}</option>)}
+                </select>
+              )}
               <Icone nome="relogio" tamanho={16} /> <b style={{ fontWeight: 500 }}>Enviar em</b>
               <input type="date" value={quando.data} min={diaSP(Date.now())} onChange={(e) => setQuando((q) => ({ ...q, data: e.target.value }))} aria-label="Dia do envio" />
               <input type="time" value={quando.hora} onChange={(e) => setQuando((q) => ({ ...q, hora: e.target.value }))} aria-label="Hora do envio" />

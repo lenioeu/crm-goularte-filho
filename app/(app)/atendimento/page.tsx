@@ -14,11 +14,12 @@ import { quemSou } from "@/lib/permissoes";
 import { telefoneBR, TZ } from "@/lib/rotulos";
 import { RESPOSTAS_PADRAO } from "@/lib/bot";
 import { lerTiposContato } from "@/lib/contatos";
+import { ehDeAudiencia, lerModelosMensagem, preencherMensagem, quandoEnviar } from "@/lib/modelosMensagem";
 import { TipoContato } from "@/components/TipoContato";
+import { CadastrarCliente } from "@/components/CadastrarCliente";
 import { whatsappConfigurado } from "@/lib/whatsapp";
 import { moverTarefa } from "../actions";
 import { cancelarAgendamento, reativarAgendamento } from "../agendamentos/actions";
-import { tornarCliente, voltarAContato } from "../clientes/actions";
 import { criarPastaCliente } from "../integracoes/actions";
 import { cadastrarProcesso } from "../processos/actions";
 import { assumirConversa, criarLembrete, encerrarConversa, mudarArea, reabrirConversa, salvarDocumento } from "./actions";
@@ -136,6 +137,13 @@ export default async function Atendimento({ searchParams }: { searchParams: Prom
     lerTiposContato(supabase),
   ]);
   const ehContato = situacaoCli?.situacao === "contato";
+  // Dados para o "Tornar cliente" (endereço só existe depois do script 004)
+  const camposContato = "id, nome, cpf_cnpj, email, area_id, origem";
+  const dadosContato = ehContato && idCli
+    ? await supabase.from("clientes").select(camposContato + ", cep, endereco").eq("id", idCli).maybeSingle()
+        .then(async (r) => (r.error ? supabase.from("clientes").select(camposContato).eq("id", idCli).maybeSingle() : r))
+    : { data: null };
+  const contato = dadosContato.data as unknown as { id: string; nome: string; cpf_cnpj: string | null; email: string | null; area_id: string | null; origem: string | null; cep?: string | null; endereco?: string | null } | null;
   const [{ data: processosCli }, { data: lembretes }, { data: programadas }] = idCli
     ? await Promise.all([
         supabase.from("processos").select("id, numero_cnj, classe, casos!inner(cliente_id)").eq("casos.cliente_id", idCli).order("criado_em"),
@@ -144,6 +152,28 @@ export default async function Atendimento({ searchParams }: { searchParams: Prom
       ])
     : [{ data: [] }, { data: [] }, { data: [] }];
   const amanha = new Date(Date.now() + 86_400_000).toLocaleDateString("sv-SE", { timeZone: TZ });
+
+  // Modelos de mensagem para o "Programar", já preenchidos com o cliente e a próxima audiência dele
+  const [{ modelos: modelosMsg }, { data: proxAud }] = await Promise.all([
+    lerModelosMensagem(supabase),
+    idCli
+      ? supabase.from("audiencias").select("inicio, tipo, local, modalidade, processos(numero_cnj), casos!inner(cliente_id)").eq("casos.cliente_id", idCli).gte("inicio", new Date().toISOString()).order("inicio").limit(1).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
+  const audCli = proxAud
+    ? { inicio: proxAud.inicio, tipo: proxAud.tipo, local: proxAud.local, modalidade: proxAud.modalidade, processo: um(proxAud.processos as Rel<{ numero_cnj: string }>)?.numero_cnj ?? null }
+    : null;
+  const nomeCli = atual ? um(atual.clientes)?.nome ?? "" : "";
+  const modelosConversa = modelosMsg
+    .filter((m) => !ehDeAudiencia(m.gatilho) || audCli)
+    .map((m) => ({
+      id: m.id,
+      nome: m.nome,
+      texto: preencherMensagem(m.texto, nomeCli, audCli),
+      quando: quandoEnviar(m, audCli?.inicio) ?? { data: amanha, hora: m.hora },
+      cancelar: m.cancelar_se_responder,
+    }))
+    .filter((m) => new Date(`${m.quando.data}T${m.quando.hora}:00-03:00`).getTime() > Date.now());
 
   const { data: cfgRespostas } = await supabase.from("configuracoes").select("valor").eq("chave", "respostas_rapidas").maybeSingle();
   // Enquanto a equipe não salvar as suas, valem as respostas de fábrica
@@ -231,7 +261,7 @@ export default async function Atendimento({ searchParams }: { searchParams: Prom
                 </div>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                   <BotaoPainel />
-                  {ehContato && <BotaoAcao acao={tornarCliente.bind(null, cliAtual.id)} rotulo="Tornar cliente" desfazer={voltarAContato.bind(null, cliAtual.id)} />}
+                  {ehContato && contato && <CadastrarCliente contato={{ ...contato, cep: contato.cep ?? null, endereco: contato.endereco ?? null }} areas={areas ?? []} />}
                   <VincularCliente conversaId={atual.id} clientes={clientes ?? []} atual={cliAtual.id} />
                   {atual.status !== "resolvida" && atual.atendente_id !== user?.id && <BotaoAcao acao={assumirConversa.bind(null, atual.id)} rotulo="Assumir" />}
                   {atual.status !== "resolvida" ? (
@@ -290,7 +320,7 @@ export default async function Atendimento({ searchParams }: { searchParams: Prom
                 })}
               </div>
 
-              <ComposerAtendimento conversaId={atual.id} clienteId={cliAtual.id} respostas={respostas} nomeCliente={cliAtual.nome} />
+              <ComposerAtendimento conversaId={atual.id} clienteId={cliAtual.id} respostas={respostas} nomeCliente={cliAtual.nome} modelos={modelosConversa} />
             </>
           ) : novoCliente.data ? (
             <>
