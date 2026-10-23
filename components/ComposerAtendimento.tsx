@@ -3,7 +3,9 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import type { Resultado } from "@/app/(app)/actions";
+import { criarAgendamento } from "@/app/(app)/agendamentos/actions";
 import { enviarArquivoNaConversa, enviarMensagem } from "@/app/(app)/atendimento/actions";
+import { useAviso } from "@/components/Avisos";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { Icone } from "@/components/Icone";
 
@@ -12,6 +14,21 @@ const LIMITE_MB = 64;
 function nomeSeguro(nome: string) {
   return nome.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^\w.-]+/g, "_").slice(-80) || "arquivo";
 }
+const TZ = "America/Sao_Paulo";
+const diaSP = (ms: number) => new Date(ms).toLocaleDateString("sv-SE", { timeZone: TZ });
+/** Atalhos de horário para programar: hoje 18h (se ainda der), amanhã 9h e segunda 9h. */
+function atalhosDeHorario() {
+  const agora = Date.now();
+  const horaSP = Number(new Date(agora).toLocaleTimeString("pt-BR", { timeZone: TZ, hour: "2-digit", hour12: false }));
+  const lista: { rotulo: string; data: string; hora: string }[] = [];
+  if (horaSP < 17) lista.push({ rotulo: "Hoje 18h", data: diaSP(agora), hora: "18:00" });
+  lista.push({ rotulo: "Amanhã 9h", data: diaSP(agora + 86_400_000), hora: "09:00" });
+  const semana = new Date(diaSP(agora) + "T12:00:00").getDay();
+  const ateSegunda = ((8 - semana) % 7) || 7;
+  if (ateSegunda > 1) lista.push({ rotulo: "Segunda 9h", data: diaSP(agora + ateSegunda * 86_400_000), hora: "09:00" });
+  return lista;
+}
+
 const tamanho = (b: number) => (b > 1048576 ? `${(b / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`);
 
 // Campo de escrever da conversa: texto, nota interna, anexo (foto, vídeo, áudio, documento) e áudio gravado.
@@ -41,6 +58,10 @@ export function ComposerAtendimento({
   const campoArquivo = useRef<HTMLInputElement>(null);
   const [verRespostas, setVerRespostas] = useState(false);
   const [destaque, setDestaque] = useState(0);
+  const aviso = useAviso();
+  const [programar, setProgramar] = useState(false);
+  const [quando, setQuando] = useState(() => ({ data: diaSP(Date.now() + 86_400_000), hora: "09:00" }));
+  const [cancelarSeResponder, setCancelarSeResponder] = useState(true);
 
   // Respostas rápidas: "/" no começo do campo mostra as opções
   const termo = texto.startsWith("/") && !/\s/.test(texto) ? texto.slice(1).toLowerCase() : null;
@@ -96,6 +117,29 @@ export function ComposerAtendimento({
         setTexto("");
         setArquivo(null);
         if (campoArquivo.current) campoArquivo.current.value = "";
+        router.refresh();
+      }
+    });
+  }
+
+  /** Programa o texto do campo para sair sozinho no dia e hora escolhidos (Mensagens agendadas). */
+  function programarEnvio() {
+    if (pendente || !clienteId || !texto.trim()) return;
+    setR(null);
+    iniciar(async () => {
+      const f = new FormData();
+      f.set("cliente_id", clienteId);
+      f.set("tipo", "livre");
+      f.set("texto", texto);
+      f.set("data", quando.data);
+      f.set("hora", quando.hora);
+      if (cancelarSeResponder) f.set("cancelar", "on");
+      const res = await criarAgendamento({ erro: null, ok: null }, f);
+      if (res.ok && aviso) aviso(res.ok);
+      setR(res.ok && aviso ? null : res);
+      if (res.ok) {
+        setTexto("");
+        setProgramar(false);
         router.refresh();
       }
     });
@@ -161,7 +205,7 @@ export function ComposerAtendimento({
                 e.preventDefault();
                 usarResposta(opcoes[Math.min(destaque, opcoes.length - 1)]);
               } else if (e.key === "Escape") setVerRespostas(false);
-              else if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) enviar();
+              else if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) (programar ? programarEnvio() : enviar());
             }}
             placeholder={arquivo ? "Legenda (opcional)" : respostas.length ? "Escreva a mensagem · / para respostas rápidas · Ctrl+Enter envia" : "Escreva a mensagem · Ctrl+Enter envia"}
             aria-label="Mensagem"
@@ -173,6 +217,26 @@ export function ComposerAtendimento({
                   <code>/{r.atalho}</code> <span>{r.texto.slice(0, 90)}{r.texto.length > 90 ? "…" : ""}</span>
                 </button>
               ))}
+            </div>
+          )}
+          {termo !== null && respostas.length === 0 && (
+            <div className="respostas-vazia">
+              Nenhuma resposta rápida cadastrada. Crie as suas em <a href="/atendimento-automatico" style={{ color: "var(--accent)" }}>Atendimento automático</a>.
+            </div>
+          )}
+          {programar && (
+            <div className="programar-linha">
+              <Icone nome="relogio" tamanho={16} /> <b style={{ fontWeight: 500 }}>Enviar em</b>
+              <input type="date" value={quando.data} min={diaSP(Date.now())} onChange={(e) => setQuando((q) => ({ ...q, data: e.target.value }))} aria-label="Dia do envio" />
+              <input type="time" value={quando.hora} onChange={(e) => setQuando((q) => ({ ...q, hora: e.target.value }))} aria-label="Hora do envio" />
+              <span className="atalhos-hora">
+                {atalhosDeHorario().map((a) => (
+                  <button key={a.rotulo} type="button" className={"btn sm" + (a.data === quando.data && a.hora === quando.hora ? " primary" : "")} onClick={() => setQuando({ data: a.data, hora: a.hora })}>{a.rotulo}</button>
+                ))}
+              </span>
+              <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <input type="checkbox" checked={cancelarSeResponder} onChange={(e) => setCancelarSeResponder(e.target.checked)} /> Cancelar se o cliente responder antes
+              </label>
             </div>
           )}
           {arquivo && (
@@ -202,9 +266,27 @@ export function ComposerAtendimento({
               <button type="button" className="btn" onClick={comecarGravacao} disabled={pendente || nota || !conversaId} title={conversaId ? "Gravar mensagem de voz" : "Mande um texto primeiro"}>
                 <Icone nome="microfone" tamanho={16} /> Gravar áudio
               </button>
-              <button type="button" className="btn primary" onClick={enviar} disabled={pendente || (!arquivo && !texto.trim())}>
-                {pendente ? etapa ?? "Enviando…" : "Enviar"}
-              </button>
+              {clienteId && (
+                <button
+                  type="button"
+                  className={"btn" + (programar ? " on" : "")}
+                  onClick={() => setProgramar((v) => !v)}
+                  disabled={nota || Boolean(arquivo)}
+                  title="Escolher dia e hora para a mensagem sair sozinha"
+                  aria-pressed={programar}
+                >
+                  <Icone nome="relogio" tamanho={16} /> {programar ? "Não programar" : "Programar"}
+                </button>
+              )}
+              {programar ? (
+                <button type="button" className="btn primary" onClick={programarEnvio} disabled={pendente || !texto.trim()}>
+                  {pendente ? "Programando…" : "Programar envio"}
+                </button>
+              ) : (
+                <button type="button" className="btn primary" onClick={enviar} disabled={pendente || (!arquivo && !texto.trim())}>
+                  {pendente ? etapa ?? "Enviando…" : "Enviar"}
+                </button>
+              )}
             </div>
           </div>
         </>

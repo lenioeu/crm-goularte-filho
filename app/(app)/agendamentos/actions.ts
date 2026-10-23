@@ -39,6 +39,7 @@ export async function criarAgendamento(_: Resultado, f: FormData): Promise<Resul
   });
   if (error) return { erro: error.message, ok: null };
   revalidatePath("/agendamentos");
+  revalidatePath("/atendimento");
   revalidatePath(`/clientes/${clienteId}`);
   const [, m, d] = data.split("-");
   return { erro: null, ok: `Mensagem para ${primeiroNome(cliente.nome)} programada para ${d}/${m} às ${hora}.` };
@@ -50,6 +51,7 @@ export async function cancelarAgendamento(id: string): Promise<Resultado> {
   const { error } = await supabase.from("mensagens_agendadas").update({ status: "cancelada" }).eq("id", id).eq("status", "programada");
   if (error) return { erro: error.message, ok: null };
   revalidatePath("/agendamentos");
+  revalidatePath("/atendimento");
   return { erro: null, ok: "Envio cancelado." };
 }
 
@@ -67,5 +69,6 @@ export async function reativarAgendamento(id: string): Promise<Resultado> {
   if (error) return { erro: error.message, ok: null };
   if (!data?.length) return { erro: "Não dá para reativar: o horário de envio já passou.", ok: null };
   revalidatePath("/agendamentos");
+  revalidatePath("/atendimento");
   return { erro: null, ok: "Envio reativado." };
 }

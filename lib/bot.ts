@@ -33,6 +33,15 @@ export const BOT_PADRAO: ConfigBot = {
   areasMenu: null,
 };
 
+/** Respostas rápidas de fábrica, usadas enquanto a equipe não salvar as suas em "Atendimento automático". */
+export const RESPOSTAS_PADRAO = [
+  { atalho: "ola", texto: "Olá, {nome}! Tudo bem? Aqui é do escritório Goularte Filho Advocacia." },
+  { atalho: "docs", texto: "{nome}, para darmos andamento, envie por aqui foto do RG ou CNH, CPF e comprovante de residência." },
+  { atalho: "aguarde", texto: "Recebido, {nome}! Vou verificar e já retorno." },
+  { atalho: "andamento", texto: "{nome}, seu processo segue em andamento. Assim que houver novidade, avisamos por aqui." },
+  { atalho: "obrigado", texto: "Obrigado pelo contato, {nome}! Qualquer dúvida, é só chamar." },
+];
+
 export const DIAS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
 export async function lerConfigBot(db: SupabaseClient): Promise<ConfigBot> {

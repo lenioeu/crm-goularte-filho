@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { FormAcao } from "@/components/FormAcao";
 import { RespostasEditor } from "@/components/RespostasEditor";
-import { DIAS, dentroDoExpediente, lerConfigBot, montarTexto } from "@/lib/bot";
+import { DIAS, dentroDoExpediente, lerConfigBot, montarTexto, RESPOSTAS_PADRAO } from "@/lib/bot";
 import { quemSou } from "@/lib/permissoes";
 import type { RespostaRapida } from "./actions";
 import { salvarConfigBot } from "./actions";
@@ -14,7 +14,8 @@ export default async function AtendimentoAutomatico() {
     supabase.from("areas").select("id, nome, documentos_pedidos").eq("ativa", true).order("ordem_bot"),
     supabase.from("configuracoes").select("valor").eq("chave", "respostas_rapidas").maybeSingle(),
   ]);
-  const respostas = (Array.isArray(resp?.valor) ? resp.valor : []) as RespostaRapida[];
+  // Nunca salvas: começa pelas de fábrica, para editar
+  const respostas = (Array.isArray(resp?.valor) ? resp.valor : resp ? [] : RESPOSTAS_PADRAO) as RespostaRapida[];
   const noMenu = (areas ?? []).filter((a) => !cfg.areasMenu || cfg.areasMenu.includes(a.id));
   const menu = [...noMenu.map((a, i) => `${i + 1} - ${a.nome}`), "0 - Outro assunto"].join("\n");
   const exemplo = noMenu[0];

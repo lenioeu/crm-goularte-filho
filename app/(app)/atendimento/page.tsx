@@ -12,8 +12,10 @@ import { VincularCliente } from "@/components/VincularCliente";
 import { corDoNome, iniciais } from "@/lib/avatar";
 import { quemSou } from "@/lib/permissoes";
 import { telefoneBR, TZ } from "@/lib/rotulos";
+import { RESPOSTAS_PADRAO } from "@/lib/bot";
 import { whatsappConfigurado } from "@/lib/whatsapp";
 import { moverTarefa } from "../actions";
+import { cancelarAgendamento, reativarAgendamento } from "../agendamentos/actions";
 import { criarPastaCliente } from "../integracoes/actions";
 import { cadastrarProcesso } from "../processos/actions";
 import { assumirConversa, criarLembrete, encerrarConversa, mudarArea, reabrirConversa, salvarDocumento } from "./actions";
@@ -21,6 +23,17 @@ import { IconeDrive } from "@/components/IconeDrive";
 import { Icone } from "@/components/Icone";
 
 type Rel<T> = T | T[] | null;
+
+/** "hoje às 18:00", "amanhã às 09:00" ou "sex, 24/10 às 09:00" */
+function quandoEnvia(iso: string) {
+  const d = new Date(iso);
+  const dia = d.toLocaleDateString("sv-SE", { timeZone: TZ });
+  const hora = d.toLocaleTimeString("pt-BR", { timeZone: TZ, hour: "2-digit", minute: "2-digit" });
+  if (dia === new Date().toLocaleDateString("sv-SE", { timeZone: TZ })) return `hoje às ${hora}`;
+  if (dia === new Date(Date.now() + 86_400_000).toLocaleDateString("sv-SE", { timeZone: TZ })) return `amanhã às ${hora}`;
+  const semana = d.toLocaleDateString("pt-BR", { timeZone: TZ, weekday: "short" }).replace(".", "");
+  return `${semana}, ${d.toLocaleDateString("pt-BR", { timeZone: TZ, day: "2-digit", month: "2-digit" })} às ${hora}`;
+}
 const um = <T,>(r: Rel<T>): T | null => (Array.isArray(r) ? r[0] ?? null : r);
 
 const STATUS: Record<string, { rotulo: string; classe: string }> = {
@@ -114,16 +127,18 @@ export default async function Atendimento({ searchParams }: { searchParams: Prom
 
   // Processos e lembretes (tarefas abertas) do cliente da conversa
   const idCli = atual ? um(atual.clientes)?.id : null;
-  const [{ data: processosCli }, { data: lembretes }] = idCli
+  const [{ data: processosCli }, { data: lembretes }, { data: programadas }] = idCli
     ? await Promise.all([
         supabase.from("processos").select("id, numero_cnj, classe, casos!inner(cliente_id)").eq("casos.cliente_id", idCli).order("criado_em"),
         supabase.from("tarefas").select("id, titulo, vence_em, coluna").eq("cliente_id", idCli).neq("coluna", "concluida").order("vence_em", { nullsFirst: false }).limit(10),
+        supabase.from("mensagens_agendadas").select("id, texto, enviar_em, cancelar_se_responder").eq("cliente_id", idCli).eq("status", "programada").order("enviar_em").limit(20),
       ])
-    : [{ data: [] }, { data: [] }];
+    : [{ data: [] }, { data: [] }, { data: [] }];
   const amanha = new Date(Date.now() + 86_400_000).toLocaleDateString("sv-SE", { timeZone: TZ });
 
   const { data: cfgRespostas } = await supabase.from("configuracoes").select("valor").eq("chave", "respostas_rapidas").maybeSingle();
-  const respostas = (Array.isArray(cfgRespostas?.valor) ? cfgRespostas.valor : []) as { atalho: string; texto: string }[];
+  // Enquanto a equipe não salvar as suas, valem as respostas de fábrica
+  const respostas = (Array.isArray(cfgRespostas?.valor) ? cfgRespostas.valor : cfgRespostas ? [] : RESPOSTAS_PADRAO) as { atalho: string; texto: string }[];
 
   const ligado = whatsappConfigurado();
   const abertoAgora = Boolean(atual || novoCliente.data);
@@ -212,7 +227,19 @@ export default async function Atendimento({ searchParams }: { searchParams: Prom
               </div>
 
               <div className="chat-msgs">
-                {mensagens.length === 0 && <div className="vazio">Nenhuma mensagem ainda.</div>}
+                {/* A lista é invertida na tela: as programadas, primeiras aqui, aparecem por último, embaixo */}
+                {(programadas ?? []).map((g) => (
+                  <div key={g.id} className="msg-bloco">
+                    <div className="bolha programada">
+                      <div className="bolha-rot"><Icone nome="relogio" tamanho={13} /> Programada · {quandoEnvia(g.enviar_em)}{g.cancelar_se_responder ? " · cancela se responder antes" : ""}</div>
+                      <div className="bolha-texto">{g.texto}</div>
+                      <div className="bolha-hora">
+                        <BotaoAcao acao={cancelarAgendamento.bind(null, g.id)} rotulo="Cancelar envio" desfazer={reativarAgendamento.bind(null, g.id)} />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {mensagens.length === 0 && !(programadas ?? []).length && <div className="vazio">Nenhuma mensagem ainda.</div>}
                 {mensagens.map((m, i) => {
                   const autor = um(m.perfis as Rel<{ nome: string }>)?.nome;
                   const classe = m.nota_interna ? "nota" : m.direcao === "entrada" ? "entrada" : "saida";
@@ -247,7 +274,7 @@ export default async function Atendimento({ searchParams }: { searchParams: Prom
                 })}
               </div>
 
-              <ComposerAtendimento conversaId={atual.id} respostas={respostas} nomeCliente={cliAtual.nome} />
+              <ComposerAtendimento conversaId={atual.id} clienteId={cliAtual.id} respostas={respostas} nomeCliente={cliAtual.nome} />
             </>
           ) : novoCliente.data ? (
             <>
