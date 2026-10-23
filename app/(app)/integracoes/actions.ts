@@ -67,7 +67,7 @@ export async function importarClientesDoDrive(_: Resultado, _f: FormData): Promi
             vinculados++;
           }
         } else {
-          novos.push({ nome: p.name.trim().toUpperCase(), area_id: areaId, pasta_drive_id: p.id, pasta_drive_url: p.webViewLink ?? null, origem: "Importado do Drive" });
+          novos.push({ nome: p.name.trim().toUpperCase(), area_id: areaId, pasta_drive_id: p.id, pasta_drive_url: p.webViewLink ?? null, origem: "IMPORTADO DO DRIVE" });
           clientePorNome.set(chave, { id: "", nome: p.name, pasta_drive_id: p.id, area_id: areaId });
         }
       }

@@ -189,7 +189,7 @@ export default async function FichaCliente({ params }: { params: Promise<{ id: s
       <details className="card">
         <summary style={{ cursor: "pointer", fontWeight: 500 }}>Dados do cliente</summary>
         <div style={{ marginTop: 14 }}>
-          <FormAcao action={atualizarCliente} botao="Salvar dados" className="form" limparAoSalvar={false}>
+          <FormAcao action={atualizarCliente} botao="Salvar dados" className="form maiusculas" limparAoSalvar={false}>
             <input type="hidden" name="id" value={c.id} />
             <div className="field full"><label htmlFor="nome">Nome completo</label><input id="nome" name="nome" required defaultValue={c.nome} /></div>
             <div className="field"><label htmlFor="telefone">WhatsApp</label><input id="telefone" name="telefone" defaultValue={c.telefone_whatsapp ?? ""} /></div>
@@ -233,7 +233,7 @@ export default async function FichaCliente({ params }: { params: Promise<{ id: s
           {erroQualif ? (
             <div className="aviso info">Falta rodar o script supabase/004_modelos.sql no Supabase para guardar RG, estado civil e endereço.</div>
           ) : (
-            <FormAcao action={atualizarQualificacao} botao="Salvar qualificação" className="form" limparAoSalvar={false}>
+            <FormAcao action={atualizarQualificacao} botao="Salvar qualificação" className="form maiusculas" limparAoSalvar={false}>
               <input type="hidden" name="id" value={c.id} />
               <div className="field"><label htmlFor="rg">RG (com órgão)</label><input id="rg" name="rg" defaultValue={qualif?.rg ?? ""} placeholder="ex.: 1234567-SSP/ES" /></div>
               <div className="field">

@@ -143,11 +143,11 @@ export async function atualizarQualificacao(_: Resultado, f: FormData): Promise<
   const { error } = await supabase
     .from("clientes")
     .update({
-      rg: txt(f, "rg"),
-      nacionalidade: txt(f, "nacionalidade")?.toLowerCase() ?? null,
-      estado_civil: txt(f, "estado_civil")?.toLowerCase() ?? null,
-      profissao: txt(f, "profissao")?.toLowerCase() ?? null,
-      endereco: txt(f, "endereco"),
+      rg: txt(f, "rg")?.toUpperCase() ?? null,
+      nacionalidade: txt(f, "nacionalidade")?.toUpperCase() ?? null,
+      estado_civil: txt(f, "estado_civil")?.toUpperCase() ?? null,
+      profissao: txt(f, "profissao")?.toUpperCase() ?? null,
+      endereco: txt(f, "endereco")?.toUpperCase() ?? null,
       cep: txt(f, "cep"),
       genero: genero === "m" || genero === "f" ? genero : null,
     })

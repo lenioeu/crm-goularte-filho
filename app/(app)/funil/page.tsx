@@ -66,7 +66,7 @@ export default async function Funil({ searchParams }: { searchParams: Promise<{ 
               {(clientes ?? []).map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
             </select>
           </div>
-          <div className="field"><label htmlFor="cliente_novo">Nome do cliente novo</label><input id="cliente_novo" name="cliente_novo" placeholder="só se não estiver na lista" /></div>
+          <div className="field maiusculas"><label htmlFor="cliente_novo">Nome do cliente novo</label><input id="cliente_novo" name="cliente_novo" placeholder="só se não estiver na lista" /></div>
           <div className="field"><label htmlFor="telefone">WhatsApp do cliente novo</label><input id="telefone" name="telefone" inputMode="tel" /></div>
           <div className="field">
             <label htmlFor="area_id">Área</label>

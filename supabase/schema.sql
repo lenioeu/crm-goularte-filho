@@ -547,3 +547,24 @@ create table if not exists chaves_push (
   privada text not null
 );
 alter table chaves_push enable row level security;
+
+-- Clientes sempre em maiúsculas (mesmo conteúdo de 009_clientes_maiusculas.sql)
+create or replace function clientes_maiusculas() returns trigger
+language plpgsql as $$
+begin
+  new.nome          := upper(btrim(new.nome));
+  new.cpf_cnpj      := upper(new.cpf_cnpj);
+  new.rg            := upper(new.rg);
+  new.nacionalidade := upper(new.nacionalidade);
+  new.estado_civil  := upper(new.estado_civil);
+  new.profissao     := upper(new.profissao);
+  new.endereco      := upper(new.endereco);
+  new.cep           := upper(new.cep);
+  new.origem        := upper(new.origem);
+  new.observacoes   := upper(new.observacoes);
+  return new;
+end $$;
+
+drop trigger if exists clientes_maiusculas on clientes;
+create trigger clientes_maiusculas before insert or update on clientes
+  for each row execute function clientes_maiusculas();

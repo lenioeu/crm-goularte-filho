@@ -75,7 +75,7 @@ export default async function Clientes({ searchParams }: { searchParams: Promise
 
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="ctitle"><h3>Novo cliente</h3></div>
-        <FormAcao action={criarCliente} botao="Cadastrar cliente" className="form">
+        <FormAcao action={criarCliente} botao="Cadastrar cliente" className="form maiusculas">
           <div className="field full"><label htmlFor="nome">Nome completo</label><input id="nome" name="nome" required placeholder="ex.: MARIA DA SILVA SANTOS" /></div>
           <div className="field"><label htmlFor="telefone">WhatsApp</label><input id="telefone" name="telefone" inputMode="tel" placeholder="(27) 99999-9999" /></div>
           <div className="field"><label htmlFor="cpf">CPF ou CNPJ</label><input id="cpf" name="cpf" /></div>

@@ -34,7 +34,7 @@ export async function criarCliente(_: Resultado, f: FormData): Promise<Resultado
   const { error } = await supabase.from("clientes").insert({
     nome: nome.toUpperCase(),
     telefone_whatsapp: texto(f, "telefone")?.replace(/\D/g, "") || null,
-    cpf_cnpj: texto(f, "cpf"),
+    cpf_cnpj: texto(f, "cpf")?.toUpperCase() ?? null,
     email: texto(f, "email"),
     area_id: texto(f, "area_id"),
   });
@@ -321,12 +321,12 @@ export async function atualizarCliente(_: Resultado, f: FormData): Promise<Resul
     .update({
       nome: nome.toUpperCase(),
       telefone_whatsapp: texto(f, "telefone")?.replace(/\D/g, "") || null,
-      cpf_cnpj: texto(f, "cpf"),
+      cpf_cnpj: texto(f, "cpf")?.toUpperCase() ?? null,
       email: texto(f, "email"),
       area_id: texto(f, "area_id"),
       responsavel_id: texto(f, "responsavel_id"),
-      origem: texto(f, "origem"),
-      observacoes: texto(f, "observacoes"),
+      origem: texto(f, "origem")?.toUpperCase() ?? null,
+      observacoes: texto(f, "observacoes")?.toUpperCase() ?? null,
     })
     .eq("id", id);
   if (error) return { erro: traduzirErro(error.message), ok: null };

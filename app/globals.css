@@ -388,3 +388,7 @@ a.vincular-item { display: block; text-decoration: none; }
 .nav .contador { margin-left: auto; min-width: 22px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--crit); color: #fff; font-size: 11.5px; font-weight: 700; display: grid; place-items: center; }
 .recolhido .nav .contador { position: absolute; margin: 0; transform: translate(12px, -10px); }
 .notif-compacta { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+
+/* cadastro de clientes: o que se digita aparece em maiúsculas (o banco também converte) */
+.maiusculas input:not([type="email"]):not([type="date"]):not([type="color"]), .maiusculas textarea { text-transform: uppercase; }
+.maiusculas input::placeholder, .maiusculas textarea::placeholder { text-transform: none; }

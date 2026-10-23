@@ -274,7 +274,7 @@ export async function vincularCliente(conversaId: string, clienteId: string): Pr
   ]);
   if (!de || !para) return { erro: "Cliente não encontrado.", ok: null };
   const { count: casosDe } = await db.from("casos").select("id", { count: "exact", head: true }).eq("cliente_id", de.id);
-  const provisorio = de.origem === "WhatsApp" && !de.pasta_drive_id && !casosDe;
+  const provisorio = (de.origem ?? "").toUpperCase() === "WHATSAPP" && !de.pasta_drive_id && !casosDe;
 
   if (provisorio) {
     // Junta tudo do cadastro provisório no cliente escolhido
@@ -311,7 +311,7 @@ export async function criarContato(_: Resultado, f: FormData): Promise<Resultado
   const telefone = String(f.get("telefone") ?? "").replace(/\D/g, "");
   if (!nome) return { erro: "Informe o nome.", ok: null };
   if (telefone.length < 10) return { erro: "Informe o WhatsApp com DDD.", ok: null };
-  const { data, error } = await supabase.from("clientes").insert({ nome: nome.toUpperCase(), telefone_whatsapp: telefone, origem: "Atendimento" }).select("id").single();
+  const { data, error } = await supabase.from("clientes").insert({ nome: nome.toUpperCase(), telefone_whatsapp: telefone, origem: "ATENDIMENTO" }).select("id").single();
   if (error) return { erro: /duplicate key/i.test(error.message) ? "Esse WhatsApp já está na ficha de outro cliente; procure pelo nome acima." : error.message, ok: null };
   redirect(`/atendimento?cliente=${data.id}`);
 }

@@ -33,7 +33,7 @@ export function NovaConversa({ clientes }: { clientes: { id: string; nome: strin
             </Link>
           ))}
           {busca.trim().length >= 2 && achados.length === 0 && <div className="vincular-vazio">Nenhum cliente com esse nome.</div>}
-          <form action={enviar} className="nova-contato">
+          <form action={enviar} className="nova-contato maiusculas">
             <div className="vincular-vazio" style={{ padding: "8px 2px 2px", fontWeight: 500, color: "var(--fg)" }}>Ou um número novo</div>
             <input name="nome" placeholder="Nome" required />
             <input name="telefone" placeholder="WhatsApp com DDD" inputMode="tel" required />

@@ -83,7 +83,7 @@ export async function registrarMensagem(db: Db, m: MensagemRecebida) {
     if (m.deMim) return; // conversa do celular com quem não é cliente: fica fora do CRM
     const { data, error } = await db
       .from("clientes")
-      .insert({ nome: (m.nomeContato || m.numero).toUpperCase(), telefone_whatsapp: m.numero, origem: "WhatsApp" })
+      .insert({ nome: (m.nomeContato || m.numero).toUpperCase(), telefone_whatsapp: m.numero, origem: "WHATSAPP" })
       .select("id, nome, telefone_whatsapp, area_id")
       .single();
     if (error) throw new Error(error.message);
