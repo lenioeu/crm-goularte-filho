@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { BotaoAcao } from "@/components/BotaoAcao";
 import { FormAcao } from "@/components/FormAcao";
+import { ImportarLista } from "@/components/ImportarLista";
 import { ImportarProcessos } from "@/components/ImportarProcessos";
 import { supabaseServer } from "@/lib/supabase/server";
 import { atualizarProcesso, atualizarTodos, cadastrarProcesso } from "./actions";
@@ -88,6 +89,11 @@ export default async function Processos({ searchParams }: { searchParams: Promis
             </small>
           </div>
         </FormAcao>
+      </details>
+
+      <details className="card" style={{ marginBottom: 16 }}>
+        <summary style={{ cursor: "pointer", fontWeight: 500 }}>Importar lista de processos (acervo do PJe ou planilha)</summary>
+        <div style={{ marginTop: 12 }}><ImportarLista /></div>
       </details>
 
       <details className="card" style={{ marginBottom: 16 }}>

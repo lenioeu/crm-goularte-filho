@@ -392,3 +392,5 @@ a.vincular-item { display: block; text-decoration: none; }
 /* cadastro de clientes: o que se digita aparece em maiúsculas (o banco também converte) */
 .maiusculas input:not([type="email"]):not([type="date"]):not([type="color"]), .maiusculas textarea { text-transform: uppercase; }
 .maiusculas input::placeholder, .maiusculas textarea::placeholder { text-transform: none; }
+.area-importar { width: 100%; border-radius: 10px; border: 1px solid var(--line-2); background: var(--panel); color: var(--fg); padding: 10px 12px; font-family: var(--f-mono); font-size: 12.5px; resize: vertical; }
+.sel-cliente { width: 100%; height: 34px; border-radius: 8px; border: 1px solid var(--line-2); background: var(--panel); color: var(--fg); padding: 0 8px; font-size: 13px; }

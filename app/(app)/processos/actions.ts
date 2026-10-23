@@ -4,12 +4,13 @@ import { revalidatePath } from "next/cache";
 import type { Resultado } from "@/app/(app)/actions";
 import { camposDoResumo, consultarDataJud, formatarCNJ, numerosCNJNoTexto, somenteDigitos, validarCNJ } from "@/lib/datajud";
 import { listarNomesDeArquivos, tokenDeAcesso } from "@/lib/google";
+import { lerLista, sugerir, type Sugestao } from "@/lib/importarProcessos";
 import { quemSou } from "@/lib/permissoes";
 
 type Db = Awaited<ReturnType<typeof quemSou>>["supabase"];
 
 /** Cadastra um processo já validado: consulta o DataJud e, sem caso escolhido, cria um para o cliente. */
-async function registrar(supabase: Db, userId: string, numero: string, casoId: string, clienteId: string): Promise<Resultado> {
+async function registrar(supabase: Db, userId: string, numero: string, casoId: string, clienteId: string, parteContraria?: string): Promise<Resultado> {
   let campos: Record<string, unknown> = {};
   let aviso = "";
   try {
@@ -33,6 +34,7 @@ async function registrar(supabase: Db, userId: string, numero: string, casoId: s
         titulo: (campos.classe as string | undefined) ?? `Processo ${formatarCNJ(numero)}`,
         etapa: "contrato_assinado",
         responsavel_id: userId,
+        parte_contraria: parteContraria?.trim() || null,
       })
       .select("id")
       .single();
@@ -191,4 +193,75 @@ export async function atualizarTodos(): Promise<Resultado> {
   if (r.sem) partes.push(`${r.sem} sem dados no DataJud`);
   if (r.falhas) partes.push(`${r.falhas} com falha`);
   return { erro: null, ok: partes.join(", ") + "." };
+}
+
+// ------------------------------------------------------------------ Importar lista (PJe ou planilha)
+export type LinhaAnalisada = { numero: string; nome: string; parteContraria: string; jaCadastrado: boolean; sugestoes: Sugestao[]; escolhido: string };
+
+/** Lê a lista colada e sugere o cliente de cada processo. Não grava nada. */
+export async function analisarLista(texto: string): Promise<{ erro: string | null; linhas: LinhaAnalisada[]; clientes: { id: string; nome: string }[] }> {
+  const { supabase, papel } = await quemSou();
+  if (papel !== "administrador" && papel !== "advogado") return { erro: "Só administradores e advogados importam processos.", linhas: [], clientes: [] };
+  const lidas = lerLista(texto.slice(0, 500_000));
+  if (!lidas.length) return { erro: "Não achei números de processo nesse texto.", linhas: [], clientes: [] };
+  const [{ data: clientes }, { data: existentes }] = await Promise.all([
+    supabase.from("clientes").select("id, nome").order("nome").limit(5000),
+    supabase.from("processos").select("numero_cnj").in("numero_cnj", lidas.map((l) => l.numero)),
+  ]);
+  const ja = new Set((existentes ?? []).map((p) => p.numero_cnj));
+  const lista = clientes ?? [];
+  const linhas = lidas.map((l) => {
+    const sugestoes = l.nome ? sugerir(l.nome, lista) : [];
+    // Escolhe sozinho só quando a semelhança é alta e não há empate
+    const certo = sugestoes[0] && sugestoes[0].nota >= 0.85 && (!sugestoes[1] || sugestoes[1].nota < sugestoes[0].nota) ? sugestoes[0].id : "";
+    return { ...l, jaCadastrado: ja.has(l.numero), sugestoes, escolhido: ja.has(l.numero) ? "" : certo || (l.nome ? "novo" : "") };
+  });
+  return { erro: null, linhas, clientes: lista };
+}
+
+/** Cadastra um lote revisado. clienteId "novo" cria o cliente com o nome da lista. */
+export async function cadastrarLista(
+  lote: { numero: string; clienteId: string; nome: string; parteContraria: string }[],
+): Promise<{ ok: number; erros: { numero: string; erro: string }[] }> {
+  const { supabase, user, papel } = await quemSou();
+  if (!user || (papel !== "administrador" && papel !== "advogado")) return { ok: 0, erros: lote.map((x) => ({ numero: x.numero, erro: "Sem permissão." })) };
+  let ok = 0;
+  const erros: { numero: string; erro: string }[] = [];
+  const criados = new Map<string, string>(); // mesmo nome novo em dois processos = um cliente só
+  for (const x of lote.slice(0, 30)) {
+    const d = somenteDigitos(x.numero);
+    if (d.length !== 20 || !validarCNJ(d)) {
+      erros.push({ numero: x.numero, erro: "número inválido" });
+      continue;
+    }
+    let clienteId = x.clienteId;
+    if (clienteId === "novo") {
+      const nome = x.nome.trim().toUpperCase();
+      if (!nome) {
+        erros.push({ numero: x.numero, erro: "sem nome para criar o cliente" });
+        continue;
+      }
+      clienteId = criados.get(nome) ?? "";
+      if (!clienteId) {
+        const { data: existente } = await supabase.from("clientes").select("id").eq("nome", nome).limit(1).maybeSingle();
+        if (existente) clienteId = existente.id;
+        else {
+          const { data, error } = await supabase.from("clientes").insert({ nome, origem: "IMPORTADO DO PJE" }).select("id").single();
+          if (error) {
+            erros.push({ numero: x.numero, erro: error.message });
+            continue;
+          }
+          clienteId = data.id;
+        }
+        criados.set(nome, clienteId);
+      }
+    }
+    const r = await registrar(supabase, user.id, d, "", clienteId, x.parteContraria);
+    if (r.erro) erros.push({ numero: x.numero, erro: r.erro });
+    else ok++;
+  }
+  revalidatePath("/processos");
+  revalidatePath("/clientes");
+  revalidatePath("/funil");
+  return { ok, erros };
 }
