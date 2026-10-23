@@ -198,11 +198,11 @@ const nomeProprio = (nome: string) =>
     .replace(/^./, (c) => c.toUpperCase());
 
 export async function criarAudiencia(_: Resultado, f: FormData): Promise<Resultado> {
-  const casoId = texto(f, "caso_id");
+  const processoId = texto(f, "processo_id");
   const tipo = texto(f, "tipo_outro") ?? texto(f, "tipo");
   const data = texto(f, "data");
   const hora = texto(f, "hora");
-  if (!casoId) return { erro: "Escolha o caso da audiência.", ok: null };
+  if (!processoId) return { erro: "Escolha o processo da audiência.", ok: null };
   if (!tipo) return { erro: "Informe o tipo da audiência.", ok: null };
   if (!data || !hora) return { erro: "Informe o dia e a hora.", ok: null };
 
@@ -217,10 +217,16 @@ export async function criarAudiencia(_: Resultado, f: FormData): Promise<Resulta
   const modalidade = texto(f, "modalidade") === "video" ? "video" : "presencial";
   const local = texto(f, "local");
 
+  // A audiência é do processo; o caso vem dele (a agenda e a ficha ainda se guiam pelo caso)
+  const { data: processo } = await supabase.from("processos").select("caso_id, numero_cnj, vara, tribunal").eq("id", processoId).maybeSingle();
+  if (!processo) return { erro: "Processo não encontrado. Recarregue a página.", ok: null };
+  const casoId = processo.caso_id;
+
   const { data: aud, error } = await supabase
     .from("audiencias")
     .insert({
       caso_id: casoId,
+      processo_id: processoId,
       tipo,
       inicio,
       local,
@@ -247,7 +253,7 @@ export async function criarAudiencia(_: Resultado, f: FormData): Promise<Resulta
         inicio,
         fim,
         local: local ?? (modalidade === "video" ? "Por vídeo" : undefined),
-        descricao: `Caso: ${caso?.titulo ?? ""}\n${texto(f, "observacoes") ?? ""}\nRegistrado pelo Órion CRM`.trim(),
+        descricao: `Processo: ${processo.numero_cnj}${processo.vara ? ` · ${processo.vara}` : ""}\nCaso: ${caso?.titulo ?? ""}\n${texto(f, "observacoes") ?? ""}\nRegistrado pelo Órion CRM`.trim(),
       });
       await supabase.from("audiencias").update({ google_event_id: ev.id }).eq("id", aud.id);
       agenda = " Adicionada ao Google Agenda.";

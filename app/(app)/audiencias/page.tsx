@@ -1,10 +1,8 @@
 import { ExcluirAudiencia } from "@/components/ExcluirAudiencia";
-import { FormAcao } from "@/components/FormAcao";
+import { FormAudiencia, type ProcessoOpcao } from "@/components/FormAudiencia";
 import { supabaseServer } from "@/lib/supabase/server";
-import { criarAudiencia } from "../actions";
 
 const TZ = "America/Sao_Paulo";
-const TIPOS = ["Conciliação", "Instrução", "Instrução e julgamento", "Una", "Inicial", "Perícia", "Custódia", "Sessão de julgamento"];
 
 type Audiencia = {
   id: string;
@@ -14,6 +12,7 @@ type Audiencia = {
   modalidade: "presencial" | "video";
   observacoes: string | null;
   perfis: { nome: string } | null;
+  processos: { numero_cnj: string } | null;
   casos: { titulo: string; clientes: { nome: string } | null; areas: { nome: string; cor: string } | null } | null;
 };
 
@@ -36,7 +35,7 @@ function Linha({ a }: { a: Audiencia }) {
       <div className="hora">{hora}<small>{a.modalidade === "video" ? "vídeo" : "presencial"}</small></div>
       <div className="bd">
         <b>{a.tipo} · {cliente}</b>
-        <small>{[a.casos?.titulo, a.local, a.perfis?.nome].filter(Boolean).join(" · ")}</small>
+        <small>{[a.processos?.numero_cnj ?? a.casos?.titulo, a.local, a.perfis?.nome].filter(Boolean).join(" · ")}</small>
         {a.observacoes && <small style={{ color: "var(--dim)" }}>{a.observacoes}</small>}
       </div>
       {a.casos?.areas && <span className="chip area" style={{ "--c": a.casos.areas.cor } as React.CSSProperties}>{a.casos.areas.nome}</span>}
@@ -50,18 +49,20 @@ export default async function Audiencias({ searchParams }: { searchParams: Promi
   const supabase = await supabaseServer();
   const inicioHoje = new Date(`${new Date().toLocaleDateString("sv-SE", { timeZone: TZ })}T00:00:00-03:00`).toISOString();
   const ha30 = new Date(Date.now() - 30 * 86_400_000).toISOString();
-  const campos = "id, tipo, inicio, local, modalidade, observacoes, perfis(nome), casos(titulo, clientes(nome), areas(nome, cor))";
+  const campos = "id, tipo, inicio, local, modalidade, observacoes, perfis(nome), processos(numero_cnj), casos(titulo, clientes(nome), areas(nome, cor))";
 
-  const [{ data: proximas, error }, { data: passadas }, { data: casos }, { data: pessoas }] = await Promise.all([
+  const [{ data: proximas, error }, { data: passadas }, { data: procs }, { data: pessoas }] = await Promise.all([
     supabase.from("audiencias").select(campos).gte("inicio", inicioHoje).order("inicio").limit(300),
     supabase.from("audiencias").select(campos).lt("inicio", inicioHoje).gte("inicio", ha30).order("inicio", { ascending: false }).limit(100),
-    supabase.from("casos").select("id, titulo, clientes(nome)").neq("etapa", "nao_viavel").order("atualizado_em", { ascending: false }).limit(1000),
+    supabase.from("processos").select("id, numero_cnj, vara, casos(clientes(nome))").order("criado_em", { ascending: false }).limit(3000),
     supabase.from("perfis").select("id, nome").eq("ativo", true).order("nome"),
   ]);
 
   const lista = (proximas ?? []) as unknown as Audiencia[];
   const antigas = (passadas ?? []) as unknown as Audiencia[];
-  const listaCasos = (casos ?? []) as unknown as { id: string; titulo: string; clientes: { nome: string } | null }[];
+  const opcoes: ProcessoOpcao[] = ((procs ?? []) as unknown as { id: string; numero_cnj: string; vara: string | null; casos: { clientes: { nome: string } | null } | null }[])
+    .map((p) => ({ id: p.id, numero_cnj: p.numero_cnj, vara: p.vara, cliente: p.casos?.clientes?.nome ?? null }))
+    .sort((a, b) => (a.cliente ?? "").localeCompare(b.cliente ?? "", "pt-BR"));
 
   const porDia: { titulo: string; itens: Audiencia[] }[] = [];
   lista.forEach((a) => {
@@ -85,49 +86,10 @@ export default async function Audiencias({ searchParams }: { searchParams: Promi
 
       <details className="card novo" style={{ marginBottom: 16 }} open={Boolean(nova)}>
         <summary><span className="btn primary">+ Agendar audiência</span></summary>
-        {listaCasos.length === 0 ? (
-          <div className="aviso info">Toda audiência fica ligada a um caso. Crie o caso primeiro no Funil de casos.</div>
+        {opcoes.length === 0 ? (
+          <div className="aviso info">Toda audiência fica ligada a um processo. Cadastre o processo primeiro em Processos.</div>
         ) : (
-          <FormAcao action={criarAudiencia} botao="Agendar audiência" className="form">
-            <div className="field full">
-              <label htmlFor="caso_id">Caso</label>
-              <select id="caso_id" name="caso_id" required defaultValue="">
-                <option value="" disabled>Escolha o caso</option>
-                {listaCasos.map((c) => <option key={c.id} value={c.id}>{c.clientes?.nome} · {c.titulo}</option>)}
-              </select>
-            </div>
-            <div className="field">
-              <label htmlFor="tipo">Tipo</label>
-              <select id="tipo" name="tipo" defaultValue="Conciliação">
-                {TIPOS.map((t) => <option key={t}>{t}</option>)}
-              </select>
-            </div>
-            <div className="field"><label htmlFor="tipo_outro">Outro tipo (opcional)</label><input id="tipo_outro" name="tipo_outro" placeholder="se não estiver na lista" /></div>
-            <div className="field"><label htmlFor="data">Dia</label><input id="data" name="data" type="date" required /></div>
-            <div className="field"><label htmlFor="hora">Hora</label><input id="hora" name="hora" type="time" required /></div>
-            <div className="field">
-              <label htmlFor="modalidade">Modalidade</label>
-              <select id="modalidade" name="modalidade" defaultValue="presencial">
-                <option value="presencial">Presencial</option>
-                <option value="video">Por vídeo</option>
-              </select>
-            </div>
-            <div className="field">
-              <label htmlFor="responsavel_id">Quem vai</label>
-              <select id="responsavel_id" name="responsavel_id" defaultValue="">
-                <option value="">A definir</option>
-                {(pessoas ?? []).map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}
-              </select>
-            </div>
-            <div className="field full"><label htmlFor="local">Local</label><input id="local" name="local" placeholder="ex.: 2ª Vara do Trabalho de Vitória · sala 3" /></div>
-            <div className="field full"><label htmlFor="observacoes">Observações</label><textarea id="observacoes" name="observacoes" rows={2} placeholder="ex.: levar testemunhas; cliente confirmou presença" /></div>
-            <label className="full" style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5 }}>
-              <input type="checkbox" name="lembrete3" defaultChecked style={{ width: 18, height: 18 }} /> Lembrete ao cliente 3 dias antes, às 10h
-            </label>
-            <label className="full" style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5 }}>
-              <input type="checkbox" name="lembrete" defaultChecked style={{ width: 18, height: 18 }} /> Lembrete ao cliente na véspera, às 18h
-            </label>
-          </FormAcao>
+          <FormAudiencia processos={opcoes} pessoas={pessoas ?? []} />
         )}
       </details>
 

@@ -4,6 +4,7 @@ import { BotaoAcao } from "@/components/BotaoAcao";
 import { CampoCpf } from "@/components/CampoCpf";
 import { CampoEndereco } from "@/components/CampoEndereco";
 import { FormAcao } from "@/components/FormAcao";
+import { FormAudiencia } from "@/components/FormAudiencia";
 import { LinhaDoTempo } from "@/components/LinhaDoTempo";
 import { linhaDoTempo } from "@/lib/linhaDoTempo";
 import { COLUNA_TAREFA, dataBR, dataHoraBR, ETAPA, telefoneBR, TIPO_AGENDAMENTO } from "@/lib/rotulos";
@@ -43,7 +44,7 @@ export default async function FichaCliente({ params }: { params: Promise<{ id: s
   const [{ data: processos }, { data: audiencias }, { data: tarefas }, { data: agendadas }, { data: areas }, { data: pessoas }, { data: google }, { data: documentos }, { data: qualif, error: erroQualif }] =
     await Promise.all([
       supabase.from("processos").select("id, numero_cnj, tribunal, vara, ultima_movimentacao, ultima_movimentacao_em").in("caso_id", idsCasos.length ? idsCasos : nenhum),
-      supabase.from("audiencias").select("id, tipo, inicio, local, modalidade").in("caso_id", idsCasos.length ? idsCasos : nenhum).order("inicio", { ascending: false }).limit(20),
+      supabase.from("audiencias").select("id, tipo, inicio, local, modalidade, processos(numero_cnj)").in("caso_id", idsCasos.length ? idsCasos : nenhum).order("inicio", { ascending: false }).limit(20),
       supabase.from("tarefas").select("id, titulo, coluna, vence_em").eq("cliente_id", id).neq("coluna", "concluida").order("vence_em", { nullsFirst: false }),
       supabase.from("mensagens_agendadas").select("id, tipo, texto, enviar_em").eq("cliente_id", id).eq("status", "programada").order("enviar_em"),
       supabase.from("areas").select("id, nome").eq("ativa", true).order("ordem_bot"),
@@ -216,6 +217,16 @@ export default async function FichaCliente({ params }: { params: Promise<{ id: s
 
           <div className="card">
             <div className="ctitle"><h3>Audiências</h3></div>
+            <details className="ficha-novo">
+              <summary><span className="btn sm"><Icone nome="calendario" tamanho={15} /> Agendar audiência</span></summary>
+              {(processos ?? []).length === 0 ? (
+                <div className="aviso info" style={{ marginTop: 10 }}>
+                  A audiência fica ligada a um processo. <Link href={`/processos?cliente=${c.id}`} style={{ color: "var(--accent)" }}>Cadastre o processo</Link> primeiro.
+                </div>
+              ) : (
+                <FormAudiencia processos={(processos ?? []).map((p) => ({ id: p.id, numero_cnj: p.numero_cnj, vara: p.vara }))} pessoas={pessoas ?? []} compacto />
+              )}
+            </details>
             {proximas.length + passadas.length === 0 ? (
               <div className="vazio" style={{ padding: "10px 4px" }}>Nenhuma audiência.</div>
             ) : (
@@ -225,6 +236,7 @@ export default async function FichaCliente({ params }: { params: Promise<{ id: s
                     <div className="bd">
                       <b>{a.tipo}</b>
                       <small>{dataHoraBR(a.inicio)} · {a.local ?? (a.modalidade === "video" ? "por vídeo" : "local a definir")}</small>
+                      {um(a.processos as Rel<{ numero_cnj: string }>) && <small style={{ fontFamily: "var(--f-mono)" }}>{um(a.processos as Rel<{ numero_cnj: string }>)!.numero_cnj}</small>}
                     </div>
                     {new Date(a.inicio).getTime() >= agora ? <span className="chip acc">próxima</span> : <span className="chip">realizada</span>}
                   </div>
