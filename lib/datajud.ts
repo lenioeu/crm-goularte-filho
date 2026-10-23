@@ -110,3 +110,14 @@ export function camposDoResumo(r: ResumoProcesso) {
     sincronizado_em: new Date().toISOString(),
   };
 }
+
+/** Números de processo (formato CNJ, com ou sem pontuação) que aparecem num texto, já conferidos pelos dígitos verificadores. */
+export function numerosCNJNoTexto(texto: string): string[] {
+  const achados = new Set<string>();
+  const padrao = /(?<!\d)(\d{7})[-._ ]?(\d{2})[-._ ]?(\d{4})[-._ ]?(\d)[-._ ]?(\d{2})[-._ ]?(\d{4})(?!\d)/g;
+  for (const m of texto.matchAll(padrao)) {
+    const d = m.slice(1, 7).join("");
+    if (validarCNJ(d)) achados.add(d);
+  }
+  return [...achados];
+}

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { BotaoAcao } from "@/components/BotaoAcao";
 import { FormAcao } from "@/components/FormAcao";
+import { ImportarProcessos } from "@/components/ImportarProcessos";
 import { supabaseServer } from "@/lib/supabase/server";
 import { atualizarProcesso, atualizarTodos, cadastrarProcesso } from "./actions";
 
@@ -87,6 +88,11 @@ export default async function Processos({ searchParams }: { searchParams: Promis
             </small>
           </div>
         </FormAcao>
+      </details>
+
+      <details className="card" style={{ marginBottom: 16 }}>
+        <summary style={{ cursor: "pointer", fontWeight: 500 }}>Procurar processos nas pastas do Drive</summary>
+        <div style={{ marginTop: 12 }}><ImportarProcessos /></div>
       </details>
 
       {error && <div className="aviso erro" style={{ marginBottom: 16 }}>Não foi possível carregar os processos: {error.message}. Se falar em coluna inexistente, rode o script 002_google.sql no Supabase.</div>}

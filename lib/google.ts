@@ -99,6 +99,28 @@ export async function criarPasta(token: string, nome: string, paiId: string): Pr
   });
 }
 
+/** Nomes de todos os arquivos da pasta e das subpastas (até `fundo` níveis). */
+export async function listarNomesDeArquivos(token: string, paiId: string, fundo = 2): Promise<string[]> {
+  const nomes: string[] = [];
+  let pagina: string | undefined;
+  const subpastas: string[] = [];
+  do {
+    const u = new URL("https://www.googleapis.com/drive/v3/files");
+    u.searchParams.set("q", `'${aspas(paiId)}' in parents and trashed = false`);
+    u.searchParams.set("fields", "nextPageToken, files(id, name, mimeType)");
+    u.searchParams.set("pageSize", "1000");
+    if (pagina) u.searchParams.set("pageToken", pagina);
+    const j = await google<{ files: { id: string; name: string; mimeType: string }[]; nextPageToken?: string }>(token, u.toString());
+    for (const f of j.files) {
+      nomes.push(f.name);
+      if (f.mimeType === PASTA) subpastas.push(f.id);
+    }
+    pagina = j.nextPageToken;
+  } while (pagina);
+  if (fundo > 0) for (const id of subpastas) nomes.push(...(await listarNomesDeArquivos(token, id, fundo - 1)));
+  return nomes;
+}
+
 /** Acha a subpasta pelo nome (sem diferenciar acentos e maiúsculas) ou cria. */
 export async function obterOuCriarPasta(token: string, nome: string, paiId: string): Promise<Pasta> {
   const alvo = normalizar(nome);

@@ -3,7 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { criarEvento, excluirEvento, tokenDeAcesso } from "@/lib/google";
+import { randomInt } from "node:crypto";
 import { quemSou } from "@/lib/permissoes";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { supabaseServer } from "@/lib/supabase/server";
 
 export type Resultado = { erro: string | null; ok: string | null };
@@ -349,4 +351,73 @@ export async function excluirCliente(id: string): Promise<Resultado> {
   revalidatePath("/clientes");
   revalidatePath("/");
   redirect("/clientes");
+}
+
+// ------------------------------------------------------------------ Pessoas da equipe
+const PAPEIS = ["administrador", "advogado", "estagiario", "atendimento"];
+
+/** Senha provisória fácil de ditar: 3 palavras curtas + 2 números. */
+function senhaProvisoria() {
+  const silabas = ["ba", "ce", "di", "fo", "gu", "la", "me", "ni", "po", "ru", "sa", "te", "vi", "zo"];
+  const parte = () => Array.from({ length: 3 }, () => silabas[randomInt(silabas.length)]).join("");
+  return `${parte()}-${parte()}-${randomInt(10, 100)}`;
+}
+
+/** O administrador cria o acesso de alguém já liberado, com uma senha provisória. */
+export async function adicionarPessoa(_: Resultado, f: FormData): Promise<Resultado> {
+  const { papel } = await quemSou();
+  if (papel !== "administrador") return { erro: "Só o administrador adiciona pessoas.", ok: null };
+  const nome = texto(f, "nome");
+  const email = texto(f, "email")?.toLowerCase();
+  const acesso = texto(f, "papel") ?? "atendimento";
+  if (!nome || !email) return { erro: "Informe o nome e o e-mail.", ok: null };
+  if (!PAPEIS.includes(acesso)) return { erro: "Escolha o tipo de acesso.", ok: null };
+
+  let admin;
+  try {
+    admin = supabaseAdmin();
+  } catch (e) {
+    return { erro: e instanceof Error ? e.message : String(e), ok: null };
+  }
+  const senha = senhaProvisoria();
+  const { data, error } = await admin.auth.admin.createUser({ email, password: senha, email_confirm: true, user_metadata: { nome } });
+  if (error) return { erro: /already|registered|exists/i.test(error.message) ? "Já existe um acesso com esse e-mail." : error.message, ok: null };
+  // O perfil é criado pelo banco (aguardando); aqui já sai liberado, com acesso e cargo
+  const { error: e2 } = await admin.from("perfis").update({ nome, papel: acesso, cargo_id: texto(f, "cargo_id"), ativo: true }).eq("id", data.user.id);
+  if (e2) return { erro: e2.message, ok: null };
+  revalidatePath("/equipe");
+  return { erro: null, ok: `Acesso criado. Passe para ${nome}: e-mail ${email} e senha provisória ${senha} (ela troca em Meu perfil).` };
+}
+
+/** Apaga o acesso. O que a pessoa fez fica no sistema, sem o nome dela (script 006). */
+export async function excluirPessoa(id: string): Promise<Resultado> {
+  const { user, papel } = await quemSou();
+  if (papel !== "administrador") return { erro: "Só o administrador exclui pessoas.", ok: null };
+  if (user?.id === id) return { erro: "Você não pode excluir o próprio acesso.", ok: null };
+  let admin;
+  try {
+    admin = supabaseAdmin();
+  } catch (e) {
+    return { erro: e instanceof Error ? e.message : String(e), ok: null };
+  }
+  const { error } = await admin.auth.admin.deleteUser(id);
+  if (error) {
+    if (/foreign key|violates|Database error/i.test(error.message)) {
+      return { erro: "Falta rodar o script supabase/006_excluir_pessoas.sql no Supabase. Enquanto isso, desmarque “Ativo” para tirar o acesso.", ok: null };
+    }
+    return { erro: error.message, ok: null };
+  }
+  revalidatePath("/equipe");
+  return { erro: null, ok: "Pessoa excluída." };
+}
+
+export async function trocarSenha(_: Resultado, f: FormData): Promise<Resultado> {
+  const senha = String(f.get("senha") ?? "");
+  const repetir = String(f.get("repetir") ?? "");
+  if (senha.length < 8) return { erro: "A senha precisa ter pelo menos 8 caracteres.", ok: null };
+  if (senha !== repetir) return { erro: "As duas senhas não são iguais.", ok: null };
+  const supabase = await supabaseServer();
+  const { error } = await supabase.auth.updateUser({ password: senha });
+  if (error) return { erro: /same|different/i.test(error.message) ? "A senha nova precisa ser diferente da atual." : error.message, ok: null };
+  return { erro: null, ok: "Senha trocada." };
 }

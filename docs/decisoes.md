@@ -103,3 +103,15 @@ escuro acompanha o sistema operacional.
 - Casos podem ser marcados como sigilosos; só o administrador e o responsável os veem.
 - Estagiários e atendimento só veem os casos atribuídos a eles.
 - Notas internas nunca são enviadas ao cliente.
+
+## Equipe
+
+O administrador adiciona pessoas em Equipe (o CRM cria o acesso com uma senha provisória, que a
+pessoa troca em Meu perfil) e pode excluí-las. Com o script 006, excluir uma pessoa mantém casos,
+tarefas e mensagens dela, só sem o nome. Para bloquear sem apagar, basta desmarcar "Ativo".
+
+## Processos a partir do Drive
+
+O DataJud não informa o nome das partes (LGPD). Para ligar os processos antigos aos clientes, o
+botão "Procurar processos nas pastas" lê os nomes dos arquivos das pastas dos clientes, acha números
+no formato CNJ (conferindo os dígitos verificadores) e só cadastra depois da revisão.

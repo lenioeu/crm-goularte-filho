@@ -1,6 +1,6 @@
 import { FormAcao } from "@/components/FormAcao";
 import { supabaseServer } from "@/lib/supabase/server";
-import { salvarPerfil } from "../actions";
+import { salvarPerfil, trocarSenha } from "../actions";
 
 export default async function Perfil() {
   const supabase = await supabaseServer();
@@ -14,7 +14,7 @@ export default async function Perfil() {
       <div className="vhead">
         <div>
           <h1>Meu perfil</h1>
-          <p>Seus dados aparecem nas mensagens enviadas aos clientes e nas petições geradas pelo sistema.</p>
+          <p>Seus dados aparecem nas mensagens enviadas aos clientes e nos documentos gerados pelo sistema (a OAB entra na procuração e no contrato).</p>
         </div>
       </div>
       <div className="card" style={{ maxWidth: 720 }}>
@@ -24,6 +24,13 @@ export default async function Perfil() {
           <div className="field"><label htmlFor="telefone">Telefone</label><input id="telefone" name="telefone" defaultValue={p?.telefone ?? ""} /></div>
           <div className="field"><label>E-mail de acesso</label><input value={user?.email ?? ""} disabled /></div>
           <div className="field full"><label htmlFor="assinatura">Assinatura nas mensagens</label><input id="assinatura" name="assinatura" defaultValue={p?.assinatura ?? ""} placeholder="ex.: Dr. Fulano · Goularte Filho Advocacia" /></div>
+        </FormAcao>
+      </div>
+      <div className="card" style={{ maxWidth: 720, marginTop: 16 }}>
+        <div className="ctitle"><h3>Trocar senha</h3></div>
+        <FormAcao action={trocarSenha} botao="Trocar senha" className="form">
+          <div className="field"><label htmlFor="senha">Senha nova</label><input id="senha" name="senha" type="password" required minLength={8} autoComplete="new-password" /></div>
+          <div className="field"><label htmlFor="repetir">Repita a senha nova</label><input id="repetir" name="repetir" type="password" required minLength={8} autoComplete="new-password" /></div>
         </FormAcao>
       </div>
     </div>

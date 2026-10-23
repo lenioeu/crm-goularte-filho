@@ -2,19 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import type { Resultado } from "@/app/(app)/actions";
-import { camposDoResumo, consultarDataJud, formatarCNJ, somenteDigitos, validarCNJ } from "@/lib/datajud";
+import { camposDoResumo, consultarDataJud, formatarCNJ, numerosCNJNoTexto, somenteDigitos, validarCNJ } from "@/lib/datajud";
+import { listarNomesDeArquivos, tokenDeAcesso } from "@/lib/google";
 import { quemSou } from "@/lib/permissoes";
 
-export async function cadastrarProcesso(_: Resultado, f: FormData): Promise<Resultado> {
-  const { supabase, user, papel } = await quemSou();
-  if (!user || !papel) return { erro: "Sem permissão.", ok: null };
-  let casoId = String(f.get("caso_id") ?? "");
-  const clienteId = String(f.get("cliente_id") ?? "");
-  const numero = somenteDigitos(String(f.get("numero") ?? ""));
-  if (!casoId && !clienteId) return { erro: "Escolha o cliente (ou um caso que já exista).", ok: null };
-  if (numero.length !== 20) return { erro: "O número do processo precisa ter 20 dígitos (formato 0000000-00.0000.0.00.0000).", ok: null };
-  if (!validarCNJ(numero)) return { erro: "Esse número não confere com os dígitos verificadores do CNJ. Confira se não houve erro de digitação.", ok: null };
+type Db = Awaited<ReturnType<typeof quemSou>>["supabase"];
 
+/** Cadastra um processo já validado: consulta o DataJud e, sem caso escolhido, cria um para o cliente. */
+async function registrar(supabase: Db, userId: string, numero: string, casoId: string, clienteId: string): Promise<Resultado> {
   let campos: Record<string, unknown> = {};
   let aviso = "";
   try {
@@ -37,7 +32,7 @@ export async function cadastrarProcesso(_: Resultado, f: FormData): Promise<Resu
         area_id: cli.area_id,
         titulo: (campos.classe as string | undefined) ?? `Processo ${formatarCNJ(numero)}`,
         etapa: "contrato_assinado",
-        responsavel_id: user.id,
+        responsavel_id: userId,
       })
       .select("id")
       .single();
@@ -53,9 +48,100 @@ export async function cadastrarProcesso(_: Resultado, f: FormData): Promise<Resu
     if (/row-level security/i.test(error.message)) return { erro: "Você não tem permissão para esse caso.", ok: null };
     return { erro: error.message, ok: null };
   }
-  revalidatePath("/processos");
-  if (clienteId) revalidatePath(`/clientes/${clienteId}`);
   return { erro: null, ok: `Processo ${formatarCNJ(numero)} cadastrado${casoNovo ? " (caso criado no funil, como contrato assinado)" : ""}.${aviso}` };
+}
+
+export async function cadastrarProcesso(_: Resultado, f: FormData): Promise<Resultado> {
+  const { supabase, user, papel } = await quemSou();
+  if (!user || !papel) return { erro: "Sem permissão.", ok: null };
+  const casoId = String(f.get("caso_id") ?? "");
+  const clienteId = String(f.get("cliente_id") ?? "");
+  const numero = somenteDigitos(String(f.get("numero") ?? ""));
+  if (!casoId && !clienteId) return { erro: "Escolha o cliente (ou um caso que já exista).", ok: null };
+  if (numero.length !== 20) return { erro: "O número do processo precisa ter 20 dígitos (formato 0000000-00.0000.0.00.0000).", ok: null };
+  if (!validarCNJ(numero)) return { erro: "Esse número não confere com os dígitos verificadores do CNJ. Confira se não houve erro de digitação.", ok: null };
+
+  const r = await registrar(supabase, user.id, numero, casoId, clienteId);
+  if (r.ok) {
+    revalidatePath("/processos");
+    if (clienteId) revalidatePath(`/clientes/${clienteId}`);
+  }
+  return r;
+}
+
+// ------------------------------------------------------------------ Procurar nas pastas do Drive
+export type Achado = { clienteId: string; cliente: string; numero: string; arquivos: string[]; jaCadastrado: boolean; outrosClientes: string[] };
+
+/** Percorre as pastas dos clientes no Drive e acha números de processo nos nomes dos arquivos. Não grava nada. */
+export async function procurarNasPastas(): Promise<{ erro: string | null; achados: Achado[]; pastas: number }> {
+  const { supabase, papel } = await quemSou();
+  if (papel !== "administrador" && papel !== "advogado") return { erro: "Só administradores e advogados fazem essa busca.", achados: [], pastas: 0 };
+  const token = await tokenDeAcesso();
+  if (!token) return { erro: "A conta Google do escritório não está conectada (Integrações).", achados: [], pastas: 0 };
+
+  const { data: clientes } = await supabase.from("clientes").select("id, nome, pasta_drive_id").not("pasta_drive_id", "is", null).order("nome").limit(3000);
+  const fila = [...(clientes ?? [])];
+  const porCliente: { id: string; nome: string; numeros: Map<string, string[]> }[] = [];
+  let falhas = 0;
+
+  async function trabalhador() {
+    for (let c = fila.shift(); c; c = fila.shift()) {
+      try {
+        const nomes = await listarNomesDeArquivos(token!, c.pasta_drive_id as string);
+        const numeros = new Map<string, string[]>();
+        for (const nome of nomes) for (const n of numerosCNJNoTexto(nome)) numeros.set(n, [...(numeros.get(n) ?? []), nome]);
+        if (numeros.size) porCliente.push({ id: c.id, nome: c.nome, numeros });
+      } catch {
+        falhas++;
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: 8 }, trabalhador));
+
+  const todos = porCliente.flatMap((c) => [...c.numeros.keys()].map(formatarCNJ));
+  const { data: existentes } = todos.length ? await supabase.from("processos").select("numero_cnj").in("numero_cnj", todos) : { data: [] };
+  const cadastrados = new Set((existentes ?? []).map((p) => p.numero_cnj));
+  const donos = new Map<string, string[]>();
+  for (const c of porCliente) for (const n of c.numeros.keys()) donos.set(n, [...(donos.get(n) ?? []), c.nome]);
+
+  const achados: Achado[] = porCliente
+    .flatMap((c) =>
+      [...c.numeros.entries()].map(([n, arquivos]) => ({
+        clienteId: c.id,
+        cliente: c.nome,
+        numero: formatarCNJ(n),
+        arquivos: arquivos.slice(0, 3),
+        jaCadastrado: cadastrados.has(formatarCNJ(n)),
+        outrosClientes: (donos.get(n) ?? []).filter((x) => x !== c.nome),
+      })),
+    )
+    .sort((a, b) => a.cliente.localeCompare(b.cliente) || a.numero.localeCompare(b.numero));
+  return { erro: falhas ? `${falhas} pasta(s) não puderam ser lidas; rode de novo para tentar outra vez.` : null, achados, pastas: clientes?.length ?? 0 };
+}
+
+/** Cadastra um lote de processos achados (o navegador manda de pouco em pouco). */
+export async function cadastrarAchados(lote: { clienteId: string; numero: string }[]): Promise<{ ok: number; erros: { numero: string; erro: string }[] }> {
+  const { supabase, user, papel } = await quemSou();
+  if (!user || (papel !== "administrador" && papel !== "advogado")) return { ok: 0, erros: lote.map((x) => ({ numero: x.numero, erro: "Sem permissão." })) };
+  let ok = 0;
+  const erros: { numero: string; erro: string }[] = [];
+  const fila = lote.slice(0, 30);
+  async function trabalhador() {
+    for (let x = fila.shift(); x; x = fila.shift()) {
+      const d = somenteDigitos(x.numero);
+      if (d.length !== 20 || !validarCNJ(d)) {
+        erros.push({ numero: x.numero, erro: "número inválido" });
+        continue;
+      }
+      const r = await registrar(supabase, user!.id, d, "", x.clienteId);
+      if (r.erro) erros.push({ numero: x.numero, erro: r.erro });
+      else ok++;
+    }
+  }
+  await Promise.all(Array.from({ length: 4 }, trabalhador));
+  revalidatePath("/processos");
+  revalidatePath("/funil");
+  return { ok, erros };
 }
 
 async function sincronizar(ids?: string[]) {

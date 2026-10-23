@@ -303,3 +303,4 @@ details.novo[open] > summary { margin-bottom: 14px; }
 .marcador span { min-width: 0; }
 .folha-centro { text-align: center; }
 @media (max-width: 1100px) { .marcador { flex-direction: column; gap: 2px; } }
+.filtro-texto { height: 32px; border-radius: 8px; border: 1px solid var(--line-2); background: var(--panel); color: var(--fg); padding: 0 10px; font-size: 13px; font-family: var(--f-body); min-width: 200px; }
