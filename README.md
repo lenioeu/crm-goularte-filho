@@ -50,7 +50,7 @@ Depois abra http://localhost:3000. O sistema já aponta para o projeto Supabase 
 - Indicadores do mês (sem ranking)
 - Atendimento pelo WhatsApp, com triagem por área e documentos salvos no Drive
 - Instalável no celular (ícone na tela inicial)
-- Modelos de documentos (procuração, hipossuficiência, contrato de honorários, renúncia) preenchidos com os dados do cliente
+- Modelos de documentos (procuração, hipossuficiência, contrato de honorários, renúncia) preenchidos com os dados do cliente, editáveis na aba Modelos
 - Meu perfil
 
 ## Instalar no celular

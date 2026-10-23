@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { ADVOGADO_PADRAO, type AdvogadoDoc, type ClienteDoc, ESCRITORIO_PADRAO, type EscritorioDoc } from "@/lib/modelos";
+import { ADVOGADO_PADRAO, type AdvogadoDoc, type ClienteDoc, ESCRITORIO_PADRAO, type EscritorioDoc, MODELOS_PADRAO, type ModeloTexto } from "@/lib/modelos";
 
 // Busca no banco o que os modelos precisam: cliente, advogados escolhidos e dados do escritório.
 
@@ -29,4 +29,11 @@ export async function carregarCliente(db: SupabaseClient, id: string): Promise<{
 export function escolherAdvogados(equipe: { id: string; nome: string; oab: string }[], ids: string[]): AdvogadoDoc[] {
   const escolhidos = equipe.filter((p) => ids.includes(p.id));
   return escolhidos.length ? escolhidos : equipe.length ? [] : [ADVOGADO_PADRAO];
+}
+
+/** Modelos do escritório (aba Modelos). Sem a tabela (script 005) ou vazia, usa os de fábrica. */
+export async function listarModelos(db: SupabaseClient): Promise<{ modelos: ModeloTexto[]; tabela: boolean }> {
+  const { data, error } = await db.from("modelos").select("id, nome, arquivo, descricao, conteudo").eq("ativo", true).order("ordem").order("nome");
+  if (error) return { modelos: MODELOS_PADRAO.map((m) => ({ ...m, padrao: true })), tabela: false };
+  return { modelos: data?.length ? (data as ModeloTexto[]) : MODELOS_PADRAO.map((m) => ({ ...m, padrao: true })), tabela: true };
 }

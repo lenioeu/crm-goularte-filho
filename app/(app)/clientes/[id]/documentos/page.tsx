@@ -2,8 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BotaoImprimir } from "@/components/BotaoImprimir";
 import { FormAcao } from "@/components/FormAcao";
-import { advogadosDaEquipe, carregarCliente, dadosDoEscritorio, escolherAdvogados } from "@/lib/documentos";
-import { faltando, MODELOS, modeloPorId } from "@/lib/modelos";
+import { FolhaPrevia } from "@/components/FolhaPrevia";
+import { advogadosDaEquipe, carregarCliente, dadosDoEscritorio, escolherAdvogados, listarModelos } from "@/lib/documentos";
+import { camposDoModelo, faltando, renderizar, usaAdvogados } from "@/lib/modelos";
 import { quemSou } from "@/lib/permissoes";
 import { TZ } from "@/lib/rotulos";
 import { gerarDocumento, salvarEscritorio } from "./actions";
@@ -15,16 +16,21 @@ export default async function Documentos({ params, searchParams }: { params: Pro
   const { id } = await params;
   const q = await searchParams;
   const { supabase, papel } = await quemSou();
-  const modelo = modeloPorId(um(q.modelo));
-
-  const [{ cliente, erro }, equipe, escritorio] = await Promise.all([carregarCliente(supabase, id), advogadosDaEquipe(supabase), dadosDoEscritorio(supabase)]);
+  const [{ cliente, erro }, equipe, escritorio, { modelos }] = await Promise.all([
+    carregarCliente(supabase, id),
+    advogadosDaEquipe(supabase),
+    dadosDoEscritorio(supabase),
+    listarModelos(supabase),
+  ]);
   if (!cliente && !erro) notFound();
+  const modelo = modelos.find((m) => m.id === um(q.modelo)) ?? modelos[0];
+  const campos = camposDoModelo(modelo.conteudo);
 
   const hoje = new Date().toLocaleDateString("sv-SE", { timeZone: TZ });
   const data = /^\d{4}-\d{2}-\d{2}$/.test(um(q.data)) ? um(q.data) : hoje;
   const idsAdv = q.advogado === undefined ? equipe.slice(0, 1).map((p) => p.id) : ([] as string[]).concat(q.advogado);
-  const extra = Object.fromEntries(modelo.campos.map((c) => [c.nome, q[c.nome] !== undefined ? um(q[c.nome]) : c.padrao ?? ""]));
-  const blocos = cliente ? modelo.gerar({ cliente, advogados: escolherAdvogados(equipe, idsAdv), escritorio, data, extra }) : [];
+  const extra = Object.fromEntries(campos.map((c) => [c.chave, q[`campo_${c.chave}`] !== undefined ? um(q[`campo_${c.chave}`]) : c.padrao]));
+  const blocos = cliente ? renderizar(modelo.conteudo, { cliente, advogados: escolherAdvogados(equipe, idsAdv), escritorio, data, extra }) : [];
   const faltam = cliente ? faltando(cliente) : [];
 
   return (
@@ -33,14 +39,17 @@ export default async function Documentos({ params, searchParams }: { params: Pro
         <div>
           <Link href={`/clientes/${id}`} style={{ color: "var(--accent)", fontSize: 13 }}>‹ {cliente?.nome ?? "Cliente"}</Link>
           <h1 style={{ marginTop: 4 }}>Documentos</h1>
-          <p>Modelos do escritório preenchidos com os dados do cliente. Salve no Drive para revisar no Google Docs ou imprima direto.</p>
+          <p>
+            Modelos do escritório preenchidos com os dados do cliente. Salve no Drive para revisar no Google Docs ou imprima direto. Para mudar o
+            texto, use a aba <Link href="/modelos" style={{ color: "var(--accent)" }}>Modelos</Link>.
+          </p>
         </div>
       </div>
 
       {erro && <div className="aviso erro" style={{ marginBottom: 16 }}>{erro}</div>}
 
       <div className="filtros">
-        {MODELOS.map((m) => (
+        {modelos.map((m) => (
           <Link key={m.id} className={"fp" + (m.id === modelo.id ? " on" : "")} href={`/clientes/${id}/documentos?modelo=${m.id}`}>{m.nome}</Link>
         ))}
       </div>
@@ -49,7 +58,7 @@ export default async function Documentos({ params, searchParams }: { params: Pro
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div className="card">
             <div className="ctitle"><h3>{modelo.nome}</h3></div>
-            <p style={{ margin: "0 0 12px", fontSize: 13, color: "var(--muted)" }}>{modelo.descricao}</p>
+            {modelo.descricao && <p style={{ margin: "0 0 12px", fontSize: 13, color: "var(--muted)" }}>{modelo.descricao}</p>}
             {faltam.length > 0 && (
               <div className="aviso info" style={{ marginBottom: 12 }}>
                 Faltam no cadastro: <b>{faltam.join(", ")}</b>. Saem como “______”.{" "}
@@ -58,13 +67,13 @@ export default async function Documentos({ params, searchParams }: { params: Pro
             )}
             <form method="get" className="form">
               <input type="hidden" name="modelo" value={modelo.id} />
-              {modelo.campos.map((c) => (
-                <div className="field full" key={c.nome}>
-                  <label htmlFor={c.nome}>{c.rotulo}</label>
-                  <textarea id={c.nome} name={c.nome} rows={c.linhas ?? 2} defaultValue={extra[c.nome]} placeholder={c.dica} />
+              {campos.map((c) => (
+                <div className="field full" key={c.chave}>
+                  <label htmlFor={`campo_${c.chave}`}>{c.rotulo.charAt(0).toUpperCase() + c.rotulo.slice(1)}</label>
+                  <textarea id={`campo_${c.chave}`} name={`campo_${c.chave}`} rows={2} defaultValue={extra[c.chave]} />
                 </div>
               ))}
-              {modelo.id !== "hipossuficiencia" && modelo.id !== "renuncia" && (
+              {usaAdvogados(modelo.conteudo) && (
                 <div className="field full">
                   <label>Advogado(s)</label>
                   {equipe.length === 0 ? (
@@ -94,7 +103,7 @@ export default async function Documentos({ params, searchParams }: { params: Pro
                 <input type="hidden" name="modelo" value={modelo.id} />
                 <input type="hidden" name="data" value={data} />
                 {idsAdv.map((a) => <input key={a} type="hidden" name="advogado" value={a} />)}
-                {modelo.campos.map((c) => <input key={c.nome} type="hidden" name={c.nome} value={extra[c.nome]} />)}
+                {campos.map((c) => <input key={c.chave} type="hidden" name={`campo_${c.chave}`} value={extra[c.chave]} />)}
                 <p style={{ margin: "0 0 4px", fontSize: 13, color: "var(--muted)", gridColumn: "1 / -1" }}>
                   Salva o que está na prévia. Se mudou algum campo, clique em “Atualizar prévia” antes.
                 </p>
@@ -122,24 +131,7 @@ export default async function Documentos({ params, searchParams }: { params: Pro
           )}
         </div>
 
-        <div className="card folha" aria-label="Prévia do documento">
-          {blocos.map((b, i) =>
-            b.t === "assinaturas" ? (
-              <div key={i} className="folha-ass">
-                {b.nomes.map((n) => (
-                  <div key={n.nome}>
-                    <div className="linha" />
-                    <b>{n.nome}</b>
-                    {n.linhas.map((l) => <div key={l}>{l}</div>)}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p key={i} className={`folha-${b.t}`}>{b.texto}</p>
-            ),
-          )}
-          <p className="folha-rodape">Telefone: {escritorio.telefone} · E-mail: {escritorio.email} · {escritorio.endereco}</p>
-        </div>
+        <FolhaPrevia blocos={blocos} escritorio={escritorio} />
       </div>
     </div>
   );

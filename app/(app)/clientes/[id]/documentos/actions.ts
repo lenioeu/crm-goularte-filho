@@ -3,9 +3,9 @@
 import { revalidatePath } from "next/cache";
 import type { Resultado } from "@/app/(app)/actions";
 import { criarPastaCliente } from "@/app/(app)/integracoes/actions";
-import { advogadosDaEquipe, carregarCliente, dadosDoEscritorio, escolherAdvogados } from "@/lib/documentos";
+import { advogadosDaEquipe, carregarCliente, dadosDoEscritorio, escolherAdvogados, listarModelos } from "@/lib/documentos";
 import { enviarArquivo, tokenDeAcesso } from "@/lib/google";
-import { emHtml, modeloPorId } from "@/lib/modelos";
+import { camposDoModelo, emHtml, renderizar } from "@/lib/modelos";
 import { quemSou } from "@/lib/permissoes";
 import { TZ } from "@/lib/rotulos";
 
@@ -19,9 +19,12 @@ export async function gerarDocumento(_: Resultado, f: FormData): Promise<Resulta
   const { supabase, user, papel } = await quemSou();
   if (!user || !papel) return { erro: "Sem permissão.", ok: null };
   const clienteId = String(f.get("cliente_id") ?? "");
-  const modelo = modeloPorId(String(f.get("modelo") ?? ""));
-  const extra = Object.fromEntries(modelo.campos.map((c) => [c.nome, String(f.get(c.nome) ?? "")]));
-  const faltaCampo = modelo.campos.find((c) => c.obrigatorio && !extra[c.nome].trim());
+  const { modelos } = await listarModelos(supabase);
+  const modelo = modelos.find((m) => m.id === String(f.get("modelo") ?? ""));
+  if (!modelo) return { erro: "Modelo não encontrado. Recarregue a página.", ok: null };
+  const campos = camposDoModelo(modelo.conteudo);
+  const extra = Object.fromEntries(campos.map((c) => [c.chave, String(f.get(`campo_${c.chave}`) ?? "")]));
+  const faltaCampo = campos.find((c) => !c.opcional && !extra[c.chave].trim());
   if (faltaCampo) return { erro: `Preencha “${faltaCampo.rotulo}”.`, ok: null };
   const data = txt(f, "data") ?? new Date().toLocaleDateString("sv-SE", { timeZone: TZ });
 
@@ -41,7 +44,7 @@ export async function gerarDocumento(_: Resultado, f: FormData): Promise<Resulta
     if (!pastaId) return { erro: "Não consegui achar a pasta do cliente.", ok: null };
   }
 
-  const html = emHtml(modelo.gerar({ cliente, advogados, escritorio, data, extra }), escritorio);
+  const html = emHtml(renderizar(modelo.conteudo, { cliente, advogados, escritorio, data, extra }), escritorio);
   const nome = `${data} ${modelo.arquivo} - ${cliente.nome.toUpperCase()}`;
   try {
     const salvo = await enviarArquivo(token, {

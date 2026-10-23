@@ -78,6 +78,12 @@ de hipossuficiência da ZapSign, contrato de honorários e termo de renúncia do
 preenche a qualificação do cliente, os advogados escolhidos (quem tem OAB em Meu perfil) e a
 data, e salva como Google Docs na pasta do cliente para revisão antes da assinatura.
 
+Na aba **Modelos**, administradores e advogados criam e editam os textos. Cada linha é um
+parágrafo; marcadores entre chaves duplas trazem os dados (`{{QUALIFICACAO}}`,
+`{{DATA_EXTENSO}}`, `{{CLAUSULA}}`, `{{ASSINATURA_CLIENTE:Outorgante}}`…) e qualquer outro
+nome (`{{objeto do contrato}}`) vira pergunta na hora de gerar. Os quatro modelos acima vêm
+de fábrica e são copiados para a tabela `modelos` (script 005) quando o escritório quiser editá-los.
+
 Como o repositório é público, dados bancários e CPF do advogado não ficam no código: o
 administrador preenche a conta para pagamento na tela de Documentos, e ela fica só no banco.
 
