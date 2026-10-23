@@ -62,7 +62,7 @@ async function google<T>(token: string, url: string, init?: RequestInit): Promis
     ...init,
     headers: {
       Authorization: `Bearer ${token}`,
-      ...(init?.body ? { "Content-Type": "application/json" } : {}),
+      ...(typeof init?.body === "string" ? { "Content-Type": "application/json" } : {}),
       ...init?.headers,
     },
     cache: "no-store",
@@ -114,6 +114,28 @@ export async function procurarPastaClientes(token: string): Promise<(Pasta & { c
     if (clientes) return { ...clientes, caminho: `${escritorio.name} › ${clientes.name}` };
   }
   return null;
+}
+
+/** Grava um arquivo (conteúdo em base64) dentro da pasta indicada. */
+export async function enviarArquivo(
+  token: string,
+  arq: { nome: string; mimetype: string; base64: string; paiId: string },
+): Promise<{ id: string; webViewLink?: string }> {
+  const limite = "orion" + Math.random().toString(36).slice(2);
+  const corpo = Buffer.concat([
+    Buffer.from(
+      `--${limite}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n` +
+        JSON.stringify({ name: arq.nome, parents: [arq.paiId] }) +
+        `\r\n--${limite}\r\nContent-Type: ${arq.mimetype}\r\n\r\n`,
+    ),
+    Buffer.from(arq.base64, "base64"),
+    Buffer.from(`\r\n--${limite}--`),
+  ]);
+  return google(token, "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink", {
+    method: "POST",
+    headers: { "Content-Type": `multipart/related; boundary=${limite}` },
+    body: corpo,
+  });
 }
 
 // ------------------------------------------------------------------ Agenda

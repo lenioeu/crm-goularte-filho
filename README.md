@@ -48,6 +48,7 @@ Depois abra http://localhost:3000. O sistema já aponta para o projeto Supabase 
 - Áreas de atuação: lista e criação
 - Equipe e cargos: liberar acesso, escolher papel e cargo
 - Indicadores do mês (sem ranking)
+- Atendimento pelo WhatsApp, com triagem por área e documentos salvos no Drive
 - Meu perfil
 
 ## Etapas
@@ -56,5 +57,5 @@ Depois abra http://localhost:3000. O sistema já aponta para o projeto Supabase 
 2. [x] Banco de dados e login (Supabase)
 3. [x] Sistema no ar (Vercel)
 4. [ ] Google Drive e Google Agenda
-5. [ ] WhatsApp (Evolution API): instalação do servidor em [docs/whatsapp.md](docs/whatsapp.md)
+5. [ ] WhatsApp (Evolution API): sistema pronto; falta instalar o servidor ([docs/whatsapp.md](docs/whatsapp.md))
 6. [ ] Testes com a equipe

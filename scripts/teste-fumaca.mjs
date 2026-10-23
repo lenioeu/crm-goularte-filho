@@ -16,7 +16,7 @@ const hoje = agora.slice(0, 10);
 // Cada consulta recebe uma linha de exemplo montada a partir do próprio "select",
 // para as páginas renderizarem com dados (e não só com listas vazias).
 const VALORES = {
-  etapa: "triagem", coluna: "a_fazer", status: "programada", papel: "admin", tipo: "follow_up",
+  etapa: "triagem", coluna: "a_fazer", status: "programada", papel: "administrador", tipo: "follow_up", direcao: "entrada",
   modalidade: "presencial", cor: "#1a73e8", numero_cnj: "0000001-23.2026.5.04.0001", tribunal: "TRT4",
   telefone_whatsapp: "5551999999999", cpf_cnpj: "00000000000", email: "teste@exemplo.com",
   pasta_drive_url: "https://drive.google.com/drive/folders/x", chave: "pasta_clientes", valor: "x",
@@ -28,7 +28,7 @@ function valor(campo) {
   if (["vence_em", "ultima_movimentacao_em", "data"].includes(campo)) return hoje;
   if (campo.endsWith("_em") || campo === "inicio" || campo === "fim") return agora;
   if (/^(ativo|ativa|sigiloso|automatico|cancelar_se_responder|arquivado)$/.test(campo)) return campo !== "arquivado";
-  if (campo === "erro" || campo === "motivo_nao_viavel") return null;
+  if (["erro", "motivo_nao_viavel", "midia_url", "atendente_id", "pasta_drive_id"].includes(campo)) return null;
   return "Teste " + campo;
 }
 function separar(lista) {
@@ -55,9 +55,16 @@ function linha(select) {
   return obj;
 }
 const usuario = { id: ID, aud: "authenticated", role: "authenticated", email: "teste@exemplo.com", app_metadata: {}, user_metadata: {}, created_at: agora };
+const chamadas = [];
 const banco = http.createServer((req, res) => {
   const url = new URL(req.url, "http://x");
+  chamadas.push(`${req.method} ${url.pathname}`);
   res.setHeader("content-type", "application/json");
+  // Evolution API falso (WhatsApp)
+  if (url.pathname.startsWith("/instance/connectionState/")) return res.end(JSON.stringify({ instance: { state: "open" } }));
+  if (url.pathname.startsWith("/message/sendText/")) return res.end(JSON.stringify({ key: { id: "WA" + Date.now() } }));
+  // Mensagem nova do WhatsApp ainda não registrada
+  if (url.searchParams.has("whatsapp_id")) return res.end((req.headers.accept ?? "").includes("vnd.pgrst.object") ? "null" : "[]");
   if (url.pathname === "/auth/v1/user") return res.end(JSON.stringify(usuario));
   if (url.pathname.startsWith("/rest/v1/rpc/")) return res.end("null");
   if (url.pathname.startsWith("/rest/v1/")) {
@@ -86,13 +93,27 @@ const EXEMPLO = { "[id]": ID, "[secao]": "atendimento" };
 const rotas = paginas("app")
   .map((p) => "/" + relative("app", p).split(sep).slice(0, -1).filter((s) => !s.startsWith("(")).map((s) => EXEMPLO[s] ?? s).join("/"))
   .sort();
-rotas.push("/busca?q=teste", "/indicadores?mes=2026-01", "/funil?area=" + ID, "/processos?filtro=parados");
+rotas.push(
+  "/busca?q=teste", "/indicadores?mes=2026-01", "/funil?area=" + ID, "/processos?filtro=parados",
+  "/atendimento?c=" + ID, "/atendimento?f=encerradas", "/atendimento?cliente=" + ID,
+);
 
 // ---------- CRM ----------
 const erros = [];
 const app = spawn(process.execPath, ["node_modules/next/dist/bin/next", "start", "-p", String(PORTA_APP)], {
   detached: true,
-  env: { ...process.env, SUPABASE_URL_TESTE: `http://127.0.0.1:${PORTA_BANCO}`, NODE_ENV: "production" },
+  // Tudo aponta para o banco falso; nada sai para serviços de verdade durante o teste
+  env: {
+    ...process.env,
+    NODE_ENV: "production",
+    SUPABASE_URL_TESTE: `http://127.0.0.1:${PORTA_BANCO}`,
+    SUPABASE_SECRET_KEY: "teste",
+    EVOLUTION_URL: `http://127.0.0.1:${PORTA_BANCO}`,
+    EVOLUTION_API_KEY: "teste",
+    CRON_SECRET: "teste",
+    GOOGLE_CLIENT_ID: "",
+    GOOGLE_CLIENT_SECRET: "",
+  },
   stdio: ["ignore", "pipe", "pipe"],
 });
 const registrar = (b) => {
@@ -132,6 +153,33 @@ for (const rota of rotas) {
   else if (r.status === 200 && rota !== "/login" && !html.includes("<h1")) problema = "página sem título";
   console.log(`${problema ? "FALHOU" : "ok    "} ${rota}${problema ? "  →  " + problema : ""}`);
   if (problema) falhas++;
+}
+
+// ---------- WhatsApp: aviso de mensagem recebida e envio dos agendamentos ----------
+const { createHash } = await import("node:crypto");
+const token = createHash("sha256").update("webhook:teste").digest("hex");
+const aviso = {
+  event: "messages.upsert",
+  data: { key: { id: "TESTE1", remoteJid: "5551999999999@s.whatsapp.net", fromMe: false }, pushName: "Fulano", messageType: "conversation", message: { conversation: "1" }, messageTimestamp: Math.floor(Date.now() / 1000) },
+};
+const api = [
+  ["webhook sem senha", base + "/api/whatsapp/webhook", { method: "POST", body: "{}" }, 401],
+  ["webhook com mensagem", base + "/api/whatsapp/webhook", { method: "POST", headers: { "x-crm-token": token, "content-type": "application/json" }, body: JSON.stringify(aviso) }, 200],
+  ["envio dos agendamentos", base + "/api/whatsapp/agendadas", { method: "POST", headers: { authorization: "Bearer teste" } }, 200],
+];
+for (const [nome, url, init, esperado] of api) {
+  const antes = erros.length;
+  const r = await fetch(url, init);
+  const corpo = await r.text();
+  await new Promise((ok) => setTimeout(ok, 150));
+  const problema = r.status !== esperado ? `status ${r.status} (esperado ${esperado}) ${corpo.slice(0, 120)}` : erros.length > antes ? erros.slice(antes).join(" | ").slice(0, 300) : null;
+  console.log(`${problema ? "FALHOU" : "ok    "} ${nome}${problema ? "  →  " + problema : ""}`);
+  if (problema) falhas++;
+}
+if (process.env.TESTE_DETALHES) console.log(chamadas.filter((c) => !c.startsWith("GET /auth")).slice(-40).join("\n"));
+if (!chamadas.some((c) => c.startsWith("POST /message/sendText/"))) {
+  console.log("FALHOU envio pelo WhatsApp  →  nenhuma mensagem chegou ao Evolution falso");
+  falhas++;
 }
 
 const encerrar = () => { try { process.kill(-app.pid, "SIGKILL"); } catch {} };

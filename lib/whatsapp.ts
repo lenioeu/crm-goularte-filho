@@ -1,0 +1,158 @@
+import { createHash } from "node:crypto";
+
+// Conversa com o Evolution API (WhatsApp do escritório, no servidor da Oracle).
+// Endereços conferidos no código da versão 2.3.7.
+
+export const INSTANCIA = process.env.EVOLUTION_INSTANCIA || "escritorio";
+const URL_BASE = (process.env.EVOLUTION_URL ?? "").replace(/\/+$/, "");
+
+export function whatsappConfigurado() {
+  return Boolean(URL_BASE && process.env.EVOLUTION_API_KEY && process.env.SUPABASE_SECRET_KEY);
+}
+
+/** Senha que o Evolution manda em cada aviso ao CRM; derivada da chave da API, sem variável extra. */
+export function tokenWebhook() {
+  return createHash("sha256").update(`webhook:${process.env.EVOLUTION_API_KEY ?? ""}`).digest("hex");
+}
+
+async function evo<T>(caminho: string, init?: RequestInit): Promise<T> {
+  const r = await fetch(`${URL_BASE}${caminho}`, {
+    ...init,
+    headers: { apikey: process.env.EVOLUTION_API_KEY ?? "", "Content-Type": "application/json", ...init?.headers },
+    cache: "no-store",
+    signal: AbortSignal.timeout(20_000),
+  });
+  if (!r.ok) {
+    const corpo = (await r.text()).slice(0, 300);
+    throw new Error(`WhatsApp respondeu ${r.status}${corpo ? `: ${corpo}` : ""}`);
+  }
+  return (await r.json()) as T;
+}
+
+// ------------------------------------------------------------------ Números
+const digitos = (s: string) => s.replace(/\D/g, "");
+
+/** Número no formato do WhatsApp: 55 + DDD + número. */
+export function numeroWhatsApp(telefone: string) {
+  const d = digitos(telefone);
+  return d.length === 10 || d.length === 11 ? `55${d}` : d;
+}
+
+/** Chave para comparar números: DDD + últimos 8 dígitos (resolve o "9" a mais ou a menos). */
+export function chaveTelefone(telefone: string) {
+  let d = digitos(telefone);
+  if (d.startsWith("55") && d.length >= 12) d = d.slice(2);
+  return d.length >= 10 ? d.slice(0, 2) + d.slice(-8) : d;
+}
+
+export const numeroDoJid = (jid: string) => digitos(jid.split("@")[0]);
+
+// ------------------------------------------------------------------ Conexão
+export type Estado = "open" | "connecting" | "close" | "inexistente";
+
+export async function estadoConexao(): Promise<Estado> {
+  try {
+    const r = await evo<{ instance?: { state?: Estado } }>(`/instance/connectionState/${INSTANCIA}`);
+    return r.instance?.state ?? "close";
+  } catch (e) {
+    if (e instanceof Error && /\b404\b/.test(e.message)) return "inexistente";
+    throw e;
+  }
+}
+
+const EVENTOS = ["MESSAGES_UPSERT", "CONNECTION_UPDATE"];
+
+/** Cria a instância se precisar, liga o aviso de mensagens ao CRM e devolve o QR Code (imagem base64). */
+export async function conectar(urlWebhook: string): Promise<string | null> {
+  const webhook = { enabled: true, url: urlWebhook, headers: { "x-crm-token": tokenWebhook() }, byEvents: false, base64: false, events: EVENTOS };
+  if ((await estadoConexao()) === "inexistente") {
+    const r = await evo<{ qrcode?: { base64?: string } }>("/instance/create", {
+      method: "POST",
+      body: JSON.stringify({ instanceName: INSTANCIA, integration: "WHATSAPP-BAILEYS", qrcode: true, groupsIgnore: true, webhook }),
+    });
+    return r.qrcode?.base64 ?? null;
+  }
+  await evo(`/webhook/set/${INSTANCIA}`, { method: "POST", body: JSON.stringify({ webhook }) });
+  const r = await evo<{ base64?: string }>(`/instance/connect/${INSTANCIA}`);
+  return r.base64 ?? null;
+}
+
+export async function desconectar() {
+  await evo(`/instance/logout/${INSTANCIA}`, { method: "DELETE" });
+}
+
+// ------------------------------------------------------------------ Mensagens
+/** Envia texto e devolve o id da mensagem no WhatsApp. */
+export async function enviarTexto(telefone: string, texto: string): Promise<string | null> {
+  const r = await evo<{ key?: { id?: string } }>(`/message/sendText/${INSTANCIA}`, {
+    method: "POST",
+    body: JSON.stringify({ number: numeroWhatsApp(telefone), text: texto, delay: 1200 }),
+  });
+  return r.key?.id ?? null;
+}
+
+/** Baixa o arquivo de uma mensagem recebida (documento, foto, áudio). */
+export async function baixarMidia(whatsappId: string) {
+  return evo<{ base64: string; mimetype?: string; fileName?: string }>(`/chat/getBase64FromMediaMessage/${INSTANCIA}`, {
+    method: "POST",
+    body: JSON.stringify({ message: { key: { id: whatsappId } }, convertToMp4: false }),
+  });
+}
+
+// ------------------------------------------------------------------ Aviso recebido
+export type MensagemRecebida = {
+  whatsappId: string;
+  numero: string;
+  deMim: boolean;
+  nomeContato: string | null;
+  texto: string | null;
+  midiaTipo: string | null;
+  midiaNome: string | null;
+  em: string;
+};
+
+const MIDIAS: Record<string, string> = {
+  imageMessage: "imagem",
+  documentMessage: "documento",
+  documentWithCaptionMessage: "documento",
+  audioMessage: "audio",
+  videoMessage: "video",
+  stickerMessage: "figurinha",
+};
+
+type Bruto = {
+  key?: { id?: string; remoteJid?: string; remoteJidAlt?: string; fromMe?: boolean };
+  pushName?: string | null;
+  messageType?: string;
+  messageTimestamp?: number;
+  message?: Record<string, { caption?: string; fileName?: string; text?: string; message?: Record<string, { caption?: string; fileName?: string }> }> & {
+    conversation?: string;
+  };
+};
+
+/** Traduz o "messages.upsert" do Evolution; null para grupos, status e o que não interessa. */
+export function lerMensagem(data: unknown): MensagemRecebida | null {
+  const m = data as Bruto;
+  let jid = m?.key?.remoteJid ?? "";
+  if (jid.endsWith("@lid") && m.key?.remoteJidAlt) jid = m.key.remoteJidAlt;
+  if (!m?.key?.id || !jid.endsWith("@s.whatsapp.net")) return null;
+
+  const tipo = m.messageType ?? "";
+  const corpo = m.message ?? {};
+  let conteudo = corpo[tipo] as { caption?: string; fileName?: string; text?: string } | undefined;
+  if (tipo === "documentWithCaptionMessage") conteudo = corpo[tipo]?.message?.documentMessage;
+  const texto = (typeof corpo.conversation === "string" ? corpo.conversation : null) ?? conteudo?.caption ?? conteudo?.text ?? null;
+  const midiaTipo = MIDIAS[tipo] ?? null;
+  if (!texto && !midiaTipo) return null; // reações, enquetes, mensagens apagadas…
+
+  return {
+    whatsappId: m.key.id,
+    numero: numeroDoJid(jid),
+    deMim: Boolean(m.key.fromMe),
+    nomeContato: m.key.fromMe ? null : m.pushName ?? null,
+    texto,
+    midiaTipo,
+    midiaNome: conteudo?.fileName ?? null,
+    em: new Date((m.messageTimestamp ?? Date.now() / 1000) * 1000).toISOString(),
+  };
+}

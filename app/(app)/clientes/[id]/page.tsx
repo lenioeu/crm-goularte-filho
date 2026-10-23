@@ -29,7 +29,7 @@ export default async function FichaCliente({ params }: { params: Promise<{ id: s
   const idsCasos = (casos ?? []).map((x) => x.id);
   const nenhum = ["00000000-0000-0000-0000-000000000000"];
 
-  const [{ data: processos }, { data: audiencias }, { data: tarefas }, { data: agendadas }, { data: areas }, { data: pessoas }, { data: google }] =
+  const [{ data: processos }, { data: audiencias }, { data: tarefas }, { data: agendadas }, { data: areas }, { data: pessoas }, { data: google }, { data: documentos }] =
     await Promise.all([
       supabase.from("processos").select("id, numero_cnj, tribunal, vara, ultima_movimentacao, ultima_movimentacao_em").in("caso_id", idsCasos.length ? idsCasos : nenhum),
       supabase.from("audiencias").select("id, tipo, inicio, local, modalidade").in("caso_id", idsCasos.length ? idsCasos : nenhum).order("inicio", { ascending: false }).limit(20),
@@ -38,6 +38,7 @@ export default async function FichaCliente({ params }: { params: Promise<{ id: s
       supabase.from("areas").select("id, nome").eq("ativa", true).order("ordem_bot"),
       supabase.from("perfis").select("id, nome").eq("ativo", true).order("nome"),
       supabase.from("configuracoes").select("chave").in("chave", ["google_email", "pasta_clientes"]),
+      supabase.from("documentos").select("id, nome_salvo, drive_url, salvo_em").eq("cliente_id", id).order("salvo_em", { ascending: false }).limit(30),
     ]);
 
   const area = um(c.areas as Rel<{ nome: string; cor: string }>);
@@ -66,6 +67,7 @@ export default async function FichaCliente({ params }: { params: Promise<{ id: s
           ) : driveLigado ? (
             <BotaoAcao acao={criarPastaCliente.bind(null, c.id)} rotulo="Criar pasta no Drive" className="btn" />
           ) : null}
+          <Link className="btn" href={`/atendimento?cliente=${c.id}`}>Conversar no WhatsApp</Link>
           <Link className="btn primary" href={`/agendamentos?cliente=${c.id}`}>Agendar mensagem</Link>
         </div>
       </div>
@@ -157,6 +159,20 @@ export default async function FichaCliente({ params }: { params: Promise<{ id: s
           )}
         </div>
       </div>
+
+      {(documentos ?? []).length > 0 && (
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div className="ctitle"><h3>Documentos recebidos pelo WhatsApp</h3>{c.pasta_drive_url && <a className="tag" href={c.pasta_drive_url} target="_blank" rel="noopener" style={{ marginLeft: "auto", color: "var(--accent)" }}>pasta</a>}</div>
+          <div className="list">
+            {(documentos ?? []).map((d) => (
+              <div className="li" key={d.id}>
+                <div className="bd"><b>{d.nome_salvo}</b><small>salvo em {dataBR(d.salvo_em)}</small></div>
+                {d.drive_url && <a className="btn sm" href={d.drive_url} target="_blank" rel="noopener">Abrir</a>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <details className="card">
         <summary style={{ cursor: "pointer", fontWeight: 500 }}>Dados do cliente</summary>

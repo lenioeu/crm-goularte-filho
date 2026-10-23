@@ -1,7 +1,10 @@
 import { BotaoAcao } from "@/components/BotaoAcao";
 import { FormAcao } from "@/components/FormAcao";
+import { ConexaoWhatsApp } from "@/components/ConexaoWhatsApp";
 import { googleConfigurado } from "@/lib/google";
 import { quemSou } from "@/lib/permissoes";
+import { whatsappConfigurado } from "@/lib/whatsapp";
+import { alternarBot } from "../atendimento/actions";
 import { desconectarGoogle, importarClientesDoDrive, procurarPastaDeNovo } from "./actions";
 
 const AVISOS: Record<string, { tipo: "ok" | "erro" | "info"; texto: string }> = {
@@ -22,7 +25,9 @@ export default async function Integracoes({ searchParams }: { searchParams: Prom
   const admin = papel === "administrador";
   const configurado = googleConfigurado();
 
-  const { data: cfg } = await supabase.from("configuracoes").select("chave, valor").in("chave", ["google_email", "pasta_clientes"]);
+  const { data: cfg } = await supabase.from("configuracoes").select("chave, valor").in("chave", ["google_email", "pasta_clientes", "whatsapp_bot"]);
+  const botLigado = cfg?.find((c) => c.chave === "whatsapp_bot")?.valor !== false;
+  const whatsapp = whatsappConfigurado();
   const email = cfg?.find((c) => c.chave === "google_email")?.valor as string | undefined;
   const pasta = cfg?.find((c) => c.chave === "pasta_clientes")?.valor as PastaConfig | undefined;
   const aviso = google ? AVISOS[google] : undefined;
@@ -32,7 +37,7 @@ export default async function Integracoes({ searchParams }: { searchParams: Prom
       <div className="vhead">
         <div>
           <h1>Integrações</h1>
-          <p>Ligações do sistema com o Google Drive, o Google Agenda e, na próxima etapa, o WhatsApp.</p>
+          <p>Ligações do sistema com o Google Drive, o Google Agenda e o WhatsApp do escritório.</p>
         </div>
       </div>
 
@@ -107,9 +112,27 @@ export default async function Integracoes({ searchParams }: { searchParams: Prom
         )}
       </div>
 
-      <div className="card">
-        <div className="ctitle" style={{ marginBottom: 6 }}><h3>WhatsApp</h3><span className="chip">próxima etapa</span></div>
-        <div style={{ color: "var(--muted)" }}>Conexão pelo Evolution API, no servidor do escritório.</div>
+      <div className="card" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <div className="ctitle" style={{ marginBottom: 0 }}><h3>WhatsApp</h3></div>
+        {!whatsapp ? (
+          <div className="aviso info">
+            Faltam as variáveis na Vercel: <b>EVOLUTION_URL</b>, <b>EVOLUTION_API_KEY</b> e <b>SUPABASE_SECRET_KEY</b>. O passo a passo da
+            instalação do servidor está em docs/whatsapp.md, no repositório.
+          </div>
+        ) : (
+          <>
+            <ConexaoWhatsApp admin={admin} />
+            <div style={{ borderTop: "1px solid var(--line)", paddingTop: 14, display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+              <div style={{ flex: 1, minWidth: 240 }}>
+                <b style={{ fontWeight: 500 }}>Triagem automática</b> <span className={"chip" + (botLigado ? " good" : "")}>{botLigado ? "ligada" : "desligada"}</span>
+                <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--muted)" }}>
+                  Quem escreve pela primeira vez recebe o menu das áreas e, ao escolher, a lista de documentos da área. Desligada, a conversa vai direto para a fila.
+                </p>
+              </div>
+              {admin && <BotaoAcao acao={alternarBot.bind(null, !botLigado)} rotulo={botLigado ? "Desligar" : "Ligar"} />}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

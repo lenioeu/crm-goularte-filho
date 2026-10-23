@@ -61,29 +61,42 @@ O primeiro download leva alguns minutos. No fim aparece "Pronto".
 Se aparecer `permission denied` ao falar com o Docker, rode `sudo usermod -aG docker ubuntu`.
 Depois saia (`exit`), entre de novo e repita `bash instalar.sh`.
 
-## 4. Conectar o número do escritório
+## 4. Avisar o CRM (Vercel)
 
-1. Veja a chave da API: `grep AUTHENTICATION_API_KEY .env`. Ela começa depois do `=`.
-2. Abra `https://wa.goulartefilho.app/manager` no navegador.
-3. Em **Server URL** coloque `https://wa.goulartefilho.app` e, em **API Key**, a chave do passo 1.
-4. **Instance** › **+**:
-   - nome `escritorio`;
-   - canal `Baileys`;
-   - número com DDI e DDD, por exemplo `5551999999999`.
-5. Abra a instância › **Get QR Code**.
-6. No celular do escritório: WhatsApp › **Aparelhos conectados** › **Conectar um aparelho** › leia o QR.
+1. Veja a chave da API, ainda no SSH: `grep AUTHENTICATION_API_KEY .env`. A chave é o que vem depois do `=`.
+2. Em Vercel › `crm-goularte-filho` › **Settings** › **Environment Variables**, crie:
 
-Use o **WhatsApp Business** no celular. O aparelho pode ficar desligado: a conexão continua no servidor.
+   | Nome | Valor |
+   |---|---|
+   | `EVOLUTION_URL` | `https://wa.goulartefilho.app` |
+   | `EVOLUTION_API_KEY` | a chave do item 1 |
 
-## 5. Avisar o CRM (Vercel)
+   O CRM também usa a `SUPABASE_SECRET_KEY` e a `CRON_SECRET`, que já estão na lista de passos do Google.
+3. **Deployments** › no último, clique em ⋯ › **Redeploy**.
 
-Em Vercel › `crm-goularte-filho` › **Settings** › **Environment Variables**, crie:
+## 5. Preparar o banco (Supabase)
 
-| Nome | Valor |
-|---|---|
-| `EVOLUTION_URL` | `https://wa.goulartefilho.app` |
-| `EVOLUTION_API_KEY` | a chave do passo 4.1 |
-| `EVOLUTION_INSTANCIA` | `escritorio` |
+1. Abra `supabase/003_whatsapp.sql` no GitHub e copie tudo.
+2. Supabase › **SQL Editor** › **New query** › cole.
+3. Antes de rodar, troque `COLE_AQUI_O_CRON_SECRET` pelo mesmo valor da `CRON_SECRET` da Vercel.
+4. Clique em **Run**.
+
+Esse script liga um relógio que, a cada minuto, pede ao CRM para enviar as mensagens
+agendadas que venceram. O cron gratuito da Vercel roda só uma vez por dia; por isso o
+relógio fica no Supabase.
+
+## 6. Conectar o número do escritório
+
+1. No CRM, entre como administrador e abra **Integrações** › **WhatsApp** › **Conectar WhatsApp**.
+2. Aparece um QR Code. No celular do escritório: WhatsApp Business › ⋮ › **Aparelhos conectados** ›
+   **Conectar um aparelho** › aponte para o código.
+3. Em alguns segundos a situação muda para **Conectado**.
+
+O botão também liga o aviso de mensagens do Evolution para o CRM. O celular pode ficar
+desligado: a conexão continua no servidor.
+
+O painel do Evolution (`https://wa.goulartefilho.app/manager`) fica disponível para
+emergências, mas não é preciso usá-lo.
 
 ## Manutenção
 
@@ -108,16 +121,20 @@ ele for usado como disparador. Para reduzir o risco:
 - não faça envios em massa nem listas de transmissão pelo sistema;
 - os agendamentos saem um a um, com intervalo entre eles.
 
-## Próxima etapa (no CRM)
+## Como funciona no CRM
 
-1. **Webhook:** o Evolution avisa o CRM a cada mensagem recebida, em `/api/whatsapp/webhook`.
-   O CRM então:
-   - cria a conversa e o cliente, se ele for novo;
-   - cancela os follow-ups marcados "cancela se responder".
-2. **Atendimento:**
-   - tela de conversas com a fila por área;
-   - triagem automática por menu ("1 Trabalhista, 2 Cível…");
-   - botão para salvar documentos recebidos na pasta do cliente no Drive.
-3. **Envio dos agendamentos:** o `pg_cron` do Supabase chama o CRM a cada minuto. O cron
-   gratuito da Vercel roda só uma vez por dia. O CRM envia as mensagens vencidas e marca
-   cada uma como `enviada` ou `falhou`.
+- **Atendimento:** a tela lista as conversas na **Fila**, **Comigo**, **Em atendimento** e
+  **Encerradas**, e se atualiza sozinha a cada 8 segundos. Quem responde assume a conversa.
+  A **nota interna** fica só no CRM e não vai para o cliente.
+- **Triagem automática:** quem escreve pela primeira vez recebe o menu das áreas
+  ("1 - Trabalhista…") e, ao escolher, a lista de documentos daquela área. Se não
+  responder certo duas vezes, a conversa vai para a fila. Liga e desliga em Integrações.
+  Clientes que já têm área não passam pelo menu.
+- **Contato novo:** quem escreve e não é cliente é cadastrado com o nome do WhatsApp e
+  origem "WhatsApp".
+- **Documentos:** cada arquivo recebido tem o campo "Que documento é?". O CRM salva na
+  pasta do cliente no Drive como `AAAA-MM-DD TIPO - NOME DO CLIENTE`. Se o cliente ainda
+  não tem pasta, ela é criada.
+- **Mensagens agendadas:** saem no horário marcado, no máximo 8 por minuto e com intervalo
+  entre elas. Quando o cliente responde, os follow-ups marcados "cancela se responder"
+  são cancelados.

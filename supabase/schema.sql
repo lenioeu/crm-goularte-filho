@@ -444,3 +444,14 @@ alter table google_conexao enable row level security;
 -- ---------------------------------------------------------------------
 alter table processos add column if not exists classe text;
 alter table processos add column if not exists movimentos jsonb;
+
+-- ---------------------------------------------------------------------
+-- WhatsApp (mesmo conteúdo de 003_whatsapp.sql, menos o relógio do pg_cron,
+-- que precisa do CRON_SECRET e fica só no 003)
+-- ---------------------------------------------------------------------
+alter type status_agendamento add value if not exists 'enviando';
+alter table mensagens add column if not exists midia_nome text;
+create index if not exists conversas_cliente on conversas (cliente_id, criado_em desc);
+create index if not exists conversas_fila on conversas (status, ultima_mensagem_em desc);
+create index if not exists mensagens_conversa on mensagens (conversa_id, criado_em);
+insert into configuracoes (chave, valor) values ('whatsapp_bot', 'true') on conflict (chave) do nothing;
