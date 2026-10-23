@@ -455,3 +455,12 @@ create index if not exists conversas_cliente on conversas (cliente_id, criado_em
 create index if not exists conversas_fila on conversas (status, ultima_mensagem_em desc);
 create index if not exists mensagens_conversa on mensagens (conversa_id, criado_em);
 insert into configuracoes (chave, valor) values ('whatsapp_bot', 'true') on conflict (chave) do nothing;
+
+-- Qualificação do cliente para os modelos (mesmo conteúdo de 004_modelos.sql)
+alter table clientes add column if not exists rg            text;
+alter table clientes add column if not exists nacionalidade text;
+alter table clientes add column if not exists estado_civil  text;
+alter table clientes add column if not exists profissao     text;
+alter table clientes add column if not exists endereco      text;
+alter table clientes add column if not exists cep           text;
+alter table clientes add column if not exists genero        text check (genero in ('m', 'f'));

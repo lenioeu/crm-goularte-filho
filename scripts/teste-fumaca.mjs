@@ -96,6 +96,7 @@ const rotas = paginas("app")
 rotas.push(
   "/busca?q=teste", "/indicadores?mes=2026-01", "/funil?area=" + ID, "/processos?filtro=parados",
   "/atendimento?c=" + ID, "/atendimento?f=encerradas", "/atendimento?cliente=" + ID,
+  ...["procuracao", "hipossuficiencia", "contrato", "renuncia"].map((m) => `/clientes/${ID}/documentos?modelo=${m}`),
 );
 
 // ---------- CRM ----------

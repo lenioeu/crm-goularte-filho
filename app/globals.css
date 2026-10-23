@@ -275,3 +275,18 @@ details.novo[open] > summary { margin-bottom: 14px; }
 .chat-area select { height: 36px; }
 .chat-escrever textarea { padding: 10px 12px; }
 .chat-area select:focus, .salvar-doc input:focus, .chat-escrever textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+
+/* prévia dos documentos (parece uma folha A4) */
+.folha { background: #fff; color: #1f1f1f; font-family: Arial, sans-serif; font-size: 13.5px; line-height: 1.6; padding: 40px 44px; }
+.folha p { margin: 0 0 12px; }
+.folha-titulo { text-align: center; font-weight: 700; font-size: 15px; margin-bottom: 20px !important; }
+.folha-secao { font-weight: 700; margin: 16px 0 6px !important; }
+.folha-p { text-align: justify; }
+.folha-ass { display: flex; flex-direction: column; align-items: center; gap: 28px; margin-top: 36px; text-align: center; }
+.folha-ass .linha { width: 300px; max-width: 100%; border-top: 1px solid #1f1f1f; margin-bottom: 6px; }
+.folha-rodape { text-align: center; font-size: 11px; color: #666; margin-top: 36px !important; }
+@media print {
+  body * { visibility: hidden; }
+  .folha, .folha * { visibility: visible; }
+  .folha { position: absolute; inset: 0 auto auto 0; width: 100%; border: none; box-shadow: none; padding: 0; }
+}

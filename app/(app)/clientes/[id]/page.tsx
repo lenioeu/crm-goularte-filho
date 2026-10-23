@@ -6,6 +6,7 @@ import { COLUNA_TAREFA, dataBR, dataHoraBR, ETAPA, telefoneBR, TIPO_AGENDAMENTO 
 import { supabaseServer } from "@/lib/supabase/server";
 import { atualizarCliente } from "../../actions";
 import { criarPastaCliente } from "../../integracoes/actions";
+import { atualizarQualificacao } from "./documentos/actions";
 
 type Rel<T> = T | T[] | null;
 const um = <T,>(r: Rel<T>): T | null => (Array.isArray(r) ? r[0] ?? null : r);
@@ -29,7 +30,7 @@ export default async function FichaCliente({ params }: { params: Promise<{ id: s
   const idsCasos = (casos ?? []).map((x) => x.id);
   const nenhum = ["00000000-0000-0000-0000-000000000000"];
 
-  const [{ data: processos }, { data: audiencias }, { data: tarefas }, { data: agendadas }, { data: areas }, { data: pessoas }, { data: google }, { data: documentos }] =
+  const [{ data: processos }, { data: audiencias }, { data: tarefas }, { data: agendadas }, { data: areas }, { data: pessoas }, { data: google }, { data: documentos }, { data: qualif, error: erroQualif }] =
     await Promise.all([
       supabase.from("processos").select("id, numero_cnj, tribunal, vara, ultima_movimentacao, ultima_movimentacao_em").in("caso_id", idsCasos.length ? idsCasos : nenhum),
       supabase.from("audiencias").select("id, tipo, inicio, local, modalidade").in("caso_id", idsCasos.length ? idsCasos : nenhum).order("inicio", { ascending: false }).limit(20),
@@ -39,6 +40,8 @@ export default async function FichaCliente({ params }: { params: Promise<{ id: s
       supabase.from("perfis").select("id, nome").eq("ativo", true).order("nome"),
       supabase.from("configuracoes").select("chave").in("chave", ["google_email", "pasta_clientes"]),
       supabase.from("documentos").select("id, nome_salvo, drive_url, salvo_em").eq("cliente_id", id).order("salvo_em", { ascending: false }).limit(30),
+      // Separado: as colunas só existem depois do script 004_modelos.sql
+      supabase.from("clientes").select("rg, nacionalidade, estado_civil, profissao, endereco, cep, genero").eq("id", id).maybeSingle(),
     ]);
 
   const area = um(c.areas as Rel<{ nome: string; cor: string }>);
@@ -67,6 +70,7 @@ export default async function FichaCliente({ params }: { params: Promise<{ id: s
           ) : driveLigado ? (
             <BotaoAcao acao={criarPastaCliente.bind(null, c.id)} rotulo="Criar pasta no Drive" className="btn" />
           ) : null}
+          <Link className="btn" href={`/clientes/${c.id}/documentos`}>Documentos</Link>
           <Link className="btn" href={`/atendimento?cliente=${c.id}`}>Conversar no WhatsApp</Link>
           <Link className="btn primary" href={`/agendamentos?cliente=${c.id}`}>Agendar mensagem</Link>
         </div>
@@ -162,7 +166,7 @@ export default async function FichaCliente({ params }: { params: Promise<{ id: s
 
       {(documentos ?? []).length > 0 && (
         <div className="card" style={{ marginBottom: 16 }}>
-          <div className="ctitle"><h3>Documentos recebidos pelo WhatsApp</h3>{c.pasta_drive_url && <a className="tag" href={c.pasta_drive_url} target="_blank" rel="noopener" style={{ marginLeft: "auto", color: "var(--accent)" }}>pasta</a>}</div>
+          <div className="ctitle"><h3>Documentos na pasta</h3>{c.pasta_drive_url && <a className="tag" href={c.pasta_drive_url} target="_blank" rel="noopener" style={{ marginLeft: "auto", color: "var(--accent)" }}>pasta</a>}</div>
           <div className="list">
             {(documentos ?? []).map((d) => (
               <div className="li" key={d.id}>
@@ -201,6 +205,33 @@ export default async function FichaCliente({ params }: { params: Promise<{ id: s
             <div className="field full"><label htmlFor="observacoes">Observações internas</label><textarea id="observacoes" name="observacoes" rows={3} defaultValue={c.observacoes ?? ""} /></div>
           </FormAcao>
           <p style={{ fontSize: 12, color: "var(--dim)", margin: "10px 0 0" }}>Cadastrado em {dataBR(c.criado_em)}.</p>
+        </div>
+      </details>
+
+      <details className="card" id="qualificacao" style={{ marginTop: 16 }}>
+        <summary style={{ cursor: "pointer", fontWeight: 500 }}>Qualificação (procuração, contrato e declarações)</summary>
+        <div style={{ marginTop: 14 }}>
+          {erroQualif ? (
+            <div className="aviso info">Falta rodar o script supabase/004_modelos.sql no Supabase para guardar RG, estado civil e endereço.</div>
+          ) : (
+            <FormAcao action={atualizarQualificacao} botao="Salvar qualificação" className="form" limparAoSalvar={false}>
+              <input type="hidden" name="id" value={c.id} />
+              <div className="field"><label htmlFor="rg">RG (com órgão)</label><input id="rg" name="rg" defaultValue={qualif?.rg ?? ""} placeholder="ex.: 1234567-SSP/ES" /></div>
+              <div className="field">
+                <label htmlFor="genero">Tratamento</label>
+                <select id="genero" name="genero" defaultValue={qualif?.genero ?? ""}>
+                  <option value="">Masculino (padrão)</option>
+                  <option value="m">Masculino</option>
+                  <option value="f">Feminino</option>
+                </select>
+              </div>
+              <div className="field"><label htmlFor="nacionalidade">Nacionalidade</label><input id="nacionalidade" name="nacionalidade" defaultValue={qualif?.nacionalidade ?? ""} placeholder="ex.: brasileira" /></div>
+              <div className="field"><label htmlFor="estado_civil">Estado civil</label><input id="estado_civil" name="estado_civil" defaultValue={qualif?.estado_civil ?? ""} placeholder="ex.: casado" /></div>
+              <div className="field"><label htmlFor="profissao">Profissão</label><input id="profissao" name="profissao" defaultValue={qualif?.profissao ?? ""} placeholder="ex.: mecânico" /></div>
+              <div className="field"><label htmlFor="cep">CEP</label><input id="cep" name="cep" defaultValue={qualif?.cep ?? ""} inputMode="numeric" /></div>
+              <div className="field full"><label htmlFor="endereco">Endereço (rua, número, complemento, bairro, cidade-UF)</label><input id="endereco" name="endereco" defaultValue={qualif?.endereco ?? ""} placeholder="ex.: Rua das Flores, 100, apto 201, Centro, Vitória-ES" /></div>
+            </FormAcao>
+          )}
         </div>
       </details>
     </div>

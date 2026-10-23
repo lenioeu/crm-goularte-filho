@@ -49,6 +49,7 @@ Depois abra http://localhost:3000. O sistema já aponta para o projeto Supabase 
 - Equipe e cargos: liberar acesso, escolher papel e cargo
 - Indicadores do mês (sem ranking)
 - Atendimento pelo WhatsApp, com triagem por área e documentos salvos no Drive
+- Modelos de documentos (procuração, hipossuficiência, contrato de honorários, renúncia) preenchidos com os dados do cliente
 - Meu perfil
 
 ## Etapas

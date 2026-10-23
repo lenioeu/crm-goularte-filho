@@ -71,6 +71,16 @@ O CRM **não** terá gerador de petições com IA. Decisão do escritório em 23
 sugerir de novo. Modelos de documentos (procuração, contrato, declaração) são preenchidos
 com os dados do cliente, sem IA.
 
+## Modelos de documentos
+
+Os textos vêm dos modelos que o escritório já usava no Drive (procuração cível, declaração
+de hipossuficiência da ZapSign, contrato de honorários e termo de renúncia do JEF). O CRM
+preenche a qualificação do cliente, os advogados escolhidos (quem tem OAB em Meu perfil) e a
+data, e salva como Google Docs na pasta do cliente para revisão antes da assinatura.
+
+Como o repositório é público, dados bancários e CPF do advogado não ficam no código: o
+administrador preenche a conta para pagamento na tela de Documentos, e ela fica só no banco.
+
 ## Teste antes de publicar
 
 A Vercel roda `scripts/teste-fumaca.mjs` depois de compilar. Ele liga o CRM contra um

@@ -116,16 +116,16 @@ export async function procurarPastaClientes(token: string): Promise<(Pasta & { c
   return null;
 }
 
-/** Grava um arquivo (conteúdo em base64) dentro da pasta indicada. */
+/** Grava um arquivo (conteúdo em base64) dentro da pasta indicada. Com `converterPara`, o Drive converte (ex.: HTML em Google Docs). */
 export async function enviarArquivo(
   token: string,
-  arq: { nome: string; mimetype: string; base64: string; paiId: string },
+  arq: { nome: string; mimetype: string; base64: string; paiId: string; converterPara?: string },
 ): Promise<{ id: string; webViewLink?: string }> {
   const limite = "orion" + Math.random().toString(36).slice(2);
   const corpo = Buffer.concat([
     Buffer.from(
       `--${limite}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n` +
-        JSON.stringify({ name: arq.nome, parents: [arq.paiId] }) +
+        JSON.stringify({ name: arq.nome, parents: [arq.paiId], ...(arq.converterPara ? { mimeType: arq.converterPara } : {}) }) +
         `\r\n--${limite}\r\nContent-Type: ${arq.mimetype}\r\n\r\n`,
     ),
     Buffer.from(arq.base64, "base64"),
