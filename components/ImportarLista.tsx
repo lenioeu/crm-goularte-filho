@@ -4,7 +4,7 @@ import { useState } from "react";
 import type { LinhaAnalisada } from "@/app/(app)/processos/actions";
 import { analisarLista, cadastrarLista } from "@/app/(app)/processos/actions";
 
-const LOTE = 10;
+const LOTE = 5;
 
 // Importar vários processos de uma vez: cola a lista do PJe (ou planilha), revisa o cliente de cada um e cadastra.
 export function ImportarLista() {
@@ -45,14 +45,29 @@ export function ImportarLista() {
     const estado = { feito: 0, total: lista.length, ok: 0, erros: [] as { numero: string; erro: string }[] };
     setProgresso({ ...estado });
     for (let i = 0; i < lista.length; i += LOTE) {
-      const r = await cadastrarLista(lista.slice(i, i + LOTE).map((l) => ({ numero: l.numero, clienteId: l.escolhido, nome: l.nome, parteContraria: l.parteContraria })));
+      const parte = lista.slice(i, i + LOTE);
+      try {
+        const r = await cadastrarLista(parte.map((l) => ({ numero: l.numero, clienteId: l.escolhido, nome: l.nome, parteContraria: l.parteContraria })));
+        estado.ok += r.ok;
+        estado.erros.push(...r.erros);
+      } catch {
+        // O servidor não respondeu a tempo: segue com os próximos; no fim a lista é conferida de novo
+        estado.erros.push(...parte.map((l) => ({ numero: l.numero, erro: "o servidor não respondeu a tempo; confira se entrou e tente de novo" })));
+      }
       estado.feito = Math.min(i + LOTE, lista.length);
-      estado.ok += r.ok;
-      estado.erros.push(...r.erros);
       setProgresso({ ...estado, erros: [...estado.erros] });
     }
-    const falharam = new Set(estado.erros.map((e) => e.numero));
-    setLinhas((ls) => (ls ?? []).map((l) => (l.escolhido && !l.jaCadastrado && !falharam.has(l.numero) ? { ...l, jaCadastrado: true } : l)));
+    // Confere no banco o que entrou de fato (inclusive lotes que estouraram o tempo no meio)
+    try {
+      const r = await analisarLista(texto);
+      if (!r.erro) {
+        const entrou = new Set(r.linhas.filter((l) => l.jaCadastrado).map((l) => l.numero));
+        setLinhas((ls) => (ls ?? []).map((l) => (entrou.has(l.numero) ? { ...l, jaCadastrado: true } : l)));
+        estado.erros = estado.erros.filter((e) => !entrou.has(e.numero));
+        estado.ok = [...entrou].filter((n) => lista.some((l) => l.numero === n)).length;
+        setProgresso({ ...estado, erros: [...estado.erros] });
+      }
+    } catch {}
   }
 
   const escolher = (numero: string, v: string) => setLinhas((ls) => (ls ?? []).map((l) => (l.numero === numero ? { ...l, escolhido: v } : l)));

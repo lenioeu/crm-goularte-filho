@@ -66,6 +66,8 @@ export async function consultarDataJud(d: string): Promise<ResumoProcesso | null
     },
     body: JSON.stringify({ size: 10, query: { match: { numeroProcesso: d } } }),
     cache: "no-store",
+    // Sem limite, um CNJ lento estoura o tempo da função (60 s) no cadastro em lote
+    signal: AbortSignal.timeout(12_000),
   });
   if (!r.ok) throw new Error(`O DataJud respondeu ${r.status}.`);
   const j = (await r.json()) as { hits?: { hits?: { _source: Fonte }[] } };

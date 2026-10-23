@@ -18,7 +18,10 @@ async function registrar(supabase: Db, userId: string, numero: string, casoId: s
     if (r) campos = camposDoResumo(r);
     else aviso = " O DataJud ainda não tem esse processo (ou ele é sigiloso); vou tentar de novo nas atualizações diárias.";
   } catch (e) {
-    aviso = ` Não consegui consultar o DataJud agora (${e instanceof Error ? e.message : e}).`;
+    aviso =
+      e instanceof Error && e.name === "TimeoutError"
+        ? " O CNJ demorou a responder; os dados do processo chegam na atualização diária."
+        : ` Não consegui consultar o DataJud agora (${e instanceof Error ? e.message : e}).`;
   }
 
   // Sem caso escolhido: cria um para o cliente, já como contrato assinado, com o nome da ação
@@ -228,38 +231,43 @@ export async function cadastrarLista(
   let ok = 0;
   const erros: { numero: string; erro: string }[] = [];
   const criados = new Map<string, string>(); // mesmo nome novo em dois processos = um cliente só
-  for (const x of lote.slice(0, 30)) {
+
+  async function um(x: { numero: string; clienteId: string; nome: string; parteContraria: string }) {
     const d = somenteDigitos(x.numero);
-    if (d.length !== 20 || !validarCNJ(d)) {
-      erros.push({ numero: x.numero, erro: "número inválido" });
-      continue;
-    }
+    if (d.length !== 20 || !validarCNJ(d)) return erros.push({ numero: x.numero, erro: "número inválido" });
     let clienteId = x.clienteId;
     if (clienteId === "novo") {
       const nome = x.nome.trim().toUpperCase();
-      if (!nome) {
-        erros.push({ numero: x.numero, erro: "sem nome para criar o cliente" });
-        continue;
-      }
+      if (!nome) return erros.push({ numero: x.numero, erro: "sem nome para criar o cliente" });
       clienteId = criados.get(nome) ?? "";
       if (!clienteId) {
         const { data: existente } = await supabase.from("clientes").select("id").eq("nome", nome).limit(1).maybeSingle();
         if (existente) clienteId = existente.id;
         else {
           const { data, error } = await supabase.from("clientes").insert({ nome, origem: "IMPORTADO DO PJE" }).select("id").single();
-          if (error) {
-            erros.push({ numero: x.numero, erro: error.message });
-            continue;
-          }
+          if (error) return erros.push({ numero: x.numero, erro: error.message });
           clienteId = data.id;
         }
         criados.set(nome, clienteId);
       }
     }
-    const r = await registrar(supabase, user.id, d, "", clienteId, x.parteContraria);
+    const r = await registrar(supabase, user!.id, d, "", clienteId, x.parteContraria);
     if (r.erro) erros.push({ numero: x.numero, erro: r.erro });
     else ok++;
   }
+
+  // Agrupa por cliente: grupos em paralelo, processos do mesmo cliente em sequência
+  const grupos = new Map<string, typeof lote>();
+  for (const x of lote.slice(0, 30)) {
+    const k = x.clienteId === "novo" ? `novo:${x.nome.trim().toUpperCase()}` : x.clienteId;
+    grupos.set(k, [...(grupos.get(k) ?? []), x]);
+  }
+  const fila = [...grupos.values()];
+  await Promise.all(
+    Array.from({ length: 5 }, async () => {
+      for (let g = fila.shift(); g; g = fila.shift()) for (const x of g) await um(x);
+    }),
+  );
   revalidatePath("/processos");
   revalidatePath("/clientes");
   revalidatePath("/funil");

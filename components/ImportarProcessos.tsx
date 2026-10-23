@@ -5,7 +5,7 @@ import type { Achado } from "@/app/(app)/processos/actions";
 import { cadastrarAchados, procurarNasPastas } from "@/app/(app)/processos/actions";
 
 const chave = (a: Achado) => `${a.clienteId}|${a.numero}`;
-const LOTE = 10;
+const LOTE = 8;
 
 // Procura números de processo nos nomes dos arquivos das pastas dos clientes e,
 // depois da revisão, cadastra os marcados de pouco em pouco (cada um consulta o DataJud).
@@ -38,10 +38,15 @@ export function ImportarProcessos() {
     const estado = { feito: 0, total: lista.length, ok: 0, erros: [] as { numero: string; erro: string }[] };
     setProgresso({ ...estado });
     for (let i = 0; i < lista.length; i += LOTE) {
-      const r = await cadastrarAchados(lista.slice(i, i + LOTE).map((a) => ({ clienteId: a.clienteId, numero: a.numero })));
+      const parte = lista.slice(i, i + LOTE);
+      try {
+        const r = await cadastrarAchados(parte.map((a) => ({ clienteId: a.clienteId, numero: a.numero })));
+        estado.ok += r.ok;
+        estado.erros.push(...r.erros);
+      } catch {
+        estado.erros.push(...parte.map((a) => ({ numero: a.numero, erro: "o servidor não respondeu a tempo; procure de novo para conferir" })));
+      }
       estado.feito = Math.min(i + LOTE, lista.length);
-      estado.ok += r.ok;
-      estado.erros.push(...r.erros);
       setProgresso({ ...estado, erros: [...estado.erros] });
     }
     const feitos = new Set(lista.map((a) => a.numero).filter((n) => !estado.erros.some((e) => e.numero === n)));
