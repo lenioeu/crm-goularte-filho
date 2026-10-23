@@ -4,6 +4,7 @@ import { AtivarNotificacoes } from "@/components/AtivarNotificacoes";
 import { AtualizarSozinho } from "@/components/AtualizarSozinho";
 import { BotaoAcao } from "@/components/BotaoAcao";
 import { BotaoPainel } from "@/components/BotaoPainel";
+import { CarregandoLink } from "@/components/CarregandoLink";
 import { ComposerAtendimento } from "@/components/ComposerAtendimento";
 import { FormAcao } from "@/components/FormAcao";
 import { NovaConversa } from "@/components/NovaConversa";
@@ -97,71 +98,78 @@ export default async function Atendimento({ searchParams }: { searchParams: Prom
   // "aguardando_resposta" só existe depois do script 008: se faltar, lista sem o ponto de não lida
   const consulta = listar(campos + ", aguardando_resposta").then(async (r) => (r.error ? listar(campos) : r));
 
-  const [{ data: lista, error }, { count: naFila }, { data: areas }, sel, novoCliente, { data: clientes }] = await Promise.all([
+  // 1ª rodada: tudo que não depende de outra consulta vai junto
+  const [{ data: lista, error }, { count: naFila }, { data: areas }, sel, novoCliente, { data: cfgRespostas }, tiposContato, { modelos: modelosMsg }] = await Promise.all([
     consulta,
     supabase.from("conversas").select("id", { count: "exact", head: true }).in("status", ["bot", "aguardando"]),
     supabase.from("areas").select("id, nome").eq("ativa", true).order("ordem_bot"),
     c ? supabase.from("conversas").select(campos + ", area_id").eq("id", c).maybeSingle() : Promise.resolve({ data: null }),
     clienteParam && !c ? supabase.from("clientes").select("id, nome, telefone_whatsapp").eq("id", clienteParam).maybeSingle() : Promise.resolve({ data: null }),
-    supabase.from("clientes").select("id, nome, cpf_cnpj, telefone_whatsapp").order("nome").limit(5000),
+    supabase.from("configuracoes").select("valor").eq("chave", "respostas_rapidas").maybeSingle(),
+    c ? lerTiposContato(supabase) : Promise.resolve([] as string[]),
+    c ? lerModelosMensagem(supabase) : Promise.resolve({ modelos: [] as Awaited<ReturnType<typeof lerModelosMensagem>>["modelos"], tabela: false }),
   ]);
   const conversas = (lista ?? []) as unknown as Conversa[];
   const atual = sel.data as unknown as (Conversa & { area_id: string | null }) | null;
+  // Enquanto a equipe não salvar as suas, valem as respostas de fábrica
+  const respostas = (Array.isArray(cfgRespostas?.valor) ? cfgRespostas.valor : cfgRespostas ? [] : RESPOSTAS_PADRAO) as { atalho: string; texto: string }[];
 
-  // Mensagens da conversa aberta ("status_envio" só existe depois do script 010)
   type Msg = {
     id: string; direcao: string; texto: string | null; midia_tipo: string | null; midia_nome: string | null; midia_url: string | null;
     nota_interna: boolean; enviada_pelo_bot: boolean; criado_em: string; perfis: unknown; status_envio?: string | null;
   };
+  type DadosCliente = {
+    id: string; nome: string; cpf_cnpj: string | null; email: string | null; area_id: string | null; origem: string | null;
+    cep?: string | null; endereco?: string | null; situacao?: string; contato_tipo?: string | null;
+  };
+  const ids = conversas.map((k) => k.id);
+  const idCli = atual ? um(atual.clientes)?.id : null;
+  const nada = Promise.resolve({ data: [] as never[] });
+  // "status_envio" só existe depois do script 010
   const colsMsg = "id, direcao, texto, midia_tipo, midia_nome, midia_url, nota_interna, enviada_pelo_bot, criado_em, perfis(nome)";
   const lerMsgs = (cols: string) => supabase.from("mensagens").select(cols).eq("conversa_id", atual!.id).order("criado_em", { ascending: false }).limit(200);
-  const mensagens = (atual ? ((await lerMsgs(colsMsg + ", status_envio").then((r) => (r.error ? lerMsgs(colsMsg) : r))).data ?? []) : []) as unknown as Msg[];
+  // Dados do cliente da conversa; colunas novas (scripts 004 e 012) caem fora se ainda não existirem
+  const colsCli = "id, nome, cpf_cnpj, email, area_id, origem";
+  const lerCli = (cols: string) => supabase.from("clientes").select(cols).eq("id", idCli!).maybeSingle();
 
-  // Prévia da última mensagem de cada conversa da lista
-  const ids = conversas.map((k) => k.id);
-  const { data: ultimas } = ids.length
-    ? await supabase.from("mensagens").select("conversa_id, texto, midia_tipo, direcao, nota_interna").in("conversa_id", ids).order("criado_em", { ascending: false }).limit(600)
-    : { data: [] };
+  // 2ª rodada: depende da lista e da conversa aberta, também em paralelo
+  const [{ data: ultimas }, rMsgs, rCli, { data: processosCli }, { data: lembretes }, { data: programadas }, { data: proxAud }] = await Promise.all([
+    // Prévia da última mensagem de cada conversa da lista
+    ids.length
+      ? supabase.from("mensagens").select("conversa_id, texto, midia_tipo, direcao, nota_interna").in("conversa_id", ids).order("criado_em", { ascending: false }).limit(400)
+      : nada,
+    atual ? lerMsgs(colsMsg + ", status_envio").then((r) => (r.error ? lerMsgs(colsMsg) : r)) : nada,
+    idCli
+      ? lerCli(colsCli + ", cep, endereco, situacao, contato_tipo")
+          .then((r) => (r.error ? lerCli(colsCli + ", situacao, contato_tipo") : r))
+          .then((r) => (r.error ? lerCli(colsCli) : r))
+      : Promise.resolve({ data: null }),
+    idCli ? supabase.from("processos").select("id, numero_cnj, classe, casos!inner(cliente_id)").eq("casos.cliente_id", idCli).order("criado_em") : nada,
+    idCli ? supabase.from("tarefas").select("id, titulo, vence_em, coluna").eq("cliente_id", idCli).neq("coluna", "concluida").order("vence_em", { nullsFirst: false }).limit(10) : nada,
+    idCli ? supabase.from("mensagens_agendadas").select("id, texto, enviar_em, cancelar_se_responder").eq("cliente_id", idCli).eq("status", "programada").order("enviar_em").limit(20) : nada,
+    idCli
+      ? supabase.from("audiencias").select("inicio, tipo, local, modalidade, processos(numero_cnj), casos!inner(cliente_id)").eq("casos.cliente_id", idCli).gte("inicio", new Date().toISOString()).order("inicio").limit(1).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
+  const mensagens = (rMsgs.data ?? []) as unknown as Msg[];
   const previa = new Map<string, string>();
-  for (const m of ultimas ?? []) {
+  for (const m of (ultimas ?? []) as { conversa_id: string; texto: string | null; midia_tipo: string | null; direcao: string; nota_interna: boolean }[]) {
     if (previa.has(m.conversa_id)) continue;
     const corpo = m.texto ?? (m.midia_tipo ? MIDIA[m.midia_tipo] ?? "Arquivo" : "");
     previa.set(m.conversa_id, `${m.nota_interna ? "Nota: " : m.direcao === "saida" ? "Você: " : ""}${corpo}`);
   }
 
-  // Processos e lembretes (tarefas abertas) do cliente da conversa
-  const idCli = atual ? um(atual.clientes)?.id : null;
-  // Contato ou cliente? Sem o script 012 a consulta falha e tudo conta como cliente
-  const [{ data: situacaoCli }, tiposContato] = await Promise.all([
-    idCli ? supabase.from("clientes").select("situacao, contato_tipo").eq("id", idCli).maybeSingle() : Promise.resolve({ data: null }),
-    lerTiposContato(supabase),
-  ]);
-  const ehContato = situacaoCli?.situacao === "contato";
-  // Dados para o "Tornar cliente" (endereço só existe depois do script 004)
-  const camposContato = "id, nome, cpf_cnpj, email, area_id, origem";
-  const dadosContato = ehContato && idCli
-    ? await supabase.from("clientes").select(camposContato + ", cep, endereco").eq("id", idCli).maybeSingle()
-        .then(async (r) => (r.error ? supabase.from("clientes").select(camposContato).eq("id", idCli).maybeSingle() : r))
-    : { data: null };
-  const contato = dadosContato.data as unknown as { id: string; nome: string; cpf_cnpj: string | null; email: string | null; area_id: string | null; origem: string | null; cep?: string | null; endereco?: string | null } | null;
-  const [{ data: processosCli }, { data: lembretes }, { data: programadas }] = idCli
-    ? await Promise.all([
-        supabase.from("processos").select("id, numero_cnj, classe, casos!inner(cliente_id)").eq("casos.cliente_id", idCli).order("criado_em"),
-        supabase.from("tarefas").select("id, titulo, vence_em, coluna").eq("cliente_id", idCli).neq("coluna", "concluida").order("vence_em", { nullsFirst: false }).limit(10),
-        supabase.from("mensagens_agendadas").select("id, texto, enviar_em, cancelar_se_responder").eq("cliente_id", idCli).eq("status", "programada").order("enviar_em").limit(20),
-      ])
-    : [{ data: [] }, { data: [] }, { data: [] }];
+  // Contato ou cliente? Sem o script 012 tudo conta como cliente
+  const dadosCli = rCli.data as unknown as DadosCliente | null;
+  const situacaoCli = dadosCli ? { situacao: dadosCli.situacao, contato_tipo: dadosCli.contato_tipo ?? null } : null;
+  const ehContato = dadosCli?.situacao === "contato";
+  const contato = ehContato ? dadosCli : null;
   const amanha = new Date(Date.now() + 86_400_000).toLocaleDateString("sv-SE", { timeZone: TZ });
 
   // Modelos de mensagem para o "Programar", já preenchidos com o cliente e a próxima audiência dele
-  const [{ modelos: modelosMsg }, { data: proxAud }] = await Promise.all([
-    lerModelosMensagem(supabase),
-    idCli
-      ? supabase.from("audiencias").select("inicio, tipo, local, modalidade, processos(numero_cnj), casos!inner(cliente_id)").eq("casos.cliente_id", idCli).gte("inicio", new Date().toISOString()).order("inicio").limit(1).maybeSingle()
-      : Promise.resolve({ data: null }),
-  ]);
-  const audCli = proxAud
-    ? { inicio: proxAud.inicio, tipo: proxAud.tipo, local: proxAud.local, modalidade: proxAud.modalidade, processo: um(proxAud.processos as Rel<{ numero_cnj: string }>)?.numero_cnj ?? null }
+  const prox = proxAud as unknown as { inicio: string; tipo: string; local: string | null; modalidade: string; processos: unknown } | null;
+  const audCli = prox
+    ? { inicio: prox.inicio, tipo: prox.tipo, local: prox.local, modalidade: prox.modalidade, processo: um(prox.processos as Rel<{ numero_cnj: string }>)?.numero_cnj ?? null }
     : null;
   const nomeCli = atual ? um(atual.clientes)?.nome ?? "" : "";
   const modelosConversa = modelosMsg
@@ -174,10 +182,6 @@ export default async function Atendimento({ searchParams }: { searchParams: Prom
       cancelar: m.cancelar_se_responder,
     }))
     .filter((m) => new Date(`${m.quando.data}T${m.quando.hora}:00-03:00`).getTime() > Date.now());
-
-  const { data: cfgRespostas } = await supabase.from("configuracoes").select("valor").eq("chave", "respostas_rapidas").maybeSingle();
-  // Enquanto a equipe não salvar as suas, valem as respostas de fábrica
-  const respostas = (Array.isArray(cfgRespostas?.valor) ? cfgRespostas.valor : cfgRespostas ? [] : RESPOSTAS_PADRAO) as { atalho: string; texto: string }[];
 
   const ligado = whatsappConfigurado();
   const abertoAgora = Boolean(atual || novoCliente.data);
@@ -203,12 +207,14 @@ export default async function Atendimento({ searchParams }: { searchParams: Prom
 
       <div className="filtros chat-abas" style={{ alignItems: "center" }}>
         {FILTROS.map((x) => (
-          <Link key={x.id} className={"fp" + (x.id === filtro.id ? " on" : "")} href={`/atendimento?f=${x.id}`}>
+          // prefetch: a aba já vem carregada ao passar o mouse/abrir a tela, e a troca fica instantânea
+          <Link key={x.id} className={"fp" + (x.id === filtro.id ? " on" : "")} href={`/atendimento?f=${x.id}`} prefetch>
             {x.rotulo}
             {x.id === "fila" && naFila ? ` · ${naFila}` : ""}
+            <CarregandoLink />
           </Link>
         ))}
-        <NovaConversa clientes={clientes ?? []} abrir={Boolean(nova)} />
+        <NovaConversa abrir={Boolean(nova)} />
       </div>
 
       <div className={"chat" + (abertoAgora ? " aberto" : "")}>
@@ -233,6 +239,7 @@ export default async function Atendimento({ searchParams }: { searchParams: Prom
                         {k.aguardando_resposta ? <span className="ponto-nao-lida" aria-label="esperando resposta" /> : k.status === "bot" ? <span className="chip">triagem</span> : null}
                       </div>
                     </div>
+                    <CarregandoLink />
                   </Link>
                 );
               })}
@@ -262,7 +269,7 @@ export default async function Atendimento({ searchParams }: { searchParams: Prom
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                   <BotaoPainel />
                   {ehContato && contato && <CadastrarCliente contato={{ ...contato, cep: contato.cep ?? null, endereco: contato.endereco ?? null }} areas={areas ?? []} />}
-                  <VincularCliente conversaId={atual.id} clientes={clientes ?? []} atual={cliAtual.id} />
+                  <VincularCliente conversaId={atual.id} atual={cliAtual.id} />
                   {atual.status !== "resolvida" && atual.atendente_id !== user?.id && <BotaoAcao acao={assumirConversa.bind(null, atual.id)} rotulo="Assumir" />}
                   {atual.status !== "resolvida" ? (
                     <BotaoAcao acao={encerrarConversa.bind(null, atual.id)} rotulo="Encerrar" desfazer={reabrirConversa.bind(null, atual.id)} />

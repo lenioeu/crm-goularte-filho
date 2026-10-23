@@ -368,3 +368,17 @@ export async function removerInscricaoPush(endpoint: string): Promise<Resultado>
   await supabase.from("push_inscricoes").delete().eq("endpoint", endpoint);
   return { erro: null, ok: "Notificações desligadas neste aparelho." };
 }
+
+/** Procura clientes pelo nome, CPF ou telefone ("Vincular a cliente" e "Nova conversa"), sem baixar a lista inteira. */
+export async function procurarClientes(bruto: string): Promise<{ id: string; nome: string; cpf_cnpj: string | null; telefone_whatsapp: string | null }[]> {
+  const { supabase, papel } = await quemSou();
+  if (!papel) return [];
+  const q = bruto.replace(/[%,()*\\]/g, " ").replace(/\s+/g, " ").trim();
+  if (q.length < 2) return [];
+  const d = q.replace(/\D/g, "");
+  const filtros = [`nome.ilike.%${q}%`];
+  if (d.length >= 3) filtros.push(`cpf_cnpj.ilike.%${d.split("").join("%")}%`);
+  if (d.length >= 4) filtros.push(`telefone_whatsapp.ilike.%${d}%`);
+  const { data } = await supabase.from("clientes").select("id, nome, cpf_cnpj, telefone_whatsapp").or(filtros.join(",")).order("nome").limit(8);
+  return data ?? [];
+}

@@ -615,3 +615,10 @@ kbd { font-family: var(--f-mono); font-size: 11px; border: 1px solid var(--line-
 .modelo-msg > summary { cursor: pointer; display: flex; flex-direction: column; gap: 2px; }
 .modelo-msg > summary small { color: var(--muted); font-size: 12.5px; }
 .modelo-msg[open] > summary { margin-bottom: 12px; }
+/* carregando: rodinha dentro do link clicado e lista esmaecida enquanto troca de aba */
+.girando { display: inline-block; width: 14px; height: 14px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; vertical-align: -2px; margin-left: 6px; flex: none; animation: girar 0.7s linear infinite, aparecer 0.15s ease-in; opacity: 0.8; }
+@keyframes girar { to { transform: rotate(360deg); } }
+@keyframes aparecer { from { opacity: 0; } }
+.view:has(.chat-abas .girando) .chat-lista, .view:has(.chat-lista .girando) .chat-painel { opacity: 0.55; transition: opacity 0.15s; }
+.conv .girando { position: absolute; right: 12px; top: 50%; margin-top: -7px; color: var(--accent); }
+.li.conv { position: relative; }

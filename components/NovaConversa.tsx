@@ -1,24 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useState } from "react";
 import type { Resultado } from "@/app/(app)/actions";
 import { criarContato } from "@/app/(app)/atendimento/actions";
-
-const sem = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+import { useBuscaClientes } from "@/components/useBuscaClientes";
 
 // "+ Nova conversa": escolhe um cliente já cadastrado ou cadastra um número novo.
-export function NovaConversa({ clientes, abrir = false }: { clientes: { id: string; nome: string; telefone_whatsapp: string | null }[]; abrir?: boolean }) {
+export function NovaConversa({ abrir = false }: { abrir?: boolean }) {
   const [aberto, setAberto] = useState(abrir);
   const [busca, setBusca] = useState("");
   const [estado, enviar, pendente] = useActionState<Resultado, FormData>(criarContato, { erro: null, ok: null });
 
-  const achados = useMemo(() => {
-    const q = sem(busca.trim());
-    const d = busca.replace(/\D/g, "");
-    if (q.length < 2) return [];
-    return clientes.filter((c) => sem(c.nome).includes(q) || (d.length >= 4 && (c.telefone_whatsapp ?? "").includes(d))).slice(0, 8);
-  }, [busca, clientes]);
+  const { achados, buscando } = useBuscaClientes(busca);
 
   return (
     <div className="vincular" style={{ marginLeft: "auto" }}>
@@ -32,7 +26,7 @@ export function NovaConversa({ clientes, abrir = false }: { clientes: { id: stri
               <small>{c.telefone_whatsapp ? ` · ${c.telefone_whatsapp}` : " · sem WhatsApp na ficha"}</small>
             </Link>
           ))}
-          {busca.trim().length >= 2 && achados.length === 0 && <div className="vincular-vazio">Nenhum cliente com esse nome.</div>}
+          {busca.trim().length >= 2 && achados.length === 0 && <div className="vincular-vazio">{buscando ? <><span className="girando" aria-hidden="true" /> Procurando…</> : "Nenhum cliente com esse nome."}</div>}
           <form action={enviar} className="nova-contato maiusculas">
             <div className="vincular-vazio" style={{ padding: "8px 2px 2px", fontWeight: 500, color: "var(--fg)" }}>Ou um número novo</div>
             <input name="nome" placeholder="Nome" required />
