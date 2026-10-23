@@ -5,8 +5,8 @@ import { FormAcao } from "@/components/FormAcao";
 import { supabaseServer } from "@/lib/supabase/server";
 import { criarTarefa } from "../actions";
 
-export default async function Tarefas({ searchParams }: { searchParams: Promise<{ minhas?: string }> }) {
-  const { minhas } = await searchParams;
+export default async function Tarefas({ searchParams }: { searchParams: Promise<{ minhas?: string; nova?: string }> }) {
+  const { minhas, nova } = await searchParams;
   const supabase = await supabaseServer();
   const {
     data: { user },
@@ -43,7 +43,7 @@ export default async function Tarefas({ searchParams }: { searchParams: Promise<
         <Link className={"fp" + (minhas ? " on" : "")} href="/tarefas?minhas=1">Minhas</Link>
       </div>
 
-      <details className="card novo" style={{ marginBottom: 16 }}>
+      <details className="card novo" style={{ marginBottom: 16 }} open={Boolean(nova)}>
         <summary><span className="btn primary">+ Nova tarefa</span></summary>
         <FormAcao action={criarTarefa} botao="Criar tarefa" className="form">
           <div className="field full"><label htmlFor="titulo">Tarefa</label><input id="titulo" name="titulo" required placeholder="ex.: Minutar réplica" /></div>

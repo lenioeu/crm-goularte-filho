@@ -3,7 +3,10 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { ProvedorAvisos } from "@/components/Avisos";
+import { BotaoTema } from "@/components/EscolherTema";
 import { Marca } from "@/components/Marca";
+import { PaletaComandos } from "@/components/PaletaComandos";
 import { sair } from "@/app/(app)/actions";
 
 type Item = { href: string; rotulo: string; icone: React.ReactNode; pronto: boolean };
@@ -61,6 +64,20 @@ export function Shell({ nome, cargo, children }: { nome: string; cargo: string; 
 
   useEffect(() => setAberto(false), [caminho]);
 
+  // Caixa de comando: Ctrl+K (ou Cmd+K) de qualquer tela
+  const [paleta, setPaleta] = useState(false);
+  useEffect(() => {
+    function tecla(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setPaleta((v) => !v);
+      }
+    }
+    window.addEventListener("keydown", tecla);
+    return () => window.removeEventListener("keydown", tecla);
+  }, []);
+  useEffect(() => setPaleta(false), [caminho]);
+
   // Conversas esperando resposta: contador no menu, no título da aba e um som quando chega mensagem nova
   const [avisos, setAvisos] = useState(0);
   const ultimaVista = useRef<string | null>(null);
@@ -105,7 +122,7 @@ export function Shell({ nome, cargo, children }: { nome: string; cargo: string; 
   );
 
   return (
-    <>
+    <ProvedorAvisos>
       <header className="topbar">
         <button className="hbtn" onClick={alternar} aria-label="Menu principal">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -113,13 +130,15 @@ export function Shell({ nome, cargo, children }: { nome: string; cargo: string; 
           </svg>
         </button>
         <Marca />
-        <form action="/busca" className="busca" role="search">
+        <button type="button" className="busca busca-botao" onClick={() => setPaleta(true)} aria-label="Buscar ou ir para (Ctrl+K)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
             <circle cx="10.5" cy="10.5" r="6.5" />
             <path d="M20 20l-4.5-4.5" />
           </svg>
-          <input name="q" placeholder="Buscar cliente, CPF, telefone ou nº do processo" aria-label="Buscar" />
-        </form>
+          <span className="busca-texto">Buscar cliente, CPF, processo ou ir para…</span>
+          <kbd>Ctrl K</kbd>
+        </button>
+        <PaletaComandos aberta={paleta} fechar={() => setPaleta(false)} />
         <div className="tb-right">
           <div className="me">
             <div className="who">
@@ -127,6 +146,7 @@ export function Shell({ nome, cargo, children }: { nome: string; cargo: string; 
               <small>{cargo}</small>
             </div>
           </div>
+          <BotaoTema />
           <form action={sair}>
             <button className="sair" type="submit">
               Sair
@@ -142,6 +162,6 @@ export function Shell({ nome, cargo, children }: { nome: string; cargo: string; 
         </nav>
         <main className="main">{children}</main>
       </div>
-    </>
+    </ProvedorAvisos>
   );
 }

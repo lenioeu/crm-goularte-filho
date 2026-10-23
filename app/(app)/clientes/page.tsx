@@ -74,7 +74,7 @@ export default async function Clientes({ searchParams }: { searchParams: Promise
         </div>
       </div>
 
-      <div className="card" style={{ marginBottom: 16 }}>
+      <div className="card" style={{ marginBottom: 16 }} id="novo">
         <div className="ctitle"><h3>Novo cliente</h3></div>
         <FormAcao action={criarCliente} botao="Cadastrar cliente" className="form maiusculas">
           <div className="field full"><label htmlFor="nome">Nome completo</label><input id="nome" name="nome" required placeholder="ex.: MARIA DA SILVA SANTOS" /></div>

@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import type { Resultado } from "@/app/(app)/actions";
 import { enviarArquivoNaConversa, enviarMensagem } from "@/app/(app)/atendimento/actions";
 import { supabaseBrowser } from "@/lib/supabase/client";
+import { Icone } from "@/components/Icone";
 
 const LIMITE_MB = 64;
 
@@ -176,7 +177,7 @@ export function ComposerAtendimento({
           )}
           {arquivo && (
             <div className="anexo">
-              📎 {arquivo.name} <small>({tamanho(arquivo.size)})</small>
+              <Icone nome="clipe" tamanho={16} /> {arquivo.name} <small>({tamanho(arquivo.size)})</small>
               <button type="button" className="btn sm" onClick={() => { setArquivo(null); if (campoArquivo.current) campoArquivo.current.value = ""; }}>Tirar</button>
             </div>
           )}
@@ -193,13 +194,13 @@ export function ComposerAtendimento({
                 accept="image/*,video/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx,.odt,.txt,.zip"
               />
               {respostas.length > 0 && (
-                <button type="button" className="btn" onClick={() => setVerRespostas((v) => !v)} title="Respostas rápidas">⚡ Respostas</button>
+                <button type="button" className="btn" onClick={() => setVerRespostas((v) => !v)} title="Respostas rápidas"><Icone nome="raio" tamanho={16} /> Respostas</button>
               )}
               <button type="button" className="btn" onClick={() => campoArquivo.current?.click()} disabled={pendente || nota || !conversaId} title={conversaId ? "Foto, vídeo, áudio ou documento" : "Mande um texto primeiro"}>
-                📎 Anexar
+                <Icone nome="clipe" tamanho={16} /> Anexar
               </button>
               <button type="button" className="btn" onClick={comecarGravacao} disabled={pendente || nota || !conversaId} title={conversaId ? "Gravar mensagem de voz" : "Mande um texto primeiro"}>
-                🎤 Gravar áudio
+                <Icone nome="microfone" tamanho={16} /> Gravar áudio
               </button>
               <button type="button" className="btn primary" onClick={enviar} disabled={pendente || (!arquivo && !texto.trim())}>
                 {pendente ? etapa ?? "Enviando…" : "Enviar"}

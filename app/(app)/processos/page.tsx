@@ -25,8 +25,8 @@ type Processo = {
 const dataBR = (iso: string | null) => (iso ? iso.slice(0, 10).split("-").reverse().join("/") : "—");
 const diasDesde = (iso: string | null) => (iso ? Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000) : null);
 
-export default async function Processos({ searchParams }: { searchParams: Promise<{ filtro?: string; cliente?: string }> }) {
-  const { filtro, cliente } = await searchParams;
+export default async function Processos({ searchParams }: { searchParams: Promise<{ filtro?: string; cliente?: string; nova?: string; ordem?: string }> }) {
+  const { filtro, cliente, nova, ordem = "movimentacao" } = await searchParams;
   const supabase = await supabaseServer();
   const [{ data, error }, { data: casos }, { data: clientes }] = await Promise.all([
     supabase
@@ -42,7 +42,26 @@ export default async function Processos({ searchParams }: { searchParams: Promis
   const todos = (data ?? []) as unknown as Processo[];
   const semana = todos.filter((p) => (diasDesde(p.ultima_movimentacao_em) ?? 999) <= 7);
   const parados = todos.filter((p) => (diasDesde(p.ultima_movimentacao_em) ?? 0) > 60);
-  const lista = filtro === "semana" ? semana : filtro === "parados" ? parados : todos;
+  const filtrada = filtro === "semana" ? semana : filtro === "parados" ? parados : todos;
+  // Ordenar pela coluna clicada (‑ na frente = decrescente)
+  const desc = ordem.startsWith("-");
+  const campo = ordem.replace(/^-/, "");
+  const chave = (p: Processo): string =>
+    campo === "cliente" ? p.casos?.clientes?.nome ?? "" : campo === "numero" ? p.numero_cnj : campo === "tribunal" ? `${p.tribunal ?? ""} ${p.vara ?? ""}` : p.ultima_movimentacao_em ?? "";
+  const lista = [...filtrada].sort((a, b) => {
+    const r = chave(a).localeCompare(chave(b), "pt-BR");
+    return (campo === "movimentacao" ? -r : r) * (desc ? -1 : 1);
+  });
+  const th = (c: string, rotulo: string) => {
+    const ativo = campo === c;
+    const proxima = ativo && !desc ? `-${c}` : c;
+    const q = new URLSearchParams({ ...(filtro ? { filtro } : {}), ordem: proxima });
+    return (
+      <th aria-sort={ativo ? (desc ? "descending" : "ascending") : "none"}>
+        <Link href={`/processos?${q}`} className="th-ordem">{rotulo}{ativo ? (desc ? " ▲" : " ▼") : ""}</Link>
+      </th>
+    );
+  };
   const listaCasos = (casos ?? []) as unknown as { id: string; titulo: string; clientes: { nome: string } | null }[];
 
   return (
@@ -64,7 +83,7 @@ export default async function Processos({ searchParams }: { searchParams: Promis
         <Link className={"fp" + (filtro === "parados" ? " on" : "")} href="/processos?filtro=parados">Parados há mais de 60 dias · {parados.length}</Link>
       </div>
 
-      <details className="card novo" style={{ marginBottom: 16 }} open={Boolean(cliente)}>
+      <details className="card novo" style={{ marginBottom: 16 }} open={Boolean(cliente || nova)}>
         <summary><span className="btn primary">+ Cadastrar processo</span></summary>
         <FormAcao action={cadastrarProcesso} botao="Cadastrar e consultar no CNJ" className="form">
           <div className="field">
@@ -107,9 +126,9 @@ export default async function Processos({ searchParams }: { searchParams: Promis
         {lista.length === 0 ? (
           <div className="vazio"><b>Nenhum processo aqui</b>Cadastre pelo botão “+ Cadastrar processo”.</div>
         ) : (
-          <div className="scrollx">
+          <div className="scrollx tabela-alta">
             <table className="tbl">
-              <thead><tr><th>Processo</th><th>Cliente</th><th>Tribunal e vara</th><th>Última movimentação</th><th></th></tr></thead>
+              <thead><tr>{th("numero", "Processo")}{th("cliente", "Cliente")}{th("tribunal", "Tribunal e vara")}{th("movimentacao", "Última movimentação")}<th></th></tr></thead>
               <tbody>
                 {lista.map((p) => (
                   <tr key={p.id}>

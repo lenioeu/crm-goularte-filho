@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { COLUNAS_TAREFA } from "@/lib/rotulos";
+import { useAviso } from "@/components/Avisos";
+import { COLUNA_TAREFA, COLUNAS_TAREFA } from "@/lib/rotulos";
 import { moverTarefa } from "@/app/(app)/actions";
 
 export type Tarefa = {
@@ -27,14 +28,17 @@ function prazo(venceEm: string | null, concluida: boolean) {
 export function CartaoTarefa({ t }: { t: Tarefa }) {
   const [pendente, iniciar] = useTransition();
   const [aviso, setAviso] = useState<{ tipo: "erro" | "ok"; texto: string } | null>(null);
+  const noCanto = useAviso();
 
   function mover(coluna: string) {
     if (!coluna) return;
     setAviso(null);
+    const antes = t.coluna;
     iniciar(async () => {
       const r = await moverTarefa(t.id, coluna);
       if (r.erro) setAviso({ tipo: "erro", texto: r.erro });
       else if (r.ok && r.ok !== "Movida.") setAviso({ tipo: "ok", texto: r.ok });
+      if (!r.erro && noCanto) noCanto(`“${t.titulo}” foi para ${COLUNA_TAREFA[coluna]}.`, { desfazer: () => moverTarefa(t.id, antes) });
     });
   }
 

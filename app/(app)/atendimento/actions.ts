@@ -10,7 +10,7 @@ import { enviarArquivo, tokenDeAcesso } from "@/lib/google";
 import { quemSou } from "@/lib/permissoes";
 import { TZ } from "@/lib/rotulos";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { baixarMidia, conectar, desconectar, enviarAudio, enviarMidia, estadoConexao, tipoDoArquivo, whatsappConfigurado, type Estado } from "@/lib/whatsapp";
+import { baixarMidia, conectar, desconectar, enviarAudio, enviarMidia, estadoConexao, reaplicarWebhook, tipoDoArquivo, whatsappConfigurado, type Estado } from "@/lib/whatsapp";
 
 type Rel<T> = T | T[] | null;
 const um = <T,>(r: Rel<T>): T | null => (Array.isArray(r) ? r[0] ?? null : r);
@@ -79,7 +79,7 @@ export async function encerrarConversa(id: string): Promise<Resultado> {
   if (error) return { erro: error.message, ok: null };
   await supabase.from("conversas").update({ aguardando_resposta: false }).eq("id", id);
   revalidatePath("/atendimento");
-  return { erro: null, ok: "Conversa encerrada." };
+  return { erro: null, ok: "Conversa encerrada. Se o cliente escrever de novo, abre outra." };
 }
 
 export async function reabrirConversa(id: string): Promise<Resultado> {
@@ -175,6 +175,20 @@ export async function conectarWhatsApp(): Promise<{ erro: string | null; qr: str
   } catch (e) {
     return { erro: `O servidor do WhatsApp não respondeu: ${falha(e)}`, qr: null, estado: null };
   }
+}
+
+/** Regrava a ligação do Evolution com o CRM (eventos novos, como os tiques de leitura). */
+export async function atualizarLigacaoWhatsApp(): Promise<Resultado> {
+  const { papel } = await quemSou();
+  if (papel !== "administrador") return { erro: "Só o administrador mexe na ligação do WhatsApp.", ok: null };
+  if (!whatsappConfigurado()) return { erro: "Faltam as variáveis do WhatsApp na Vercel.", ok: null };
+  const h = await headers();
+  try {
+    await reaplicarWebhook(`https://${h.get("x-forwarded-host") ?? h.get("host")}/api/whatsapp/webhook`);
+  } catch (e) {
+    return { erro: `O servidor do WhatsApp não respondeu: ${falha(e)}`, ok: null };
+  }
+  return { erro: null, ok: "Ligação atualizada. Os tiques de entregue e lido passam a aparecer nas próximas mensagens." };
 }
 
 export async function lerEstadoWhatsApp(): Promise<Estado | null> {

@@ -52,3 +52,20 @@ export async function cancelarAgendamento(id: string): Promise<Resultado> {
   revalidatePath("/agendamentos");
   return { erro: null, ok: "Envio cancelado." };
 }
+
+/** Desfaz o cancelamento (volta a ficar programada, se ainda não passou do horário). */
+export async function reativarAgendamento(id: string): Promise<Resultado> {
+  const { supabase, papel } = await quemSou();
+  if (!papel) return { erro: "Sem permissão.", ok: null };
+  const { data, error } = await supabase
+    .from("mensagens_agendadas")
+    .update({ status: "programada", erro: null })
+    .eq("id", id)
+    .eq("status", "cancelada")
+    .gt("enviar_em", new Date().toISOString())
+    .select("id");
+  if (error) return { erro: error.message, ok: null };
+  if (!data?.length) return { erro: "Não dá para reativar: o horário de envio já passou.", ok: null };
+  revalidatePath("/agendamentos");
+  return { erro: null, ok: "Envio reativado." };
+}

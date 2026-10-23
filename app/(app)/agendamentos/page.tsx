@@ -3,7 +3,7 @@ import { BotaoAcao } from "@/components/BotaoAcao";
 import { FormAgendamento } from "@/components/FormAgendamento";
 import { TIPO_AGENDAMENTO, TZ } from "@/lib/rotulos";
 import { supabaseServer } from "@/lib/supabase/server";
-import { cancelarAgendamento, criarAgendamento } from "./actions";
+import { cancelarAgendamento, criarAgendamento, reativarAgendamento } from "./actions";
 
 type Item = {
   id: string;
@@ -47,7 +47,7 @@ function Linha({ m, cancelavel }: { m: Item; cancelavel: boolean }) {
           {m.erro && <span className="chip crit">{m.erro}</span>}
         </div>
       </div>
-      {cancelavel && <BotaoAcao acao={cancelarAgendamento.bind(null, m.id)} rotulo="Cancelar" confirmar="Cancelar este envio?" />}
+      {cancelavel && <BotaoAcao acao={cancelarAgendamento.bind(null, m.id)} rotulo="Cancelar" desfazer={reativarAgendamento.bind(null, m.id)} />}
     </div>
   );
 }

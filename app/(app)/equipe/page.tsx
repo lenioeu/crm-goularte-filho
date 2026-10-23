@@ -36,7 +36,7 @@ export default async function Equipe() {
       {admin && (
         <details className="card novo" style={{ marginBottom: 16 }}>
           <summary><span className="btn primary">+ Adicionar pessoa</span></summary>
-          <FormAcao action={adicionarPessoa} botao="Criar acesso" className="form">
+          <FormAcao action={adicionarPessoa} botao="Criar acesso" className="form" okFixo>
             <div className="field"><label htmlFor="novo-nome">Nome completo</label><input id="novo-nome" name="nome" required /></div>
             <div className="field"><label htmlFor="novo-email">E-mail</label><input id="novo-email" name="email" type="email" required placeholder="o e-mail que a pessoa usa" /></div>
             <div className="field">

@@ -8,8 +8,8 @@ import { criarContato } from "@/app/(app)/atendimento/actions";
 const sem = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
 // "+ Nova conversa": escolhe um cliente já cadastrado ou cadastra um número novo.
-export function NovaConversa({ clientes }: { clientes: { id: string; nome: string; telefone_whatsapp: string | null }[] }) {
-  const [aberto, setAberto] = useState(false);
+export function NovaConversa({ clientes, abrir = false }: { clientes: { id: string; nome: string; telefone_whatsapp: string | null }[]; abrir?: boolean }) {
+  const [aberto, setAberto] = useState(abrir);
   const [busca, setBusca] = useState("");
   const [estado, enviar, pendente] = useActionState<Resultado, FormData>(criarContato, { erro: null, ok: null });
 

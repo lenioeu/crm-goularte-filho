@@ -8,10 +8,12 @@ import { LinhaDoTempo } from "@/components/LinhaDoTempo";
 import { linhaDoTempo } from "@/lib/linhaDoTempo";
 import { COLUNA_TAREFA, dataBR, dataHoraBR, ETAPA, telefoneBR, TIPO_AGENDAMENTO } from "@/lib/rotulos";
 import { quemSou } from "@/lib/permissoes";
-import { atualizarCliente, excluirCliente } from "../../actions";
+import { atualizarCliente, criarNota, excluirCliente, moverTarefa } from "../../actions";
 import { criarPastaCliente } from "../../integracoes/actions";
 import { atualizarQualificacao } from "./documentos/actions";
 import { IconeDrive } from "@/components/IconeDrive";
+import { Icone } from "@/components/Icone";
+import { corDoNome, iniciais } from "@/lib/avatar";
 
 type Rel<T> = T | T[] | null;
 const um = <T,>(r: Rel<T>): T | null => (Array.isArray(r) ? r[0] ?? null : r);
@@ -57,141 +59,46 @@ export default async function FichaCliente({ params }: { params: Promise<{ id: s
   const passadas = (audiencias ?? []).filter((a) => new Date(a.inicio).getTime() < agora);
   const driveLigado = (google ?? []).length === 2;
 
+  const nomeArea = area?.nome;
   return (
     <div className="view">
-      <div className="vhead">
-        <div>
-          <Link href="/clientes" style={{ color: "var(--accent)", fontSize: 13 }}>‹ Clientes</Link>
-          <h1 style={{ marginTop: 4 }}>{c.nome}</h1>
-          <p style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-            {area && <span className="chip area" style={{ "--c": area.cor } as React.CSSProperties}>{area.nome}</span>}
-            <span>WhatsApp {telefoneBR(c.telefone_whatsapp)}</span>
-            {c.cpf_cnpj && <span>· {c.cpf_cnpj}</span>}
-            {resp && <span>· Responsável: {resp.nome}</span>}
-          </p>
-        </div>
-        <div style={{ marginLeft: "auto", display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {c.pasta_drive_url ? (
-            <a className="btn" href={c.pasta_drive_url} target="_blank" rel="noopener"><IconeDrive /> Abrir pasta no Drive</a>
-          ) : driveLigado ? (
-            <BotaoAcao acao={criarPastaCliente.bind(null, c.id)} rotulo="Criar pasta no Drive" className="btn" />
-          ) : null}
-          <Link className="btn" href={`/clientes/${c.id}/documentos`}>Documentos</Link>
-          <Link className="btn" href={`/atendimento?cliente=${c.id}`}>Conversar no WhatsApp</Link>
-          <Link className="btn primary" href={`/agendamentos?cliente=${c.id}`}>Agendar mensagem</Link>
-        </div>
-      </div>
+      <Link href="/clientes" style={{ color: "var(--accent)", fontSize: 13 }}>‹ Clientes</Link>
 
-      <div className="grid cols-2" style={{ marginBottom: 16 }}>
-        <div className="card">
-          <div className="ctitle"><h3>Casos</h3><Link href="/funil" className="tag" style={{ marginLeft: "auto", color: "var(--accent)" }}>Funil</Link></div>
-          {(casos ?? []).length === 0 ? (
-            <div className="vazio"><b>Nenhum caso</b>Crie pelo Funil de casos, escolhendo este cliente.</div>
-          ) : (
-            <div className="list">
-              {(casos ?? []).map((k) => (
-                <div className="li" key={k.id}>
-                  <div className="bd">
-                    <b>{k.titulo}</b>
-                    <small>
-                      {[k.parte_contraria && `× ${k.parte_contraria}`, um(k.perfis as Rel<{ nome: string }>)?.nome, k.etapa === "nao_viavel" && k.motivo_nao_viavel && `Motivo: ${k.motivo_nao_viavel}`]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </small>
-                  </div>
-                  {k.sigiloso && <span className="chip warn">sigiloso</span>}
-                  <span className={"chip" + (k.etapa === "contrato_assinado" ? " good" : k.etapa === "nao_viavel" ? "" : " acc")}>{ETAPA[k.etapa]}</span>
-                </div>
-              ))}
+      <div className="ficha">
+        {/* ---------------- Esquerda: quem é o cliente ---------------- */}
+        <aside className="ficha-esq">
+          <div className="card ficha-pessoa">
+            <span className="avatar lg" style={{ "--c": corDoNome(c.nome) } as React.CSSProperties}>{iniciais(c.nome)}</span>
+            <h1>{c.nome}</h1>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "center" }}>
+              {area ? <span className="chip area" style={{ "--c": area.cor } as React.CSSProperties}>{nomeArea}</span> : <span className="chip">área a definir</span>}
+              {(processos ?? []).length > 0 && <span className="chip acc"><Icone nome="balanca" tamanho={14} /> {(processos ?? []).length}</span>}
             </div>
-          )}
-        </div>
-
-        <div className="card">
-          <div className="ctitle"><h3>Audiências</h3></div>
-          {proximas.length + passadas.length === 0 ? (
-            <div className="vazio">Nenhuma audiência.</div>
-          ) : (
-            <div className="list">
-              {[...proximas, ...passadas.slice(0, 5)].map((a) => (
-                <div className="li" key={a.id}>
-                  <div className="bd">
-                    <b>{a.tipo}</b>
-                    <small>{dataHoraBR(a.inicio)} · {a.local ?? (a.modalidade === "video" ? "por vídeo" : "local a definir")}</small>
-                  </div>
-                  {new Date(a.inicio).getTime() >= agora ? <span className="chip acc">próxima</span> : <span className="chip">realizada</span>}
-                </div>
-              ))}
+            <div className="ficha-acoes">
+              <Link className="btn primary" href={`/atendimento?cliente=${c.id}`}><Icone nome="conversa" tamanho={16} /> Conversar no WhatsApp</Link>
+              {c.pasta_drive_url ? (
+                <a className="btn" href={c.pasta_drive_url} target="_blank" rel="noopener"><IconeDrive /> Abrir pasta no Drive</a>
+              ) : driveLigado ? (
+                <BotaoAcao acao={criarPastaCliente.bind(null, c.id)} rotulo="Criar pasta no Drive" className="btn" />
+              ) : null}
+              <Link className="btn" href={`/clientes/${c.id}/documentos`}><Icone nome="assinar" tamanho={16} /> Documentos para assinar</Link>
+              <Link className="btn" href={`/agendamentos?cliente=${c.id}`}><Icone nome="relogio" tamanho={16} /> Agendar mensagem</Link>
             </div>
-          )}
-        </div>
-      </div>
-
-      <div className="grid cols-2" style={{ marginBottom: 16 }}>
-        <div className="card">
-          <div className="ctitle"><h3>Processos</h3><Link href={`/processos?cliente=${c.id}`} className="tag" style={{ marginLeft: "auto", color: "var(--accent)" }}>+ Cadastrar</Link></div>
-          {(processos ?? []).length === 0 ? (
-            <div className="vazio">Nenhum processo cadastrado.</div>
-          ) : (
-            <div className="list">
-              {(processos ?? []).map((p) => (
-                <div className="li" key={p.id}>
-                  <div className="bd">
-                    <b style={{ fontFamily: "var(--f-mono)", fontSize: 13 }}>{p.numero_cnj}</b>
-                    <small>{[p.tribunal, p.vara].filter(Boolean).join(" · ")}</small>
-                    {p.ultima_movimentacao && <small>{dataBR(p.ultima_movimentacao_em)} · {p.ultima_movimentacao}</small>}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="card">
-          <div className="ctitle"><h3>Tarefas abertas e mensagens programadas</h3></div>
-          {(tarefas ?? []).length + (agendadas ?? []).length === 0 ? (
-            <div className="vazio">Nada pendente para este cliente.</div>
-          ) : (
-            <div className="list">
-              {(tarefas ?? []).map((t) => (
-                <div className="li" key={t.id}>
-                  <div className="bd"><b>{t.titulo}</b><small>{COLUNA_TAREFA[t.coluna]}{t.vence_em && ` · até ${dataBR(t.vence_em)}`}</small></div>
-                  <span className="chip">tarefa</span>
-                </div>
-              ))}
-              {(agendadas ?? []).map((m) => (
-                <div className="li" key={m.id}>
-                  <div className="bd"><b>{TIPO_AGENDAMENTO[m.tipo]}</b><small>{dataHoraBR(m.enviar_em)} · {m.texto.slice(0, 80)}{m.texto.length > 80 ? "…" : ""}</small></div>
-                  <span className="chip acc">programada</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {(documentos ?? []).length > 0 && (
-        <div className="card" style={{ marginBottom: 16 }}>
-          <div className="ctitle"><h3>Documentos na pasta</h3>{c.pasta_drive_url && <a className="tag" href={c.pasta_drive_url} target="_blank" rel="noopener" style={{ marginLeft: "auto", color: "var(--accent)", display: "inline-flex", alignItems: "center" }}><IconeDrive tamanho={14} /> pasta no Drive</a>}</div>
-          <div className="list">
-            {(documentos ?? []).map((d) => (
-              <div className="li" key={d.id}>
-                <div className="bd"><b>{d.nome_salvo}</b><small>salvo em {dataBR(d.salvo_em)}</small></div>
-                {d.drive_url && <a className="btn sm" href={d.drive_url} target="_blank" rel="noopener"><IconeDrive tamanho={14} /> Abrir</a>}
-              </div>
-            ))}
+            <dl className="ficha-dados">
+              <dt>WhatsApp</dt><dd>{telefoneBR(c.telefone_whatsapp)}</dd>
+              <dt>CPF/CNPJ</dt><dd>{c.cpf_cnpj ?? "—"}</dd>
+              <dt>E-mail</dt><dd>{c.email ?? "—"}</dd>
+              {qualif?.endereco && (<><dt>Endereço</dt><dd>{qualif.endereco}{qualif.cep ? ` · ${qualif.cep}` : ""}</dd></>)}
+              <dt>Responsável</dt><dd>{resp?.nome ?? "—"}</dd>
+              <dt>Origem</dt><dd>{c.origem ?? "—"}</dd>
+              <dt>Desde</dt><dd>{dataBR(c.criado_em)}</dd>
+            </dl>
+            {c.observacoes && <div className="ficha-obs">{c.observacoes}</div>}
           </div>
-        </div>
-      )}
 
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="ctitle"><h3>Linha do tempo</h3><span className="tag">{eventos.length} {eventos.length === 1 ? "registro" : "registros"}</span></div>
-        <LinhaDoTempo eventos={eventos} />
-      </div>
-
-      <details className="card">
-        <summary style={{ cursor: "pointer", fontWeight: 500 }}>Dados do cliente</summary>
-        <div style={{ marginTop: 14 }}>
+          <details className="card">
+            <summary className="ficha-sumario">Editar dados</summary>
+            <div style={{ marginTop: 12 }}>
           <FormAcao action={atualizarCliente} botao="Salvar dados" className="form maiusculas" limparAoSalvar={false}>
             <input type="hidden" name="id" value={c.id} />
             <div className="field full"><label htmlFor="nome">Nome completo</label><input id="nome" name="nome" required defaultValue={c.nome} /></div>
@@ -215,7 +122,6 @@ export default async function FichaCliente({ params }: { params: Promise<{ id: s
             </div>
             <div className="field full"><label htmlFor="observacoes">Observações internas</label><textarea id="observacoes" name="observacoes" rows={3} defaultValue={c.observacoes ?? ""} /></div>
           </FormAcao>
-          <p style={{ fontSize: 12, color: "var(--dim)", margin: "10px 0 0" }}>Cadastrado em {dataBR(c.criado_em)}.</p>
           {papel === "administrador" && (
             <div style={{ borderTop: "1px solid var(--line)", marginTop: 14, paddingTop: 14, display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
               <BotaoAcao
@@ -227,12 +133,12 @@ export default async function FichaCliente({ params }: { params: Promise<{ id: s
               <small style={{ color: "var(--dim)", fontSize: 12 }}>A pasta no Drive continua lá. Se rodar “Importar clientes do Drive” de novo, ele volta a ser cadastrado.</small>
             </div>
           )}
-        </div>
-      </details>
+            </div>
+          </details>
 
-      <details className="card" id="qualificacao" style={{ marginTop: 16 }}>
-        <summary style={{ cursor: "pointer", fontWeight: 500 }}>Qualificação (procuração, contrato e declarações)</summary>
-        <div style={{ marginTop: 14 }}>
+          <details className="card" id="qualificacao">
+            <summary className="ficha-sumario">Qualificação (procuração, contrato e declarações)</summary>
+            <div style={{ marginTop: 12 }}>
           {erroQualif ? (
             <div className="aviso info">Falta rodar o script supabase/004_modelos.sql no Supabase para guardar RG, estado civil e endereço.</div>
           ) : (
@@ -253,8 +159,121 @@ export default async function FichaCliente({ params }: { params: Promise<{ id: s
               <CampoEndereco cepInicial={qualif?.cep ?? null} enderecoInicial={qualif?.endereco ?? null} />
             </FormAcao>
           )}
-        </div>
-      </details>
+            </div>
+          </details>
+        </aside>
+
+        {/* ---------------- Centro: o que aconteceu ---------------- */}
+        <section className="ficha-centro">
+          <div className="card">
+            <FormAcao action={criarNota} botao="Registrar nota" className="nota-rapida">
+              <input type="hidden" name="cliente_id" value={c.id} />
+              <textarea name="texto" rows={2} required placeholder="Escreva uma nota sobre o cliente (ligação, reunião, combinado…)" aria-label="Nota sobre o cliente" />
+            </FormAcao>
+          </div>
+          <div className="card">
+            <div className="ctitle"><h3>Linha do tempo</h3><span className="tag">{eventos.length} {eventos.length === 1 ? "registro" : "registros"}</span></div>
+            <LinhaDoTempo eventos={eventos} />
+          </div>
+        </section>
+
+        {/* ---------------- Direita: casos, processos e pendências ---------------- */}
+        <aside className="ficha-dir">
+          <div className="card">
+            <div className="ctitle"><h3>Processos</h3><Link href={`/processos?cliente=${c.id}`} className="tag" style={{ marginLeft: "auto", color: "var(--accent)" }}>+ Cadastrar</Link></div>
+            {(processos ?? []).length === 0 ? (
+              <div className="vazio" style={{ padding: "10px 4px" }}>Nenhum processo cadastrado.</div>
+            ) : (
+              <div className="list">
+                {(processos ?? []).map((p) => (
+                  <div className="li" key={p.id}>
+                    <div className="bd">
+                      <b style={{ fontFamily: "var(--f-mono)", fontSize: 12.5 }}>{p.numero_cnj}</b>
+                      <small>{[p.tribunal, p.vara].filter(Boolean).join(" · ")}</small>
+                      {p.ultima_movimentacao && <small>{dataBR(p.ultima_movimentacao_em)} · {p.ultima_movimentacao}</small>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="card">
+            <div className="ctitle"><h3>Audiências</h3></div>
+            {proximas.length + passadas.length === 0 ? (
+              <div className="vazio" style={{ padding: "10px 4px" }}>Nenhuma audiência.</div>
+            ) : (
+              <div className="list">
+                {[...proximas, ...passadas.slice(0, 4)].map((a) => (
+                  <div className="li" key={a.id}>
+                    <div className="bd">
+                      <b>{a.tipo}</b>
+                      <small>{dataHoraBR(a.inicio)} · {a.local ?? (a.modalidade === "video" ? "por vídeo" : "local a definir")}</small>
+                    </div>
+                    {new Date(a.inicio).getTime() >= agora ? <span className="chip acc">próxima</span> : <span className="chip">realizada</span>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="card">
+            <div className="ctitle"><h3>Pendências</h3></div>
+            {(tarefas ?? []).length + (agendadas ?? []).length === 0 ? (
+              <div className="vazio" style={{ padding: "10px 4px" }}>Nada pendente.</div>
+            ) : (
+              <div className="list">
+                {(tarefas ?? []).map((t) => (
+                  <div className="li" key={t.id}>
+                    <div className="bd"><b>{t.titulo}</b><small>{COLUNA_TAREFA[t.coluna]}{t.vence_em && ` · até ${dataBR(t.vence_em)}`}</small></div>
+                    <BotaoAcao acao={moverTarefa.bind(null, t.id, "concluida")} rotulo="Feito" desfazer={moverTarefa.bind(null, t.id, t.coluna)} />
+                  </div>
+                ))}
+                {(agendadas ?? []).map((m) => (
+                  <div className="li" key={m.id}>
+                    <div className="bd"><b>{TIPO_AGENDAMENTO[m.tipo]}</b><small>{dataHoraBR(m.enviar_em)} · {m.texto.slice(0, 70)}{m.texto.length > 70 ? "…" : ""}</small></div>
+                    <span className="chip acc">programada</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="card">
+            <div className="ctitle"><h3>Casos</h3><Link href="/funil" className="tag" style={{ marginLeft: "auto", color: "var(--accent)" }}>Funil</Link></div>
+            {(casos ?? []).length === 0 ? (
+              <div className="vazio" style={{ padding: "10px 4px" }}>Nenhum caso.</div>
+            ) : (
+              <div className="list">
+                {(casos ?? []).map((k) => (
+                  <div className="li" key={k.id}>
+                    <div className="bd">
+                      <b>{k.titulo}</b>
+                      <small>{[k.parte_contraria && `× ${k.parte_contraria}`, um(k.perfis as Rel<{ nome: string }>)?.nome].filter(Boolean).join(" · ")}</small>
+                    </div>
+                    {k.sigiloso && <span className="chip warn">sigiloso</span>}
+                    <span className={"chip" + (k.etapa === "contrato_assinado" ? " good" : k.etapa === "nao_viavel" ? "" : " acc")}>{ETAPA[k.etapa]}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {(documentos ?? []).length > 0 && (
+            <div className="card">
+              <div className="ctitle"><h3>Documentos</h3>{c.pasta_drive_url && <a className="tag" href={c.pasta_drive_url} target="_blank" rel="noopener" style={{ marginLeft: "auto", color: "var(--accent)", display: "inline-flex", alignItems: "center", gap: 4 }}><IconeDrive tamanho={14} /> pasta</a>}</div>
+              <div className="list">
+                {(documentos ?? []).slice(0, 8).map((d) => (
+                  <a className="li" key={d.id} href={d.drive_url ?? "#"} target="_blank" rel="noopener">
+                    <IconeDrive tamanho={16} />
+                    <div className="bd"><b style={{ fontSize: 13 }}>{d.nome_salvo}</b><small>{dataBR(d.salvo_em)}</small></div>
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+        </aside>
+      </div>
     </div>
   );
 }

@@ -110,7 +110,7 @@ export function ImportarLista() {
                           {l.nome && <option value="novo">+ Criar cliente novo: {l.nome}</option>}
                           {l.sugestoes.length > 0 && (
                             <optgroup label="Parecidos">
-                              {l.sugestoes.map((s) => <option key={s.id} value={s.id}>★ {s.nome} ({Math.round(s.nota * 100)}%)</option>)}
+                              {l.sugestoes.map((s) => <option key={s.id} value={s.id}>{s.nome} ({Math.round(s.nota * 100)}% parecido)</option>)}
                             </optgroup>
                           )}
                           <optgroup label="Todos os clientes">

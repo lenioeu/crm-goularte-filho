@@ -60,11 +60,28 @@ export async function estadoConexao(): Promise<Estado> {
   }
 }
 
-const EVENTOS = ["MESSAGES_UPSERT", "CONNECTION_UPDATE"];
+const EVENTOS = ["MESSAGES_UPSERT", "MESSAGES_UPDATE", "CONNECTION_UPDATE"];
+
+function configWebhook(urlWebhook: string) {
+  return { enabled: true, url: urlWebhook, headers: { "x-crm-token": tokenWebhook() }, byEvents: false, base64: false, events: EVENTOS };
+}
+
+/** Regrava o aviso de mensagens no Evolution (ex.: quando o CRM passa a ouvir um evento novo). */
+export async function reaplicarWebhook(urlWebhook: string) {
+  await evo(`/webhook/set/${INSTANCIA}`, { method: "POST", body: JSON.stringify({ webhook: configWebhook(urlWebhook) }) });
+}
+
+/** "messages.update": recibo de entrega/leitura de uma mensagem enviada pelo escritório. */
+export function lerRecibo(data: unknown): { whatsappId: string; status: "enviada" | "entregue" | "lida" } | null {
+  const d = data as { keyId?: string; fromMe?: boolean; status?: string };
+  if (!d?.keyId || !d.fromMe) return null;
+  const status = d.status === "READ" || d.status === "PLAYED" ? "lida" : d.status === "DELIVERY_ACK" ? "entregue" : d.status === "SERVER_ACK" ? "enviada" : null;
+  return status ? { whatsappId: d.keyId, status } : null;
+}
 
 /** Cria a instância se precisar, liga o aviso de mensagens ao CRM e devolve o QR Code (imagem base64). */
 export async function conectar(urlWebhook: string): Promise<string | null> {
-  const webhook = { enabled: true, url: urlWebhook, headers: { "x-crm-token": tokenWebhook() }, byEvents: false, base64: false, events: EVENTOS };
+  const webhook = configWebhook(urlWebhook);
   if ((await estadoConexao()) === "inexistente") {
     const r = await evo<{ qrcode?: { base64?: string } }>("/instance/create", {
       method: "POST",

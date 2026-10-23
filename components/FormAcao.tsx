@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useRef } from "react";
 import type { Resultado } from "@/app/(app)/actions";
+import { useAviso } from "@/components/Avisos";
 
 type Acao = (estado: Resultado, dados: FormData) => Promise<Resultado>;
 
@@ -12,19 +13,26 @@ export function FormAcao({
   botao,
   className,
   limparAoSalvar = true,
+  okFixo = false,
 }: {
   action: Acao;
   children: React.ReactNode;
   botao: string;
   className?: string;
   limparAoSalvar?: boolean;
+  /** Mostra o "ok" ao lado do botão, e não num aviso que some (ex.: senha provisória). */
+  okFixo?: boolean;
 }) {
   const [estado, enviar, pendente] = useActionState(action, { erro: null, ok: null });
   const ref = useRef<HTMLFormElement>(null);
 
+  const aviso = useAviso();
+  const noCanto = Boolean(aviso) && !okFixo;
+
   useEffect(() => {
     if (estado.ok && limparAoSalvar) ref.current?.reset();
-  }, [estado, limparAoSalvar]);
+    if (estado.ok && noCanto) aviso!(estado.ok);
+  }, [estado, limparAoSalvar, noCanto, aviso]);
 
   return (
     <form ref={ref} action={enviar} className={className}>
@@ -34,7 +42,7 @@ export function FormAcao({
           {pendente ? "Salvando…" : botao}
         </button>
         {estado.erro && <span className="aviso erro">{estado.erro}</span>}
-        {estado.ok && <span className="aviso ok">{estado.ok}</span>}
+        {estado.ok && !noCanto && <span className="aviso ok">{estado.ok}</span>}
       </div>
     </form>
   );

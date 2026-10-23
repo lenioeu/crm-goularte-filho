@@ -8,6 +8,7 @@ import { excluirClientes } from "@/app/(app)/actions";
 import { criarPastaCliente } from "@/app/(app)/integracoes/actions";
 import { BotaoAcao } from "@/components/BotaoAcao";
 import { IconeDrive } from "@/components/IconeDrive";
+import { Icone } from "@/components/Icone";
 
 export type LinhaCliente = {
   id: string;
@@ -48,11 +49,34 @@ function baixarCsv(linhas: LinhaCliente[]) {
   URL.revokeObjectURL(a.href);
 }
 
+const CHAVES = {
+  nome: (c: LinhaCliente) => c.nome,
+  area: (c: LinhaCliente) => c.area?.nome ?? "~",
+  whatsapp: (c: LinhaCliente) => c.telefone_whatsapp ?? "~",
+  responsavel: (c: LinhaCliente) => c.responsavel ?? "~",
+  processos: (c: LinhaCliente) => c.processos,
+};
+
 export function TabelaClientes({ linhas, admin, driveLigado }: { linhas: LinhaCliente[]; admin: boolean; driveLigado: boolean }) {
   const router = useRouter();
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [r, setR] = useState<Resultado | null>(null);
   const [pendente, iniciar] = useTransition();
+
+  // Ordenar pela coluna clicada
+  const [ordem, setOrdem] = useState<{ col: keyof typeof CHAVES; desc: boolean }>({ col: "nome", desc: false });
+  const ordenadas = [...linhas].sort((a, b) => {
+    const [x, y] = [CHAVES[ordem.col](a), CHAVES[ordem.col](b)];
+    const r = typeof x === "number" && typeof y === "number" ? x - y : String(x).localeCompare(String(y), "pt-BR");
+    return ordem.desc ? -r : r;
+  });
+  const th = (col: keyof typeof CHAVES, rotulo: string, num = false) => (
+    <th className={num ? "num" : undefined} aria-sort={ordem.col === col ? (ordem.desc ? "descending" : "ascending") : "none"}>
+      <button type="button" className="th-ordem" onClick={() => setOrdem((o) => ({ col, desc: o.col === col ? !o.desc : false }))}>
+        {rotulo}{ordem.col === col ? (ordem.desc ? " ▲" : " ▼") : ""}
+      </button>
+    </th>
+  );
 
   const todos = linhas.length > 0 && linhas.every((c) => sel.has(c.id));
   const marcados = linhas.filter((c) => sel.has(c.id));
@@ -85,7 +109,7 @@ export function TabelaClientes({ linhas, admin, driveLigado }: { linhas: LinhaCl
       <div className="acoes-lote">
         <span>{sel.size ? `${sel.size} selecionado${sel.size > 1 ? "s" : ""}` : `${linhas.length} na lista`}</span>
         <button type="button" className="btn sm" onClick={() => baixarCsv(sel.size ? marcados : linhas)} disabled={!linhas.length}>
-          ⬇ Exportar {sel.size ? "selecionados" : "a lista"} (planilha)
+          <Icone nome="baixar" tamanho={16} /> Exportar {sel.size ? "selecionados" : "a lista"} (planilha)
         </button>
         {admin && sel.size > 0 && (
           <button type="button" className="btn sm perigo" onClick={excluir} disabled={pendente}>{pendente ? "Excluindo…" : `Excluir ${sel.size}`}</button>
@@ -94,18 +118,18 @@ export function TabelaClientes({ linhas, admin, driveLigado }: { linhas: LinhaCl
         {r?.erro && <span className="doc-erro" style={{ width: "auto" }}>{r.erro}</span>}
         {r?.ok && <span className="doc-ok">{r.ok}</span>}
       </div>
-      <div className="scrollx">
+      <div className="scrollx tabela-alta">
         <table className="tbl">
           <thead>
             <tr>
               <th style={{ width: 36 }}>
                 <input type="checkbox" checked={todos} onChange={() => setSel(todos ? new Set() : new Set(linhas.map((c) => c.id)))} aria-label="Selecionar todos da lista" style={{ width: 17, height: 17 }} />
               </th>
-              <th>Cliente</th><th>Área</th><th>WhatsApp</th><th>Responsável</th><th className="num">Processos</th><th>Pasta no Drive</th>
+              {th("nome", "Cliente")}{th("area", "Área")}{th("whatsapp", "WhatsApp")}{th("responsavel", "Responsável")}{th("processos", "Processos", true)}<th>Pasta no Drive</th>
             </tr>
           </thead>
           <tbody>
-            {linhas.map((c) => (
+            {ordenadas.map((c) => (
               <tr key={c.id} className={sel.has(c.id) ? "sel" : undefined}>
                 <td><input type="checkbox" checked={sel.has(c.id)} onChange={() => alternar(c.id)} aria-label={`Selecionar ${c.nome}`} style={{ width: 17, height: 17 }} /></td>
                 <td><Link href={`/clientes/${c.id}`} style={{ fontWeight: 500, color: "var(--accent)" }}>{c.nome}</Link>{c.cpf_cnpj && <small>{c.cpf_cnpj}</small>}</td>

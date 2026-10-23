@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { removerInscricaoPush, salvarInscricaoPush } from "@/app/(app)/atendimento/actions";
+import { Icone } from "@/components/Icone";
 
 function chaveBinaria(base64: string) {
   const b = (base64 + "=".repeat((4 - (base64.length % 4)) % 4)).replace(/-/g, "+").replace(/_/g, "/");
@@ -72,7 +73,7 @@ export function AtivarNotificacoes({ compacto = false }: { compacto?: boolean })
       {estado === "desligado" && (
         <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
           {compacto && <span>Quer ser avisado de mensagem nova mesmo com o CRM fechado?</span>}
-          <button type="button" className={compacto ? "btn sm" : "btn primary"} onClick={ligar}>🔔 Ligar notificações neste aparelho</button>
+          <button type="button" className={compacto ? "btn sm" : "btn primary"} onClick={ligar}><Icone nome="sino" tamanho={16} /> Ligar notificações neste aparelho</button>
         </div>
       )}
       {estado === "bloqueado" && <span>As notificações estão bloqueadas no navegador. Libere nas configurações do site (cadeado ao lado do endereço) e recarregue a página.</span>}

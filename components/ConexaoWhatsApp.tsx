@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { conectarWhatsApp, desconectarWhatsApp, lerEstadoWhatsApp } from "@/app/(app)/atendimento/actions";
+import { atualizarLigacaoWhatsApp, conectarWhatsApp, desconectarWhatsApp, lerEstadoWhatsApp } from "@/app/(app)/atendimento/actions";
+import { BotaoAcao } from "@/components/BotaoAcao";
 
 type Estado = "open" | "connecting" | "close" | "inexistente" | null;
 
@@ -82,7 +83,10 @@ export function ConexaoWhatsApp({ admin }: { admin: boolean }) {
             </button>
           )}
           {estado === "open" && (
-            <button className="btn sm" type="button" onClick={sair} disabled={ocupado}>Desconectar</button>
+            <>
+              <BotaoAcao acao={atualizarLigacaoWhatsApp} rotulo="Atualizar ligação" />
+              <button className="btn sm" type="button" onClick={sair} disabled={ocupado}>Desconectar</button>
+            </>
           )}
         </div>
       )}

@@ -45,7 +45,8 @@ function Linha({ a }: { a: Audiencia }) {
   );
 }
 
-export default async function Audiencias() {
+export default async function Audiencias({ searchParams }: { searchParams: Promise<{ nova?: string }> }) {
+  const { nova } = await searchParams;
   const supabase = await supabaseServer();
   const inicioHoje = new Date(`${new Date().toLocaleDateString("sv-SE", { timeZone: TZ })}T00:00:00-03:00`).toISOString();
   const ha30 = new Date(Date.now() - 30 * 86_400_000).toISOString();
@@ -76,13 +77,13 @@ export default async function Audiencias() {
         <div>
           <h1>Audiências</h1>
           <p>
-            Ao cadastrar, o sistema programa um lembrete para o cliente na véspera, às 18h. O envio começa quando o WhatsApp
-            estiver ligado; a sincronização com o Google Agenda chega na etapa do Google.
+            Cada audiência entra na Google Agenda do escritório e programa lembretes ao cliente pelo WhatsApp: 3 dias antes, às 10h, e na
+            véspera, às 18h (dá para desmarcar qualquer um ao cadastrar).
           </p>
         </div>
       </div>
 
-      <details className="card novo" style={{ marginBottom: 16 }}>
+      <details className="card novo" style={{ marginBottom: 16 }} open={Boolean(nova)}>
         <summary><span className="btn primary">+ Agendar audiência</span></summary>
         {listaCasos.length === 0 ? (
           <div className="aviso info">Toda audiência fica ligada a um caso. Crie o caso primeiro no Funil de casos.</div>
@@ -121,7 +122,10 @@ export default async function Audiencias() {
             <div className="field full"><label htmlFor="local">Local</label><input id="local" name="local" placeholder="ex.: 2ª Vara do Trabalho de Vitória · sala 3" /></div>
             <div className="field full"><label htmlFor="observacoes">Observações</label><textarea id="observacoes" name="observacoes" rows={2} placeholder="ex.: levar testemunhas; cliente confirmou presença" /></div>
             <label className="full" style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5 }}>
-              <input type="checkbox" name="lembrete" defaultChecked style={{ width: 18, height: 18 }} /> Programar lembrete ao cliente na véspera, às 18h
+              <input type="checkbox" name="lembrete3" defaultChecked style={{ width: 18, height: 18 }} /> Lembrete ao cliente 3 dias antes, às 10h
+            </label>
+            <label className="full" style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5 }}>
+              <input type="checkbox" name="lembrete" defaultChecked style={{ width: 18, height: 18 }} /> Lembrete ao cliente na véspera, às 18h
             </label>
           </FormAcao>
         )}

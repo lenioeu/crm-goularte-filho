@@ -13,8 +13,8 @@ const DICAS: Record<string, string> = {
   contrato_assinado: "vira processo",
 };
 
-export default async function Funil({ searchParams }: { searchParams: Promise<{ area?: string }> }) {
-  const { area } = await searchParams;
+export default async function Funil({ searchParams }: { searchParams: Promise<{ area?: string; nova?: string }> }) {
+  const { area, nova } = await searchParams;
   const supabase = await supabaseServer();
 
   let consulta = supabase
@@ -56,7 +56,7 @@ export default async function Funil({ searchParams }: { searchParams: Promise<{ 
         ))}
       </div>
 
-      <details className="card novo" style={{ marginBottom: 16 }}>
+      <details className="card novo" style={{ marginBottom: 16 }} open={Boolean(nova)}>
         <summary><span className="btn primary">+ Novo caso</span></summary>
         <FormAcao action={criarCaso} botao="Criar caso" className="form">
           <div className="field">

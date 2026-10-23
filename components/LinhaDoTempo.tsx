@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Evento } from "@/lib/linhaDoTempo";
 import { TZ } from "@/lib/rotulos";
+import { Icone } from "@/components/Icone";
 
 const MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
 
@@ -23,7 +24,7 @@ function Item({ e }: { e: Evento }) {
   );
   return (
     <div className={"tl-item" + (e.futuro ? " futuro" : "")}>
-      <span className="tl-icone" aria-hidden="true">{e.icone}</span>
+      <span className="tl-icone" aria-hidden="true"><Icone nome={e.icone} tamanho={13} /></span>
       <div className="bd">
         {e.link ? (e.link.startsWith("/") ? <Link href={e.link}>{conteudo}</Link> : <a href={e.link} target="_blank" rel="noopener">{conteudo}</a>) : conteudo}
       </div>

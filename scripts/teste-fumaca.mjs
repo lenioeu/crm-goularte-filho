@@ -26,6 +26,7 @@ function valor(campo) {
   if (campo in VALORES) return VALORES[campo];
   if (campo === "id" || campo.endsWith("_id")) return ID;
   if (["vence_em", "ultima_movimentacao_em", "data"].includes(campo)) return hoje;
+  if (campo === "em") return agora;
   if (campo.endsWith("_em") || campo === "inicio" || campo === "fim") return agora;
   if (/^(ativo|ativa|sigiloso|automatico|cancelar_se_responder|arquivado)$/.test(campo)) return campo !== "arquivado";
   if (["erro", "motivo_nao_viavel", "midia_url", "atendente_id", "pasta_drive_id"].includes(campo)) return null;

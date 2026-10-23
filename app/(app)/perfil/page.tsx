@@ -1,4 +1,5 @@
 import { AtivarNotificacoes } from "@/components/AtivarNotificacoes";
+import { EscolherTema } from "@/components/EscolherTema";
 import { FormAcao } from "@/components/FormAcao";
 import { supabaseServer } from "@/lib/supabase/server";
 import { salvarPerfil, trocarSenha } from "../actions";
@@ -26,6 +27,10 @@ export default async function Perfil() {
           <div className="field"><label>E-mail de acesso</label><input value={user?.email ?? ""} disabled /></div>
           <div className="field full"><label htmlFor="assinatura">Assinatura nas mensagens</label><input id="assinatura" name="assinatura" defaultValue={p?.assinatura ?? ""} placeholder="ex.: Dr. Fulano · Goularte Filho Advocacia" /></div>
         </FormAcao>
+      </div>
+      <div className="card" style={{ maxWidth: 720, marginTop: 16 }}>
+        <div className="ctitle"><h3>Aparência</h3></div>
+        <EscolherTema />
       </div>
       <div className="card" style={{ maxWidth: 720, marginTop: 16 }}>
         <div className="ctitle"><h3>Notificações de mensagem nova</h3></div>

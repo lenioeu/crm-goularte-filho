@@ -256,35 +256,49 @@ export async function criarAudiencia(_: Resultado, f: FormData): Promise<Resulta
     agenda = " Não foi possível adicionar ao Google Agenda agora.";
   }
 
-  let lembrete = "";
-  if (f.get("lembrete") === "on") {
-    const vespera = new Date(`${data}T12:00:00-03:00`);
-    vespera.setUTCDate(vespera.getUTCDate() - 1);
-    const dia = vespera.toISOString().slice(0, 10);
-    const enviarEm = `${dia}T18:00:00-03:00`;
-    if (new Date(enviarEm).getTime() > Date.now()) {
-      const [, m, d] = data.split("-");
-      const onde = local ? `, em ${local}` : modalidade === "video" ? ", por vídeo (o link foi enviado)" : "";
-      const mensagem =
-        `Olá, ${nomeProprio(nomeCliente) || "tudo bem"}! Passando para lembrar da sua audiência de ${tipo.toLowerCase()} amanhã, ${d}/${m}, às ${hora}${onde}. ` +
-        `Chegue com 30 minutos de antecedência e leve um documento com foto. Qualquer dúvida, é só responder aqui.\nGoularte Filho Advocacia`;
-      if (caso?.cliente_id) {
-        const { error: e2 } = await supabase.from("mensagens_agendadas").insert({
-          cliente_id: caso.cliente_id,
-          audiencia_id: aud.id,
-          tipo: "lembrete_audiencia",
-          texto: mensagem,
-          enviar_em: enviarEm,
-          automatico: true,
-          criado_por: user?.id ?? null,
-        });
-        if (!e2) {
-          const [, mv, dv] = dia.split("-");
-          lembrete = ` Lembrete ao cliente programado para ${dv}/${mv} às 18:00.`;
-        }
-      }
-    }
+  // Lembretes ao cliente pelo WhatsApp: 3 dias antes (10h) e/ou na véspera (18h)
+  const [, m, d] = data.split("-");
+  const onde = local ? `, em ${local}` : modalidade === "video" ? ", por vídeo (o link foi enviado)" : "";
+  const saudacao = `Olá, ${nomeProprio(nomeCliente) || "tudo bem"}!`;
+  const diaSemana = new Date(`${data}T12:00:00-03:00`).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo", weekday: "long" });
+  const pedidos: { diasAntes: number; hora: string; texto: string }[] = [];
+  if (f.get("lembrete3") === "on") {
+    pedidos.push({
+      diasAntes: 3,
+      hora: "10:00",
+      texto:
+        `${saudacao} Passando para lembrar que a sua audiência de ${tipo.toLowerCase()} é na ${diaSemana}, ${d}/${m}, às ${hora}${onde}. ` +
+        `Se tiver algum documento ou testemunha para a audiência, fale com a gente por aqui até a véspera.\nGoularte Filho Advocacia`,
+    });
   }
+  if (f.get("lembrete") === "on") {
+    pedidos.push({
+      diasAntes: 1,
+      hora: "18:00",
+      texto:
+        `${saudacao} Passando para lembrar da sua audiência de ${tipo.toLowerCase()} amanhã, ${d}/${m}, às ${hora}${onde}. ` +
+        `Chegue com 30 minutos de antecedência e leve um documento com foto. Qualquer dúvida, é só responder aqui.\nGoularte Filho Advocacia`,
+    });
+  }
+  const programados: string[] = [];
+  for (const p of pedidos) {
+    const dia = new Date(`${data}T12:00:00-03:00`);
+    dia.setUTCDate(dia.getUTCDate() - p.diasAntes);
+    const diaIso = dia.toISOString().slice(0, 10);
+    const enviarEm = `${diaIso}T${p.hora}:00-03:00`;
+    if (!caso?.cliente_id || new Date(enviarEm).getTime() <= Date.now()) continue; // já passou: não programa
+    const { error: e2 } = await supabase.from("mensagens_agendadas").insert({
+      cliente_id: caso.cliente_id,
+      audiencia_id: aud.id,
+      tipo: "lembrete_audiencia",
+      texto: p.texto,
+      enviar_em: enviarEm,
+      automatico: true,
+      criado_por: user?.id ?? null,
+    });
+    if (!e2) programados.push(`${diaIso.slice(8, 10)}/${diaIso.slice(5, 7)} às ${p.hora.replace(":00", "h")}`);
+  }
+  const lembrete = programados.length ? ` Lembrete${programados.length > 1 ? "s" : ""} ao cliente: ${programados.join(" e ")}.` : "";
 
   revalidatePath("/audiencias");
   revalidatePath("/");
@@ -438,3 +452,17 @@ export async function trocarSenha(_: Resultado, f: FormData): Promise<Resultado>
   if (error) return { erro: /same|different/i.test(error.message) ? "A senha nova precisa ser diferente da atual." : error.message, ok: null };
   return { erro: null, ok: "Senha trocada." };
 }
+
+// ------------------------------------------------------------------ Notas sobre o cliente (ficha)
+export async function criarNota(_: Resultado, f: FormData): Promise<Resultado> {
+  const { supabase, user, papel } = await quemSou();
+  if (!user || !papel) return { erro: "Sem permissão.", ok: null };
+  const clienteId = texto(f, "cliente_id");
+  const conteudo = texto(f, "texto");
+  if (!clienteId || !conteudo) return { erro: "Escreva a nota.", ok: null };
+  const { error } = await supabase.from("notas_cliente").insert({ cliente_id: clienteId, autor_id: user.id, texto: conteudo });
+  if (error) return { erro: /relation|does not exist|schema cache/i.test(error.message) ? "Falta rodar o script supabase/010_tiques_e_notas.sql no Supabase." : traduzirErro(error.message), ok: null };
+  revalidatePath(`/clientes/${clienteId}`);
+  return { erro: null, ok: "Nota registrada na linha do tempo." };
+}
+
