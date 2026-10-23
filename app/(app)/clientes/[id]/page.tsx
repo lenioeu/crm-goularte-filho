@@ -11,6 +11,7 @@ import { quemSou } from "@/lib/permissoes";
 import { atualizarCliente, excluirCliente } from "../../actions";
 import { criarPastaCliente } from "../../integracoes/actions";
 import { atualizarQualificacao } from "./documentos/actions";
+import { IconeDrive } from "@/components/IconeDrive";
 
 type Rel<T> = T | T[] | null;
 const um = <T,>(r: Rel<T>): T | null => (Array.isArray(r) ? r[0] ?? null : r);
@@ -71,7 +72,7 @@ export default async function FichaCliente({ params }: { params: Promise<{ id: s
         </div>
         <div style={{ marginLeft: "auto", display: "flex", gap: 8, flexWrap: "wrap" }}>
           {c.pasta_drive_url ? (
-            <a className="btn" href={c.pasta_drive_url} target="_blank" rel="noopener">Abrir pasta no Drive</a>
+            <a className="btn" href={c.pasta_drive_url} target="_blank" rel="noopener"><IconeDrive /> Abrir pasta no Drive</a>
           ) : driveLigado ? (
             <BotaoAcao acao={criarPastaCliente.bind(null, c.id)} rotulo="Criar pasta no Drive" className="btn" />
           ) : null}
@@ -171,12 +172,12 @@ export default async function FichaCliente({ params }: { params: Promise<{ id: s
 
       {(documentos ?? []).length > 0 && (
         <div className="card" style={{ marginBottom: 16 }}>
-          <div className="ctitle"><h3>Documentos na pasta</h3>{c.pasta_drive_url && <a className="tag" href={c.pasta_drive_url} target="_blank" rel="noopener" style={{ marginLeft: "auto", color: "var(--accent)" }}>pasta</a>}</div>
+          <div className="ctitle"><h3>Documentos na pasta</h3>{c.pasta_drive_url && <a className="tag" href={c.pasta_drive_url} target="_blank" rel="noopener" style={{ marginLeft: "auto", color: "var(--accent)", display: "inline-flex", alignItems: "center" }}><IconeDrive tamanho={14} /> pasta no Drive</a>}</div>
           <div className="list">
             {(documentos ?? []).map((d) => (
               <div className="li" key={d.id}>
                 <div className="bd"><b>{d.nome_salvo}</b><small>salvo em {dataBR(d.salvo_em)}</small></div>
-                {d.drive_url && <a className="btn sm" href={d.drive_url} target="_blank" rel="noopener">Abrir</a>}
+                {d.drive_url && <a className="btn sm" href={d.drive_url} target="_blank" rel="noopener"><IconeDrive tamanho={14} /> Abrir</a>}
               </div>
             ))}
           </div>

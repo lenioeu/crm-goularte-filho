@@ -6,6 +6,7 @@ import { googleConfigurado } from "@/lib/google";
 import { quemSou } from "@/lib/permissoes";
 import { whatsappConfigurado } from "@/lib/whatsapp";
 import { desconectarGoogle, importarClientesDoDrive, procurarPastaDeNovo } from "./actions";
+import { IconeDrive } from "@/components/IconeDrive";
 
 const AVISOS: Record<string, { tipo: "ok" | "erro" | "info"; texto: string }> = {
   ok: { tipo: "ok", texto: "Conta Google conectada." },
@@ -62,7 +63,7 @@ export default async function Integracoes({ searchParams }: { searchParams: Prom
               Pasta de clientes:{" "}
               {pasta ? (
                 <>
-                  <b>{pasta.caminho}</b> {pasta.url && <a href={pasta.url} target="_blank" rel="noopener" style={{ color: "var(--accent)" }}>abrir</a>}
+                  <b>{pasta.caminho}</b> {pasta.url && <a href={pasta.url} target="_blank" rel="noopener" style={{ color: "var(--accent)", display: "inline-flex", alignItems: "center" }}><IconeDrive /> abrir no Drive</a>}
                 </>
               ) : (
                 <span style={{ color: "var(--warn)" }}>não encontrada</span>

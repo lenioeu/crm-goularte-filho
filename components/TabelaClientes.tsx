@@ -7,6 +7,7 @@ import type { Resultado } from "@/app/(app)/actions";
 import { excluirClientes } from "@/app/(app)/actions";
 import { criarPastaCliente } from "@/app/(app)/integracoes/actions";
 import { BotaoAcao } from "@/components/BotaoAcao";
+import { IconeDrive } from "@/components/IconeDrive";
 
 export type LinhaCliente = {
   id: string;
@@ -114,7 +115,7 @@ export function TabelaClientes({ linhas, admin, driveLigado }: { linhas: LinhaCl
                 <td className="num">{c.processos || "—"}</td>
                 <td>
                   {c.pasta_drive_url ? (
-                    <a className="btn sm" href={c.pasta_drive_url} target="_blank" rel="noopener">Abrir</a>
+                    <a className="btn sm" href={c.pasta_drive_url} target="_blank" rel="noopener"><IconeDrive tamanho={14} /> Abrir</a>
                   ) : driveLigado ? (
                     <BotaoAcao acao={criarPastaCliente.bind(null, c.id)} rotulo="Criar pasta" />
                   ) : (

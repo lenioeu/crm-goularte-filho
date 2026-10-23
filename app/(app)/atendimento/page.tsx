@@ -15,6 +15,7 @@ import { moverTarefa } from "../actions";
 import { criarPastaCliente } from "../integracoes/actions";
 import { cadastrarProcesso } from "../processos/actions";
 import { assumirConversa, criarLembrete, encerrarConversa, mudarArea, reabrirConversa, salvarDocumento } from "./actions";
+import { IconeDrive } from "@/components/IconeDrive";
 
 type Rel<T> = T | T[] | null;
 const um = <T,>(r: Rel<T>): T | null => (Array.isArray(r) ? r[0] ?? null : r);
@@ -187,7 +188,7 @@ export default async function Atendimento({ searchParams }: { searchParams: Prom
               <div className="chat-atalhos">
                 <Link className="btn sm" href={`/clientes/${cliAtual.id}`}>👤 Ficha do cliente</Link>
                 {cliAtual.pasta_drive_url ? (
-                  <a className="btn sm" href={cliAtual.pasta_drive_url} target="_blank" rel="noopener">📁 Abrir pasta no Drive</a>
+                  <a className="btn sm" href={cliAtual.pasta_drive_url} target="_blank" rel="noopener"><IconeDrive /> Abrir pasta no Drive</a>
                 ) : (
                   <BotaoAcao acao={criarPastaCliente.bind(null, cliAtual.id)} rotulo="📁 Criar pasta no Drive" />
                 )}
