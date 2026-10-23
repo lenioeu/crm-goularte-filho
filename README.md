@@ -49,8 +49,18 @@ Depois abra http://localhost:3000. O sistema já aponta para o projeto Supabase 
 - Equipe e cargos: liberar acesso, escolher papel e cargo
 - Indicadores do mês (sem ranking)
 - Atendimento pelo WhatsApp, com triagem por área e documentos salvos no Drive
+- Instalável no celular (ícone na tela inicial)
 - Modelos de documentos (procuração, hipossuficiência, contrato de honorários, renúncia) preenchidos com os dados do cliente
 - Meu perfil
+
+## Instalar no celular
+
+- **Android (Chrome):** abra `crm.goulartefilho.app`, toque em ⋮ › **Instalar app** (ou
+  "Adicionar à tela inicial").
+- **iPhone (Safari):** abra o endereço, toque em Compartilhar › **Adicionar à Tela de Início**.
+
+O Órion ganha ícone próprio e abre em tela cheia, como um aplicativo. No computador, o Chrome
+mostra o botão de instalar na barra de endereço.
 
 ## Etapas
 

@@ -41,7 +41,7 @@ export default async function Clientes() {
       <div className="vhead">
         <div>
           <h1>Clientes</h1>
-          <p>{lista.length} {lista.length === 1 ? "cliente cadastrado" : "clientes cadastrados"}. Na etapa do WhatsApp, os clientes passam a ser criados sozinhos pela triagem do bot.</p>
+          <p>{lista.length} {lista.length === 1 ? "cliente cadastrado" : "clientes cadastrados"}. Quem escreve pela primeira vez no WhatsApp do escritório é cadastrado sozinho.</p>
         </div>
       </div>
 

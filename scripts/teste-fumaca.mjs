@@ -164,13 +164,15 @@ const aviso = {
   data: { key: { id: "TESTE1", remoteJid: "5551999999999@s.whatsapp.net", fromMe: false }, pushName: "Fulano", messageType: "conversation", message: { conversation: "1" }, messageTimestamp: Math.floor(Date.now() / 1000) },
 };
 const api = [
+  ["manifest do app (sem login)", base + "/manifest.webmanifest", {}, 200],
+  ["ícone do app (sem login)", base + "/icone-192.png", {}, 200],
   ["webhook sem senha", base + "/api/whatsapp/webhook", { method: "POST", body: "{}" }, 401],
   ["webhook com mensagem", base + "/api/whatsapp/webhook", { method: "POST", headers: { "x-crm-token": token, "content-type": "application/json" }, body: JSON.stringify(aviso) }, 200],
   ["envio dos agendamentos", base + "/api/whatsapp/agendadas", { method: "POST", headers: { authorization: "Bearer teste" } }, 200],
 ];
 for (const [nome, url, init, esperado] of api) {
   const antes = erros.length;
-  const r = await fetch(url, init);
+  const r = await fetch(url, { redirect: "manual", ...init });
   const corpo = await r.text();
   await new Promise((ok) => setTimeout(ok, 150));
   const problema = r.status !== esperado ? `status ${r.status} (esperado ${esperado}) ${corpo.slice(0, 120)}` : erros.length > antes ? erros.slice(antes).join(" | ").slice(0, 300) : null;
