@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { criarEvento, excluirEvento, tokenDeAcesso } from "@/lib/google";
+import { quemSou } from "@/lib/permissoes";
 import { supabaseServer } from "@/lib/supabase/server";
 
 export type Resultado = { erro: string | null; ok: string | null };
@@ -330,4 +331,22 @@ export async function atualizarCliente(_: Resultado, f: FormData): Promise<Resul
   revalidatePath(`/clientes/${id}`);
   revalidatePath("/clientes");
   return { erro: null, ok: "Dados salvos." };
+}
+
+/** Apaga o cliente e tudo ligado a ele no CRM (casos, processos, conversas…). A pasta no Drive fica intacta. */
+export async function excluirCliente(id: string): Promise<Resultado> {
+  const { supabase, papel } = await quemSou();
+  if (papel !== "administrador") return { erro: "Só o administrador exclui clientes.", ok: null };
+
+  // Tira da Google Agenda os eventos das audiências dele
+  const { data: auds } = await supabase.from("audiencias").select("google_event_id, casos!inner(cliente_id)").eq("casos.cliente_id", id).not("google_event_id", "is", null);
+  const token = auds?.length ? await tokenDeAcesso() : null;
+  if (token) await Promise.all((auds ?? []).map((a) => excluirEvento(token, a.google_event_id as string).catch(() => null)));
+
+  const { data, error } = await supabase.from("clientes").delete().eq("id", id).select("id");
+  if (error) return { erro: traduzirErro(error.message), ok: null };
+  if (!data?.length) return { erro: "Cliente não encontrado.", ok: null };
+  revalidatePath("/clientes");
+  revalidatePath("/");
+  redirect("/clientes");
 }

@@ -3,8 +3,8 @@ import { notFound } from "next/navigation";
 import { BotaoAcao } from "@/components/BotaoAcao";
 import { FormAcao } from "@/components/FormAcao";
 import { COLUNA_TAREFA, dataBR, dataHoraBR, ETAPA, telefoneBR, TIPO_AGENDAMENTO } from "@/lib/rotulos";
-import { supabaseServer } from "@/lib/supabase/server";
-import { atualizarCliente } from "../../actions";
+import { quemSou } from "@/lib/permissoes";
+import { atualizarCliente, excluirCliente } from "../../actions";
 import { criarPastaCliente } from "../../integracoes/actions";
 import { atualizarQualificacao } from "./documentos/actions";
 
@@ -13,7 +13,7 @@ const um = <T,>(r: Rel<T>): T | null => (Array.isArray(r) ? r[0] ?? null : r);
 
 export default async function FichaCliente({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const supabase = await supabaseServer();
+  const { supabase, papel } = await quemSou();
 
   const { data: c } = await supabase
     .from("clientes")
@@ -123,7 +123,7 @@ export default async function FichaCliente({ params }: { params: Promise<{ id: s
 
       <div className="grid cols-2" style={{ marginBottom: 16 }}>
         <div className="card">
-          <div className="ctitle"><h3>Processos</h3></div>
+          <div className="ctitle"><h3>Processos</h3><Link href={`/processos?cliente=${c.id}`} className="tag" style={{ marginLeft: "auto", color: "var(--accent)" }}>+ Cadastrar</Link></div>
           {(processos ?? []).length === 0 ? (
             <div className="vazio">Nenhum processo cadastrado.</div>
           ) : (
@@ -205,6 +205,17 @@ export default async function FichaCliente({ params }: { params: Promise<{ id: s
             <div className="field full"><label htmlFor="observacoes">Observações internas</label><textarea id="observacoes" name="observacoes" rows={3} defaultValue={c.observacoes ?? ""} /></div>
           </FormAcao>
           <p style={{ fontSize: 12, color: "var(--dim)", margin: "10px 0 0" }}>Cadastrado em {dataBR(c.criado_em)}.</p>
+          {papel === "administrador" && (
+            <div style={{ borderTop: "1px solid var(--line)", marginTop: 14, paddingTop: 14, display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+              <BotaoAcao
+                acao={excluirCliente.bind(null, c.id)}
+                rotulo="Excluir cliente"
+                className="btn sm perigo"
+                confirmar={`Excluir ${c.nome}? Some do CRM junto com casos, processos, audiências, tarefas, conversas e mensagens agendadas dele. Não dá para desfazer. A pasta no Drive não é apagada.`}
+              />
+              <small style={{ color: "var(--dim)", fontSize: 12 }}>A pasta no Drive continua lá. Se rodar “Importar clientes do Drive” de novo, ele volta a ser cadastrado.</small>
+            </div>
+          )}
         </div>
       </details>
 

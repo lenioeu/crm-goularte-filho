@@ -6,11 +6,12 @@ import { camposDoResumo, consultarDataJud, formatarCNJ, somenteDigitos, validarC
 import { quemSou } from "@/lib/permissoes";
 
 export async function cadastrarProcesso(_: Resultado, f: FormData): Promise<Resultado> {
-  const { supabase, papel } = await quemSou();
-  if (!papel) return { erro: "Sem permissão.", ok: null };
-  const casoId = typeof f.get("caso_id") === "string" ? (f.get("caso_id") as string) : "";
+  const { supabase, user, papel } = await quemSou();
+  if (!user || !papel) return { erro: "Sem permissão.", ok: null };
+  let casoId = String(f.get("caso_id") ?? "");
+  const clienteId = String(f.get("cliente_id") ?? "");
   const numero = somenteDigitos(String(f.get("numero") ?? ""));
-  if (!casoId) return { erro: "Escolha o caso.", ok: null };
+  if (!casoId && !clienteId) return { erro: "Escolha o cliente (ou um caso que já exista).", ok: null };
   if (numero.length !== 20) return { erro: "O número do processo precisa ter 20 dígitos (formato 0000000-00.0000.0.00.0000).", ok: null };
   if (!validarCNJ(numero)) return { erro: "Esse número não confere com os dígitos verificadores do CNJ. Confira se não houve erro de digitação.", ok: null };
 
@@ -24,14 +25,37 @@ export async function cadastrarProcesso(_: Resultado, f: FormData): Promise<Resu
     aviso = ` Não consegui consultar o DataJud agora (${e instanceof Error ? e.message : e}).`;
   }
 
+  // Sem caso escolhido: cria um para o cliente, já como contrato assinado, com o nome da ação
+  let casoNovo = false;
+  if (!casoId) {
+    const { data: cli } = await supabase.from("clientes").select("area_id").eq("id", clienteId).maybeSingle();
+    if (!cli) return { erro: "Cliente não encontrado.", ok: null };
+    const { data: caso, error: erroCaso } = await supabase
+      .from("casos")
+      .insert({
+        cliente_id: clienteId,
+        area_id: cli.area_id,
+        titulo: (campos.classe as string | undefined) ?? `Processo ${formatarCNJ(numero)}`,
+        etapa: "contrato_assinado",
+        responsavel_id: user.id,
+      })
+      .select("id")
+      .single();
+    if (erroCaso) return { erro: erroCaso.message, ok: null };
+    casoId = caso.id;
+    casoNovo = true;
+  }
+
   const { error } = await supabase.from("processos").insert({ caso_id: casoId, numero_cnj: formatarCNJ(numero), ...campos });
   if (error) {
+    if (casoNovo) await supabase.from("casos").delete().eq("id", casoId);
     if (/duplicate key/i.test(error.message)) return { erro: "Esse processo já está cadastrado.", ok: null };
     if (/row-level security/i.test(error.message)) return { erro: "Você não tem permissão para esse caso.", ok: null };
     return { erro: error.message, ok: null };
   }
   revalidatePath("/processos");
-  return { erro: null, ok: `Processo ${formatarCNJ(numero)} cadastrado.${aviso}` };
+  if (clienteId) revalidatePath(`/clientes/${clienteId}`);
+  return { erro: null, ok: `Processo ${formatarCNJ(numero)} cadastrado${casoNovo ? " (caso criado no funil, como contrato assinado)" : ""}.${aviso}` };
 }
 
 async function sincronizar(ids?: string[]) {

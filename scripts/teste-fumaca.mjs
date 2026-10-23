@@ -94,7 +94,7 @@ const rotas = paginas("app")
   .map((p) => "/" + relative("app", p).split(sep).slice(0, -1).filter((s) => !s.startsWith("(")).map((s) => EXEMPLO[s] ?? s).join("/"))
   .sort();
 rotas.push(
-  "/busca?q=teste", "/indicadores?mes=2026-01", "/funil?area=" + ID, "/processos?filtro=parados",
+  "/busca?q=teste", "/indicadores?mes=2026-01", "/funil?area=" + ID, "/processos?filtro=parados", "/processos?cliente=" + ID,
   "/atendimento?c=" + ID, "/atendimento?f=encerradas", "/atendimento?cliente=" + ID,
   ...["procuracao", "hipossuficiencia", "contrato", "renuncia"].map((m) => `/clientes/${ID}/documentos?modelo=${m}`),
 );

@@ -293,3 +293,5 @@ details.novo[open] > summary { margin-bottom: 14px; }
   .folha, .folha * { visibility: visible; }
   .folha { position: absolute; inset: 0 auto auto 0; width: 100%; border: none; box-shadow: none; padding: 0; }
 }
+.btn.perigo { color: var(--crit); border-color: var(--crit); }
+.btn.perigo:hover { background: var(--crit-soft); }

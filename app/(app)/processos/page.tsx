@@ -23,10 +23,10 @@ type Processo = {
 const dataBR = (iso: string | null) => (iso ? iso.slice(0, 10).split("-").reverse().join("/") : "—");
 const diasDesde = (iso: string | null) => (iso ? Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000) : null);
 
-export default async function Processos({ searchParams }: { searchParams: Promise<{ filtro?: string }> }) {
-  const { filtro } = await searchParams;
+export default async function Processos({ searchParams }: { searchParams: Promise<{ filtro?: string; cliente?: string }> }) {
+  const { filtro, cliente } = await searchParams;
   const supabase = await supabaseServer();
-  const [{ data, error }, { data: casos }] = await Promise.all([
+  const [{ data, error }, { data: casos }, { data: clientes }] = await Promise.all([
     supabase
       .from("processos")
       .select("id, numero_cnj, tribunal, vara, classe, ultima_movimentacao, ultima_movimentacao_em, sincronizado_em, movimentos, casos(titulo, parte_contraria, clientes(id, nome), areas(nome, cor))")
@@ -34,6 +34,7 @@ export default async function Processos({ searchParams }: { searchParams: Promis
       .order("ultima_movimentacao_em", { ascending: false, nullsFirst: false })
       .limit(2000),
     supabase.from("casos").select("id, titulo, clientes(nome)").neq("etapa", "nao_viavel").order("atualizado_em", { ascending: false }).limit(1000),
+    supabase.from("clientes").select("id, nome").order("nome").limit(3000),
   ]);
 
   const todos = (data ?? []) as unknown as Processo[];
@@ -61,25 +62,31 @@ export default async function Processos({ searchParams }: { searchParams: Promis
         <Link className={"fp" + (filtro === "parados" ? " on" : "")} href="/processos?filtro=parados">Parados há mais de 60 dias · {parados.length}</Link>
       </div>
 
-      <details className="card novo" style={{ marginBottom: 16 }}>
+      <details className="card novo" style={{ marginBottom: 16 }} open={Boolean(cliente)}>
         <summary><span className="btn primary">+ Cadastrar processo</span></summary>
-        {listaCasos.length === 0 ? (
-          <div className="aviso info">Todo processo fica ligado a um caso. Crie o caso primeiro no Funil de casos.</div>
-        ) : (
-          <FormAcao action={cadastrarProcesso} botao="Cadastrar e consultar no CNJ" className="form">
-            <div className="field">
-              <label htmlFor="caso_id">Caso</label>
-              <select id="caso_id" name="caso_id" required defaultValue="">
-                <option value="" disabled>Escolha o caso</option>
-                {listaCasos.map((c) => <option key={c.id} value={c.id}>{c.clientes?.nome} · {c.titulo}</option>)}
-              </select>
-            </div>
-            <div className="field">
-              <label htmlFor="numero">Número do processo (CNJ)</label>
-              <input id="numero" name="numero" required inputMode="numeric" placeholder="0000000-00.0000.0.00.0000" />
-            </div>
-          </FormAcao>
-        )}
+        <FormAcao action={cadastrarProcesso} botao="Cadastrar e consultar no CNJ" className="form">
+          <div className="field">
+            <label htmlFor="cliente_id">Cliente</label>
+            <select id="cliente_id" name="cliente_id" defaultValue={cliente ?? ""}>
+              <option value="">Escolha o cliente</option>
+              {(clientes ?? []).map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
+            </select>
+          </div>
+          <div className="field">
+            <label htmlFor="numero">Número do processo (CNJ)</label>
+            <input id="numero" name="numero" required inputMode="numeric" placeholder="0000000-00.0000.0.00.0000" />
+          </div>
+          <div className="field full">
+            <label htmlFor="caso_id">Caso</label>
+            <select id="caso_id" name="caso_id" defaultValue="">
+              <option value="">Criar um caso novo para o cliente, com o nome da ação</option>
+              {listaCasos.map((c) => <option key={c.id} value={c.id}>Ligar ao caso: {c.clientes?.nome} · {c.titulo}</option>)}
+            </select>
+            <small style={{ color: "var(--dim)", fontSize: 12 }}>
+              Deixe em “criar caso novo” se o processo ainda não tem caso no funil. O caso entra como contrato assinado, com você como responsável.
+            </small>
+          </div>
+        </FormAcao>
       </details>
 
       {error && <div className="aviso erro" style={{ marginBottom: 16 }}>Não foi possível carregar os processos: {error.message}. Se falar em coluna inexistente, rode o script 002_google.sql no Supabase.</div>}
