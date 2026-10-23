@@ -505,3 +505,19 @@ alter table tarefas drop constraint if exists tarefas_responsavel_id_fkey, add c
 alter table tarefas drop constraint if exists tarefas_revisor_id_fkey, add constraint tarefas_revisor_id_fkey foreign key (revisor_id) references perfis (id) on delete set null;
 alter table google_conexao drop constraint if exists google_conexao_conectado_por_fkey, add constraint google_conexao_conectado_por_fkey foreign key (conectado_por) references perfis (id) on delete set null;
 alter table modelos drop constraint if exists modelos_criado_por_fkey, add constraint modelos_criado_por_fkey foreign key (criado_por) references perfis (id) on delete set null;
+
+-- Arquivos do WhatsApp (mesmo conteúdo de 007_arquivos_whatsapp.sql; precisa do Storage do Supabase)
+insert into storage.buckets (id, name, public, file_size_limit)
+values ('whatsapp', 'whatsapp', false, 67108864)  -- 64 MB por arquivo
+on conflict (id) do nothing;
+
+drop policy if exists whatsapp_equipe_envia on storage.objects;
+create policy whatsapp_equipe_envia on storage.objects for insert to authenticated
+  with check (bucket_id = 'whatsapp' and public.meu_papel() is not null);
+
+drop policy if exists whatsapp_equipe_le on storage.objects;
+create policy whatsapp_equipe_le on storage.objects for select to authenticated
+  using (bucket_id = 'whatsapp' and public.meu_papel() is not null);
+
+-- Onde o arquivo da mensagem ficou guardado (caminho dentro do armazenamento)
+alter table mensagens add column if not exists arquivo_caminho text;

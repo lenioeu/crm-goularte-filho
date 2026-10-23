@@ -9,7 +9,8 @@ import { conversaAberta, enviarERegistrar } from "@/lib/atendimento";
 import { enviarArquivo, tokenDeAcesso } from "@/lib/google";
 import { quemSou } from "@/lib/permissoes";
 import { TZ } from "@/lib/rotulos";
-import { baixarMidia, conectar, desconectar, estadoConexao, whatsappConfigurado, type Estado } from "@/lib/whatsapp";
+import { supabaseAdmin } from "@/lib/supabase/admin";
+import { baixarMidia, conectar, desconectar, enviarAudio, enviarMidia, estadoConexao, tipoDoArquivo, whatsappConfigurado, type Estado } from "@/lib/whatsapp";
 
 type Rel<T> = T | T[] | null;
 const um = <T,>(r: Rel<T>): T | null => (Array.isArray(r) ? r[0] ?? null : r);
@@ -200,4 +201,110 @@ export async function alternarBot(ligar: boolean): Promise<Resultado> {
   if (error) return { erro: error.message, ok: null };
   revalidatePath("/integracoes");
   return { erro: null, ok: ligar ? "Triagem automática ligada." : "Triagem automática desligada." };
+}
+
+// ------------------------------------------------------------------ Arquivos (áudio, vídeo, foto, documento)
+const ROTULO_MIDIA = { image: "imagem", video: "video", audio: "audio", document: "documento" } as const;
+
+/** Envia um arquivo que o navegador já subiu para o armazenamento (pasta "whatsapp"). */
+export async function enviarArquivoNaConversa(dados: {
+  conversaId: string;
+  caminho: string;
+  nome: string;
+  mimetype: string;
+  legenda?: string;
+  voz?: boolean;
+}): Promise<Resultado> {
+  const { supabase, user, papel } = await quemSou();
+  if (!user || !papel) return { erro: "Sem permissão.", ok: null };
+  if (!whatsappConfigurado()) return { erro: "O WhatsApp do escritório ainda não está ligado ao sistema.", ok: null };
+  if (!dados.caminho.startsWith(`${dados.conversaId}/`)) return { erro: "Arquivo inválido.", ok: null };
+
+  const { data: conv } = await supabase.from("conversas").select("id, status, atendente_id, clientes(telefone_whatsapp)").eq("id", dados.conversaId).maybeSingle();
+  if (!conv) return { erro: "Conversa não encontrada.", ok: null };
+  const telefone = um(conv.clientes as Rel<{ telefone_whatsapp: string | null }>)?.telefone_whatsapp;
+  if (!telefone) return { erro: "O cliente não tem WhatsApp cadastrado.", ok: null };
+
+  // Link temporário para o Evolution baixar o arquivo
+  const { data: link, error: erroLink } = await supabase.storage.from("whatsapp").createSignedUrl(dados.caminho, 60 * 60);
+  if (erroLink || !link) return { erro: /bucket|not found/i.test(erroLink?.message ?? "") ? "Falta rodar o script supabase/007_arquivos_whatsapp.sql no Supabase." : erroLink?.message ?? "Arquivo não encontrado.", ok: null };
+
+  try {
+    const legenda = dados.legenda?.trim() || undefined;
+    const whatsappId = dados.voz
+      ? await enviarAudio(telefone, link.signedUrl)
+      : await enviarMidia(telefone, { url: link.signedUrl, mimetype: dados.mimetype, nome: dados.nome, legenda });
+    const tipo = dados.voz ? "audio" : ROTULO_MIDIA[tipoDoArquivo(dados.mimetype)];
+    await supabase.from("mensagens").insert({
+      conversa_id: dados.conversaId,
+      direcao: "saida",
+      autor_id: user.id,
+      texto: dados.voz ? null : legenda ?? null,
+      midia_tipo: tipo,
+      midia_nome: dados.voz ? null : dados.nome,
+      arquivo_caminho: dados.caminho,
+      whatsapp_id: whatsappId,
+    });
+    const atualizar: Record<string, unknown> = { ultima_mensagem_em: new Date().toISOString() };
+    if (conv.status !== "em_atendimento" || !conv.atendente_id) Object.assign(atualizar, { status: "em_atendimento", atendente_id: conv.atendente_id ?? user.id });
+    await supabase.from("conversas").update(atualizar).eq("id", dados.conversaId);
+  } catch (e) {
+    return { erro: `Não foi enviado: ${falha(e)}`, ok: null };
+  }
+  revalidatePath("/atendimento");
+  return { erro: null, ok: "Enviado." };
+}
+
+// ------------------------------------------------------------------ Vincular conversa a um cliente já cadastrado
+/**
+ * Liga a conversa a um cliente que já existe. Se o contato tinha sido cadastrado sozinho
+ * pelo WhatsApp (sem pasta e sem caso), junta tudo no cliente escolhido e apaga o cadastro
+ * provisório; o número passa para o cliente, para as próximas mensagens já caírem nele.
+ */
+export async function vincularCliente(conversaId: string, clienteId: string): Promise<Resultado> {
+  const { user, papel } = await quemSou();
+  if (!user || !papel) return { erro: "Sem permissão.", ok: null };
+  let db;
+  try {
+    db = supabaseAdmin();
+  } catch (e) {
+    return { erro: falha(e), ok: null };
+  }
+  const { data: conv } = await db.from("conversas").select("id, cliente_id").eq("id", conversaId).maybeSingle();
+  if (!conv) return { erro: "Conversa não encontrada.", ok: null };
+  if (conv.cliente_id === clienteId) return { erro: "A conversa já está com esse cliente.", ok: null };
+
+  const [{ data: de }, { data: para }] = await Promise.all([
+    db.from("clientes").select("id, nome, telefone_whatsapp, origem, pasta_drive_id").eq("id", conv.cliente_id).maybeSingle(),
+    db.from("clientes").select("id, nome, telefone_whatsapp, area_id").eq("id", clienteId).maybeSingle(),
+  ]);
+  if (!de || !para) return { erro: "Cliente não encontrado.", ok: null };
+  const { count: casosDe } = await db.from("casos").select("id", { count: "exact", head: true }).eq("cliente_id", de.id);
+  const provisorio = de.origem === "WhatsApp" && !de.pasta_drive_id && !casosDe;
+
+  if (provisorio) {
+    // Junta tudo do cadastro provisório no cliente escolhido
+    for (const tabela of ["conversas", "documentos", "mensagens_agendadas", "tarefas"]) {
+      const { error } = await db.from(tabela).update({ cliente_id: para.id }).eq("cliente_id", de.id);
+      if (error) return { erro: error.message, ok: null };
+    }
+    const { error: e1 } = await db.from("clientes").delete().eq("id", de.id);
+    if (e1) return { erro: e1.message, ok: null };
+  } else {
+    const { error } = await db.from("conversas").update({ cliente_id: para.id }).eq("id", conversaId);
+    if (error) return { erro: error.message, ok: null };
+  }
+  await db.from("conversas").update({ area_id: para.area_id }).eq("id", conversaId).is("area_id", null);
+
+  let aviso = "";
+  if (!para.telefone_whatsapp && de.telefone_whatsapp) {
+    if (!provisorio) await db.from("clientes").update({ telefone_whatsapp: null }).eq("id", de.id);
+    const { error } = await db.from("clientes").update({ telefone_whatsapp: de.telefone_whatsapp }).eq("id", para.id);
+    aviso = error ? ` Não consegui gravar o WhatsApp na ficha (${error.message}).` : " O número do WhatsApp foi gravado na ficha dele.";
+  } else if (para.telefone_whatsapp && de.telefone_whatsapp && para.telefone_whatsapp !== de.telefone_whatsapp) {
+    aviso = " Atenção: a ficha dele tem outro WhatsApp; mensagens novas deste número podem abrir um cadastro provisório de novo. Ajuste o número na ficha se for o caso.";
+  }
+  revalidatePath("/atendimento");
+  revalidatePath("/clientes");
+  return { erro: null, ok: `Conversa ligada a ${para.nome}.${provisorio ? " O cadastro provisório foi juntado e apagado." : ""}${aviso}` };
 }

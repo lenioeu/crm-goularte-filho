@@ -304,3 +304,28 @@ details.novo[open] > summary { margin-bottom: 14px; }
 .folha-centro { text-align: center; }
 @media (max-width: 1100px) { .marcador { flex-direction: column; gap: 2px; } }
 .filtro-texto { height: 32px; border-radius: 8px; border: 1px solid var(--line-2); background: var(--panel); color: var(--fg); padding: 0 10px; font-size: 13px; font-family: var(--f-body); min-width: 200px; }
+
+/* carregando (troca de página) */
+.carregando { display: flex; align-items: center; justify-content: center; gap: 12px; min-height: 50vh; color: var(--muted); font-size: 14.5px; }
+.giro { width: 28px; height: 28px; border-radius: 50%; border: 3px solid var(--accent-soft); border-top-color: var(--accent); animation: girar 0.8s linear infinite; }
+@keyframes girar { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .giro { animation-duration: 2.4s; } }
+
+/* atendimento: abas em cima, mídia, anexos e vincular */
+.chat-abas { margin-bottom: 12px; }
+.bolha-img { max-width: 260px; max-height: 260px; border-radius: 10px; display: block; object-fit: cover; }
+.bolha-video { max-width: 320px; width: 100%; border-radius: 10px; }
+.bolha audio { width: 260px; max-width: 100%; }
+.anexo { display: flex; align-items: center; gap: 8px; font-size: 13.5px; background: var(--panel-2); border-radius: 10px; padding: 6px 10px; }
+.escrever-acoes { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.gravando { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 14px; padding: 8px 0; }
+.ponto-rec { width: 12px; height: 12px; border-radius: 50%; background: var(--crit); animation: piscar 1s ease-in-out infinite; }
+@keyframes piscar { 50% { opacity: 0.3; } }
+.vincular { position: relative; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.vincular-painel { position: absolute; top: 38px; right: 0; z-index: 20; width: 320px; max-width: 80vw; background: var(--panel); border: 1px solid var(--line-2); border-radius: 12px; box-shadow: var(--shadow); padding: 8px; display: flex; flex-direction: column; gap: 2px; }
+.vincular-painel input { height: 36px; border-radius: 8px; border: 1px solid var(--line-2); background: var(--panel); color: var(--fg); padding: 0 10px; font-size: 14px; margin-bottom: 4px; }
+.vincular-item { text-align: left; padding: 8px 10px; border-radius: 8px; background: none; border: none; color: var(--fg); font-size: 13.5px; cursor: pointer; }
+.vincular-item:hover { background: var(--panel-2); }
+.vincular-item small { color: var(--muted); }
+.vincular-vazio { font-size: 13px; color: var(--muted); padding: 6px 10px; }
+.doc-link { font-size: 13.5px; color: inherit; text-decoration: underline; text-underline-offset: 2px; }

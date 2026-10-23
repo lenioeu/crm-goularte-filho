@@ -151,7 +151,8 @@ for (const rota of rotas) {
   if (r.status >= 500) problema = `status ${r.status}`;
   else if (destino.includes("/login") && rota !== "/login") problema = "mandou para o login (sessão de teste não aceita)";
   else if (erros.length > antes) problema = erros.slice(antes).join("\n").split("\n").slice(0, 3).join(" | ");
-  else if (r.status === 200 && rota !== "/login" && !html.includes("<h1")) problema = "página sem título";
+  // Com a tela de "Carregando…", um redirect chega dentro da página (NEXT_REDIRECT), e não como 307
+  else if (r.status === 200 && rota !== "/login" && !html.includes("<h1") && !html.includes("NEXT_REDIRECT")) problema = "página sem título";
   console.log(`${problema ? "FALHOU" : "ok    "} ${rota}${problema ? "  →  " + problema : ""}`);
   if (problema) falhas++;
 }
@@ -167,6 +168,7 @@ const api = [
   ["manifest do app (sem login)", base + "/manifest.webmanifest", {}, 200],
   ["ícone do app (sem login)", base + "/icone-192.png", {}, 200],
   ["webhook sem senha", base + "/api/whatsapp/webhook", { method: "POST", body: "{}" }, 401],
+  ["arquivo de mensagem sem login", base + "/api/whatsapp/midia/" + ID, {}, 401],
   ["webhook com mensagem", base + "/api/whatsapp/webhook", { method: "POST", headers: { "x-crm-token": token, "content-type": "application/json" }, body: JSON.stringify(aviso) }, 200],
   ["envio dos agendamentos", base + "/api/whatsapp/agendadas", { method: "POST", headers: { authorization: "Bearer teste" } }, 200],
 ];

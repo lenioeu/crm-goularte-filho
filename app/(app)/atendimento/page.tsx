@@ -2,12 +2,14 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AtualizarSozinho } from "@/components/AtualizarSozinho";
 import { BotaoAcao } from "@/components/BotaoAcao";
+import { ComposerAtendimento } from "@/components/ComposerAtendimento";
 import { FormAcao } from "@/components/FormAcao";
 import { SalvarDocumento } from "@/components/SalvarDocumento";
+import { VincularCliente } from "@/components/VincularCliente";
 import { quemSou } from "@/lib/permissoes";
 import { telefoneBR, TZ } from "@/lib/rotulos";
 import { whatsappConfigurado } from "@/lib/whatsapp";
-import { assumirConversa, encerrarConversa, enviarMensagem, mudarArea, reabrirConversa, salvarDocumento } from "./actions";
+import { assumirConversa, encerrarConversa, mudarArea, reabrirConversa, salvarDocumento } from "./actions";
 
 type Rel<T> = T | T[] | null;
 const um = <T,>(r: Rel<T>): T | null => (Array.isArray(r) ? r[0] ?? null : r);
@@ -63,12 +65,13 @@ export default async function Atendimento({ searchParams }: { searchParams: Prom
   let consulta = supabase.from("conversas").select(campos).in("status", filtro.status).order("ultima_mensagem_em", { ascending: false, nullsFirst: false }).limit(100);
   if (filtro.id === "meus" && user) consulta = consulta.eq("atendente_id", user.id);
 
-  const [{ data: lista, error }, { count: naFila }, { data: areas }, sel, novoCliente] = await Promise.all([
+  const [{ data: lista, error }, { count: naFila }, { data: areas }, sel, novoCliente, { data: clientes }] = await Promise.all([
     consulta,
     supabase.from("conversas").select("id", { count: "exact", head: true }).in("status", ["bot", "aguardando"]),
     supabase.from("areas").select("id, nome").eq("ativa", true).order("ordem_bot"),
     c ? supabase.from("conversas").select(campos + ", area_id").eq("id", c).maybeSingle() : Promise.resolve({ data: null }),
     clienteParam && !c ? supabase.from("clientes").select("id, nome, telefone_whatsapp").eq("id", clienteParam).maybeSingle() : Promise.resolve({ data: null }),
+    c ? supabase.from("clientes").select("id, nome, cpf_cnpj").order("nome").limit(5000) : Promise.resolve({ data: [] as { id: string; nome: string; cpf_cnpj: string | null }[] }),
   ]);
   const conversas = (lista ?? []) as unknown as Conversa[];
   const atual = sel.data as unknown as (Conversa & { area_id: string | null }) | null;
@@ -103,16 +106,17 @@ export default async function Atendimento({ searchParams }: { searchParams: Prom
       )}
       {error && <div className="aviso erro" style={{ marginBottom: 16 }}>{error.message}</div>}
 
+      <div className="filtros chat-abas">
+        {FILTROS.map((x) => (
+          <Link key={x.id} className={"fp" + (x.id === filtro.id ? " on" : "")} href={`/atendimento?f=${x.id}`}>
+            {x.rotulo}
+            {x.id === "fila" && naFila ? ` · ${naFila}` : ""}
+          </Link>
+        ))}
+      </div>
+
       <div className={"chat" + (abertoAgora ? " aberto" : "")}>
         <aside className="card chat-lista">
-          <div className="filtros" style={{ marginBottom: 8 }}>
-            {FILTROS.map((x) => (
-              <Link key={x.id} className={"fp" + (x.id === filtro.id ? " on" : "")} href={`/atendimento?f=${x.id}`}>
-                {x.rotulo}
-                {x.id === "fila" && naFila ? ` · ${naFila}` : ""}
-              </Link>
-            ))}
-          </div>
           {conversas.length === 0 ? (
             <div className="vazio">Nenhuma conversa aqui.</div>
           ) : (
@@ -150,6 +154,7 @@ export default async function Atendimento({ searchParams }: { searchParams: Prom
                   </div>
                 </div>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <VincularCliente conversaId={atual.id} clientes={clientes ?? []} atual={cliAtual.id} />
                   {atual.status !== "resolvida" && atual.atendente_id !== user?.id && <BotaoAcao acao={assumirConversa.bind(null, atual.id)} rotulo="Assumir" />}
                   {atual.status !== "resolvida" ? (
                     <BotaoAcao acao={encerrarConversa.bind(null, atual.id)} rotulo="Encerrar" confirmar="Encerrar esta conversa? Se o cliente escrever de novo, abre outra." />
@@ -177,8 +182,7 @@ export default async function Atendimento({ searchParams }: { searchParams: Prom
                       {m.nota_interna && <div className="bolha-rot">Nota interna{autor ? ` · ${autor}` : ""}</div>}
                       {m.midia_tipo && (
                         <div className="bolha-midia">
-                          <b>{MIDIA[m.midia_tipo] ?? "Arquivo"}</b>
-                          {m.midia_nome && <span> · {m.midia_nome}</span>}
+                          <Midia id={m.id} tipo={m.midia_tipo} nome={m.midia_nome} />
                           {m.midia_url ? (
                             <a href={m.midia_url} target="_blank" rel="noopener" className="doc-ok">Salvo no Drive · abrir</a>
                           ) : (
@@ -196,7 +200,7 @@ export default async function Atendimento({ searchParams }: { searchParams: Prom
                 })}
               </div>
 
-              <Composer conversaId={atual.id} />
+              <ComposerAtendimento conversaId={atual.id} />
             </>
           ) : novoCliente.data ? (
             <>
@@ -208,7 +212,7 @@ export default async function Atendimento({ searchParams }: { searchParams: Prom
                 </div>
               </div>
               <div className="chat-msgs"><div className="vazio">Escreva abaixo para começar a conversa.</div></div>
-              <Composer clienteId={novoCliente.data.id} />
+              <ComposerAtendimento clienteId={novoCliente.data.id} />
             </>
           ) : (
             <div className="vazio" style={{ margin: "auto" }}><b>Escolha uma conversa</b>As que esperam resposta ficam na Fila.</div>
@@ -219,15 +223,21 @@ export default async function Atendimento({ searchParams }: { searchParams: Prom
   );
 }
 
-function Composer({ conversaId, clienteId }: { conversaId?: string; clienteId?: string }) {
+/** Foto, vídeo e áudio tocam na própria conversa; documento abre em outra aba. */
+function Midia({ id, tipo, nome }: { id: string; tipo: string; nome: string | null }) {
+  const src = `/api/whatsapp/midia/${id}`;
+  if (tipo === "imagem")
+    return (
+      <a href={src} target="_blank" rel="noopener">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={src} alt={nome ?? "Foto"} className="bolha-img" loading="lazy" />
+      </a>
+    );
+  if (tipo === "audio") return <audio controls preload="none" src={src} />;
+  if (tipo === "video") return <video controls preload="none" src={src} className="bolha-video" />;
   return (
-    <FormAcao action={enviarMensagem} botao="Enviar" className="chat-escrever">
-      {conversaId && <input type="hidden" name="conversa_id" value={conversaId} />}
-      {clienteId && <input type="hidden" name="cliente_id" value={clienteId} />}
-      <textarea name="texto" rows={3} required placeholder="Escreva a mensagem" aria-label="Mensagem" />
-      <label className="nota-check">
-        <input type="checkbox" name="nota" /> Nota interna (não vai para o cliente)
-      </label>
-    </FormAcao>
+    <a href={src} target="_blank" rel="noopener" className="doc-link">
+      📄 <b>{MIDIA[tipo] ?? "Arquivo"}</b>{nome ? ` · ${nome}` : ""} · abrir
+    </a>
   );
 }

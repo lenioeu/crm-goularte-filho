@@ -15,12 +15,12 @@ export function tokenWebhook() {
   return createHash("sha256").update(`webhook:${process.env.EVOLUTION_API_KEY ?? ""}`).digest("hex");
 }
 
-async function evo<T>(caminho: string, init?: RequestInit): Promise<T> {
+async function evo<T>(caminho: string, init?: RequestInit, segundos = 20): Promise<T> {
   const r = await fetch(`${URL_BASE}${caminho}`, {
     ...init,
     headers: { apikey: process.env.EVOLUTION_API_KEY ?? "", "Content-Type": "application/json", ...init?.headers },
     cache: "no-store",
-    signal: AbortSignal.timeout(20_000),
+    signal: AbortSignal.timeout(segundos * 1000),
   });
   if (!r.ok) {
     const corpo = (await r.text()).slice(0, 300);
@@ -91,12 +91,48 @@ export async function enviarTexto(telefone: string, texto: string): Promise<stri
   return r.key?.id ?? null;
 }
 
+export type TipoMidia = "image" | "video" | "audio" | "document";
+
+/** Tipo que o WhatsApp entende, pelo tipo do arquivo. */
+export function tipoDoArquivo(mimetype: string): TipoMidia {
+  if (mimetype.startsWith("image/") && !mimetype.includes("svg")) return "image";
+  if (mimetype.startsWith("video/")) return "video";
+  if (mimetype.startsWith("audio/")) return "audio";
+  return "document";
+}
+
+/** Envia foto, vídeo, áudio ou documento a partir de um link (o Evolution baixa e manda). */
+export async function enviarMidia(telefone: string, m: { url: string; mimetype: string; nome: string; legenda?: string }): Promise<string | null> {
+  const r = await evo<{ key?: { id?: string } }>(
+    `/message/sendMedia/${INSTANCIA}`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        number: numeroWhatsApp(telefone),
+        mediatype: tipoDoArquivo(m.mimetype),
+        mimetype: m.mimetype,
+        media: m.url,
+        fileName: m.nome,
+        ...(m.legenda ? { caption: m.legenda } : {}),
+      }),
+    },
+    90,
+  );
+  return r.key?.id ?? null;
+}
+
+/** Envia áudio gravado como mensagem de voz (o Evolution converte para o formato do WhatsApp). */
+export async function enviarAudio(telefone: string, url: string): Promise<string | null> {
+  const r = await evo<{ key?: { id?: string } }>(`/message/sendWhatsAppAudio/${INSTANCIA}`, { method: "POST", body: JSON.stringify({ number: numeroWhatsApp(telefone), audio: url }) }, 90);
+  return r.key?.id ?? null;
+}
+
 /** Baixa o arquivo de uma mensagem recebida (documento, foto, áudio). */
 export async function baixarMidia(whatsappId: string) {
   return evo<{ base64: string; mimetype?: string; fileName?: string }>(`/chat/getBase64FromMediaMessage/${INSTANCIA}`, {
     method: "POST",
     body: JSON.stringify({ message: { key: { id: whatsappId } }, convertToMp4: false }),
-  });
+  }, 90);
 }
 
 // ------------------------------------------------------------------ Aviso recebido
