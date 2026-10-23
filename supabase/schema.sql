@@ -314,15 +314,15 @@ language sql stable security definer set search_path = public as $$
   select coalesce(meu_papel() = 'administrador', false)
 $$;
 
--- Pode ver o caso: administrador sempre; advogado em casos não sigilosos
--- ou nos seus; estagiário e atendimento só nos casos atribuídos a eles.
+-- Pode ver o caso: administrador sempre; o resto da equipe em casos não
+-- sigilosos ou nos seus (mesmo conteúdo de 014_equipe_ve_processos.sql).
 create or replace function posso_ver_caso(c casos) returns boolean
 language sql stable security definer set search_path = public as $$
   select case meu_papel()
     when 'administrador' then true
     when 'advogado'      then (not c.sigiloso) or c.responsavel_id = auth.uid()
-    when 'estagiario'    then c.responsavel_id = auth.uid()
-    when 'atendimento'   then c.responsavel_id = auth.uid() and not c.sigiloso
+    when 'estagiario'    then (not c.sigiloso) or c.responsavel_id = auth.uid()
+    when 'atendimento'   then (not c.sigiloso) or c.responsavel_id = auth.uid()
     else false
   end
 $$;

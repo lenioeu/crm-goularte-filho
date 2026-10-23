@@ -89,7 +89,7 @@ export default async function Audiencias({ searchParams }: { searchParams: Promi
       <details className="card novo" style={{ marginBottom: 16 }} open={Boolean(nova)}>
         <summary><span className="btn primary">+ Agendar audiência</span></summary>
         {opcoes.length === 0 ? (
-          <div className="aviso info">Toda audiência fica ligada a um processo. Cadastre o processo primeiro em Processos.</div>
+          <div className="aviso info">Toda audiência fica ligada a um processo, e não há nenhum processo que você possa ver. Cadastre o processo em Processos (ou, se ele já existe, peça ao administrador para rodar o script supabase/014_equipe_ve_processos.sql).</div>
         ) : (
           <FormAudiencia processos={opcoes} pessoas={pessoas ?? []} modelosMensagem={modelosMensagem} />
         )}
