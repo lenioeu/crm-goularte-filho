@@ -60,7 +60,7 @@ export async function estadoConexao(): Promise<Estado> {
   }
 }
 
-const EVENTOS = ["MESSAGES_UPSERT", "MESSAGES_UPDATE", "CONNECTION_UPDATE"];
+const EVENTOS = ["MESSAGES_UPSERT", "MESSAGES_UPDATE", "MESSAGES_DELETE", "MESSAGES_EDITED", "CONNECTION_UPDATE"];
 
 function configWebhook(urlWebhook: string) {
   return { enabled: true, url: urlWebhook, headers: { "x-crm-token": tokenWebhook() }, byEvents: false, base64: false, events: EVENTOS };
@@ -77,6 +77,41 @@ export function lerRecibo(data: unknown): { whatsappId: string; status: "enviada
   if (!d?.keyId || !d.fromMe) return null;
   const status = d.status === "READ" || d.status === "PLAYED" ? "lida" : d.status === "DELIVERY_ACK" ? "entregue" : d.status === "SERVER_ACK" ? "enviada" : null;
   return status ? { whatsappId: d.keyId, status } : null;
+}
+
+/** "messages.delete": alguém apagou uma mensagem "para todos" (o cliente ou o celular do escritório). */
+export function lerApagada(data: unknown): { whatsappId: string; deMim: boolean } | null {
+  // Dois formatos: a chave espalhada ({ id, fromMe, remoteJid }) ou a mensagem inteira ({ key: {...} })
+  const d = data as { id?: string; fromMe?: boolean; key?: { id?: string; fromMe?: boolean } };
+  const id = d?.key?.id ?? d?.id;
+  return id ? { whatsappId: id, deMim: Boolean(d.key?.fromMe ?? d.fromMe) } : null;
+}
+
+/** "messages.edited": o cliente (ou o celular do escritório) editou uma mensagem. */
+export function lerEdicao(data: unknown): { whatsappId: string; texto: string } | null {
+  type Conteudo = { conversation?: string; extendedTextMessage?: { text?: string }; imageMessage?: { caption?: string }; videoMessage?: { caption?: string } };
+  const d = data as { key?: { id?: string }; editedMessage?: Conteudo & { message?: Conteudo } };
+  const e = d?.editedMessage?.message ?? d?.editedMessage;
+  const texto = e?.conversation ?? e?.extendedTextMessage?.text ?? e?.imageMessage?.caption ?? e?.videoMessage?.caption ?? null;
+  return d?.key?.id && texto ? { whatsappId: d.key.id, texto } : null;
+}
+
+const jidDe = (telefone: string) => `${numeroWhatsApp(telefone)}@s.whatsapp.net`;
+
+/** Apaga para todos uma mensagem que o escritório mandou (o WhatsApp só deixa até uns 2 dias depois). */
+export async function apagarParaTodos(telefone: string, whatsappId: string) {
+  await evo(`/chat/deleteMessageForEveryone/${INSTANCIA}`, {
+    method: "DELETE",
+    body: JSON.stringify({ id: whatsappId, fromMe: true, remoteJid: jidDe(telefone) }),
+  });
+}
+
+/** Edita o texto de uma mensagem que o escritório mandou (o WhatsApp só deixa nos primeiros 15 minutos). */
+export async function editarNoWhatsApp(telefone: string, whatsappId: string, texto: string) {
+  await evo(`/chat/updateMessage/${INSTANCIA}`, {
+    method: "POST",
+    body: JSON.stringify({ number: numeroWhatsApp(telefone), key: { id: whatsappId, remoteJid: jidDe(telefone), fromMe: true }, text: texto }),
+  });
 }
 
 /** Cria a instância se precisar, liga o aviso de mensagens ao CRM e devolve o QR Code (imagem base64). */

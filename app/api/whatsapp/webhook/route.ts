@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { registrarMensagem } from "@/lib/atendimento";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { lerMensagem, lerRecibo, tokenWebhook, whatsappConfigurado } from "@/lib/whatsapp";
+import { lerApagada, lerEdicao, lerMensagem, lerRecibo, tokenWebhook, whatsappConfigurado } from "@/lib/whatsapp";
 
 export const maxDuration = 60;
 
@@ -27,6 +27,30 @@ export async function POST(request: Request) {
         .update({ status_envio: r.status })
         .eq("whatsapp_id", r.whatsappId)
         .or(`status_envio.is.null${abaixo.length ? `,status_envio.in.(${abaixo.join(",")})` : ""}`);
+    }
+    return NextResponse.json({ ok: true });
+  }
+  // Mensagem apagada para todos: o CRM guarda o texto e marca quem apagou (colunas do script 015)
+  if (corpo?.event === "messages.delete") {
+    for (const item of lista) {
+      const a = lerApagada(item);
+      if (!a) continue;
+      await db
+        .from("mensagens")
+        .update({ apagada_em: new Date().toISOString(), apagada_por: a.deMim ? "escritorio" : "cliente" })
+        .eq("whatsapp_id", a.whatsappId)
+        .is("apagada_em", null);
+    }
+    return NextResponse.json({ ok: true });
+  }
+  // Mensagem editada: troca o texto e guarda o original
+  if (corpo?.event === "messages.edited") {
+    for (const item of lista) {
+      const e = lerEdicao(item);
+      if (!e) continue;
+      const { data: m } = await db.from("mensagens").select("id, texto, texto_original").eq("whatsapp_id", e.whatsappId).maybeSingle();
+      if (!m || m.texto === e.texto) continue;
+      await db.from("mensagens").update({ texto: e.texto, texto_original: m.texto_original ?? m.texto, editada_em: new Date().toISOString() }).eq("id", m.id);
     }
     return NextResponse.json({ ok: true });
   }

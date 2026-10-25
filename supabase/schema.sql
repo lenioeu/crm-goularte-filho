@@ -651,3 +651,9 @@ Goularte Filho Advocacia$q$, $q$depois_audiencia$q$, 1, $q$10:00$q$, false, fals
 Goularte Filho Advocacia$q$, $q$depois_de_hoje$q$, 3, $q$10:00$q$, false, true, 60)
 ) as v(nome, texto, gatilho, dias, hora, marcado, cancelar_se_responder, ordem)
 where not exists (select 1 from modelos_mensagem);
+
+-- Mensagens apagadas e editadas (mesmo conteúdo de 015_mensagens_apagadas_editadas.sql)
+alter table mensagens add column if not exists apagada_em     timestamptz;
+alter table mensagens add column if not exists apagada_por    text check (apagada_por in ('cliente', 'escritorio'));
+alter table mensagens add column if not exists editada_em     timestamptz;
+alter table mensagens add column if not exists texto_original text;

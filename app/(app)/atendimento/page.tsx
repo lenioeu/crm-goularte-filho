@@ -5,6 +5,7 @@ import { AtualizarSozinho } from "@/components/AtualizarSozinho";
 import { BotaoAcao } from "@/components/BotaoAcao";
 import { BotaoPainel } from "@/components/BotaoPainel";
 import { CarregandoLink } from "@/components/CarregandoLink";
+import { MensagemTexto } from "@/components/MensagemTexto";
 import { ComposerAtendimento } from "@/components/ComposerAtendimento";
 import { FormAcao } from "@/components/FormAcao";
 import { NovaConversa } from "@/components/NovaConversa";
@@ -117,6 +118,7 @@ export default async function Atendimento({ searchParams }: { searchParams: Prom
   type Msg = {
     id: string; direcao: string; texto: string | null; midia_tipo: string | null; midia_nome: string | null; midia_url: string | null;
     nota_interna: boolean; enviada_pelo_bot: boolean; criado_em: string; perfis: unknown; status_envio?: string | null;
+    whatsapp_id?: string | null; apagada_em?: string | null; apagada_por?: string | null; editada_em?: string | null; texto_original?: string | null;
   };
   type DadosCliente = {
     id: string; nome: string; cpf_cnpj: string | null; email: string | null; area_id: string | null; origem: string | null;
@@ -138,7 +140,12 @@ export default async function Atendimento({ searchParams }: { searchParams: Prom
     ids.length
       ? supabase.from("mensagens").select("conversa_id, texto, midia_tipo, direcao, nota_interna").in("conversa_id", ids).order("criado_em", { ascending: false }).limit(400)
       : nada,
-    atual ? lerMsgs(colsMsg + ", status_envio").then((r) => (r.error ? lerMsgs(colsMsg) : r)) : nada,
+    // Colunas novas (scripts 010 e 015) caem fora se ainda não existirem
+    atual
+      ? lerMsgs(colsMsg + ", status_envio, whatsapp_id, apagada_em, apagada_por, editada_em, texto_original")
+          .then((r) => (r.error ? lerMsgs(colsMsg + ", status_envio, whatsapp_id") : r))
+          .then((r) => (r.error ? lerMsgs(colsMsg) : r))
+      : nada,
     idCli
       ? lerCli(colsCli + ", cep, endereco, situacao, contato_tipo")
           .then((r) => (r.error ? lerCli(colsCli + ", situacao, contato_tipo") : r))
@@ -183,6 +190,7 @@ export default async function Atendimento({ searchParams }: { searchParams: Prom
     }))
     .filter((m) => new Date(`${m.quando.data}T${m.quando.hora}:00-03:00`).getTime() > Date.now());
 
+  const agora = Date.now();
   const ligado = whatsappConfigurado();
   const abertoAgora = Boolean(atual || novoCliente.data);
   const cliAtual = atual ? um(atual.clientes) : null;
@@ -300,9 +308,27 @@ export default async function Atendimento({ searchParams }: { searchParams: Prom
                   // entra depois da mensagem mais antiga de cada dia
                   const dia = diaDe(m.criado_em);
                   const mudaDia = i === mensagens.length - 1 || diaDe(mensagens[i + 1].criado_em) !== dia;
+                  // Apagar/editar: só o que o escritório mandou; o WhatsApp limita a 15 min (editar) e ~2 dias (apagar)
+                  const idade = agora - new Date(m.criado_em).getTime();
+                  const doEscritorio = m.direcao === "saida" && !m.apagada_em && "apagada_em" in m;
+                  const podeApagar = doEscritorio && (m.nota_interna || (Boolean(m.whatsapp_id) && idade < 48 * 3_600_000));
+                  const podeEditar = doEscritorio && !m.midia_tipo && Boolean(m.texto) && (m.nota_interna || (Boolean(m.whatsapp_id) && idade < 15 * 60_000));
+                  if (m.apagada_em && m.apagada_por === "escritorio") {
+                    return (
+                      <div key={m.id} className="msg-bloco">
+                        <div className={`bolha ${classe} apagada`}>
+                          <div className="bolha-apagada"><Icone nome="apagada" tamanho={14} /> {m.nota_interna ? "Nota apagada" : "Você apagou esta mensagem"}{autor ? ` · ${autor}` : ""}</div>
+                          {m.texto && <details className="bolha-original"><summary>ver o que foi apagado</summary>{m.texto}</details>}
+                          <div className="bolha-hora">{new Date(m.criado_em).toLocaleTimeString("pt-BR", { timeZone: TZ, hour: "2-digit", minute: "2-digit" })}</div>
+                        </div>
+                        {mudaDia && <div className="divisor-dia"><span>{rotuloDia(m.criado_em)}</span></div>}
+                      </div>
+                    );
+                  }
                   return (
                     <div key={m.id} className="msg-bloco">
-                      <div className={`bolha ${classe}`}>
+                      <div className={`bolha ${classe}${m.apagada_em ? " apagada-cliente" : ""}${podeApagar || podeEditar ? " com-menu" : ""}`}>
+                        {m.apagada_em && <div className="bolha-apagada"><Icone nome="apagada" tamanho={14} /> Apagada pelo cliente · o texto continua aqui para a equipe</div>}
                         {m.nota_interna && <div className="bolha-rot">Nota interna{autor ? ` · ${autor}` : ""}</div>}
                         {m.midia_tipo && (
                           <div className="bolha-midia">
@@ -314,8 +340,9 @@ export default async function Atendimento({ searchParams }: { searchParams: Prom
                             )}
                           </div>
                         )}
-                        {m.texto && <div className="bolha-texto">{m.texto}</div>}
+                        <MensagemTexto id={m.id} texto={m.texto} podeEditar={podeEditar} podeApagar={podeApagar} nota={m.nota_interna} />
                         <div className="bolha-hora">
+                          {m.editada_em && <span className="bolha-editada" title={m.texto_original ? `Antes: ${m.texto_original}` : undefined}>editada · </span>}
                           {!m.nota_interna && m.direcao === "saida" && (m.enviada_pelo_bot ? "triagem automática · " : autor ? `${autor} · ` : "")}
                           {new Date(m.criado_em).toLocaleTimeString("pt-BR", { timeZone: TZ, hour: "2-digit", minute: "2-digit" })}
                           {!m.nota_interna && m.direcao === "saida" && <Tiques status={m.status_envio ?? null} />}

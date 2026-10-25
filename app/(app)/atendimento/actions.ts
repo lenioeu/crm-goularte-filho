@@ -11,7 +11,7 @@ import { semColunaContato, TIPO_NOVO_CONTATO } from "@/lib/contatos";
 import { quemSou } from "@/lib/permissoes";
 import { TZ } from "@/lib/rotulos";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { baixarMidia, conectar, desconectar, enviarAudio, enviarMidia, estadoConexao, reaplicarWebhook, tipoDoArquivo, whatsappConfigurado, type Estado } from "@/lib/whatsapp";
+import { apagarParaTodos, baixarMidia, conectar, desconectar, editarNoWhatsApp, enviarAudio, enviarMidia, estadoConexao, reaplicarWebhook, tipoDoArquivo, whatsappConfigurado, type Estado } from "@/lib/whatsapp";
 
 type Rel<T> = T | T[] | null;
 const um = <T,>(r: Rel<T>): T | null => (Array.isArray(r) ? r[0] ?? null : r);
@@ -381,4 +381,82 @@ export async function procurarClientes(bruto: string): Promise<{ id: string; nom
   if (d.length >= 4) filtros.push(`telefone_whatsapp.ilike.%${d}%`);
   const { data } = await supabase.from("clientes").select("id, nome, cpf_cnpj, telefone_whatsapp").or(filtros.join(",")).order("nome").limit(8);
   return data ?? [];
+}
+
+// ------------------------------------------------------------------ Apagar e editar mensagens
+const SEM_COLUNAS_015 = "Falta rodar o script supabase/015_mensagens_apagadas_editadas.sql no Supabase.";
+const traduzir015 = (msg: string) => (/apagada_|editada_em|texto_original|column|schema cache/i.test(msg) ? SEM_COLUNAS_015 : msg);
+const LIMITE_EDITAR_MIN = 15; // o WhatsApp só deixa editar nos primeiros 15 minutos
+const LIMITE_APAGAR_H = 48; // e apagar para todos por cerca de 2 dias
+
+type MsgDoEscritorio = {
+  id: string; conversa_id: string; direcao: string; nota_interna: boolean; enviada_pelo_bot: boolean; whatsapp_id: string | null;
+  texto: string | null; midia_tipo: string | null; criado_em: string; texto_original?: string | null; conversas: unknown;
+};
+
+async function mensagemDoEscritorio(id: string) {
+  const { supabase, user, papel } = await quemSou();
+  if (!user || !papel) return { erro: "Sem permissão." } as const;
+  const { data } = await supabase
+    .from("mensagens")
+    .select("id, conversa_id, direcao, nota_interna, enviada_pelo_bot, whatsapp_id, texto, midia_tipo, criado_em, conversas(clientes(telefone_whatsapp))")
+    .eq("id", id)
+    .maybeSingle();
+  const m = data as unknown as MsgDoEscritorio | null;
+  if (!m) return { erro: "Mensagem não encontrada." } as const;
+  if (m.direcao !== "saida") return { erro: "Só dá para apagar ou editar mensagens enviadas pelo escritório." } as const;
+  const telefone = um(um(m.conversas as Rel<{ clientes: Rel<{ telefone_whatsapp: string | null }> }>)?.clientes ?? null)?.telefone_whatsapp ?? null;
+  return { supabase, m, telefone } as const;
+}
+
+/** Apaga uma mensagem do escritório: para todos no WhatsApp e marcada como apagada no CRM. Nota interna só some do CRM. */
+export async function apagarMensagem(id: string): Promise<Resultado> {
+  const r = await mensagemDoEscritorio(id);
+  if ("erro" in r) return { erro: r.erro ?? "Erro.", ok: null };
+  const { supabase, m, telefone } = r;
+  if (!m.nota_interna) {
+    if (!m.whatsapp_id || !telefone) return { erro: "Esta mensagem não tem registro no WhatsApp para apagar.", ok: null };
+    if (Date.now() - new Date(m.criado_em).getTime() > LIMITE_APAGAR_H * 3_600_000) {
+      return { erro: "O WhatsApp só deixa apagar para todos até uns 2 dias depois do envio.", ok: null };
+    }
+    try {
+      await apagarParaTodos(telefone, m.whatsapp_id);
+    } catch (e) {
+      return { erro: `Não consegui apagar no WhatsApp: ${falha(e)}`, ok: null };
+    }
+  }
+  const { error } = await supabase.from("mensagens").update({ apagada_em: new Date().toISOString(), apagada_por: "escritorio" }).eq("id", id);
+  if (error) return { erro: m.nota_interna ? traduzir015(error.message) : `Apagada no WhatsApp, mas o CRM não registrou: ${traduzir015(error.message)}`, ok: null };
+  revalidatePath("/atendimento");
+  return { erro: null, ok: m.nota_interna ? "Nota apagada." : "Mensagem apagada para todos." };
+}
+
+/** Edita o texto de uma mensagem do escritório (no WhatsApp até 15 min depois; nota interna, a qualquer hora). */
+export async function editarMensagem(id: string, novoTexto: string): Promise<Resultado> {
+  const texto = novoTexto.replace(/\r\n/g, "\n").trim();
+  if (!texto) return { erro: "A mensagem não pode ficar vazia.", ok: null };
+  const r = await mensagemDoEscritorio(id);
+  if ("erro" in r) return { erro: r.erro ?? "Erro.", ok: null };
+  const { supabase, m, telefone } = r;
+  if (texto === m.texto) return { erro: null, ok: "Nada mudou." };
+  if (!m.nota_interna) {
+    if (m.midia_tipo) return { erro: "Por enquanto só dá para editar mensagens de texto.", ok: null };
+    if (!m.whatsapp_id || !telefone) return { erro: "Esta mensagem não tem registro no WhatsApp para editar.", ok: null };
+    if (Date.now() - new Date(m.criado_em).getTime() > LIMITE_EDITAR_MIN * 60_000) {
+      return { erro: `O WhatsApp só deixa editar nos primeiros ${LIMITE_EDITAR_MIN} minutos.`, ok: null };
+    }
+    try {
+      await editarNoWhatsApp(telefone, m.whatsapp_id, texto);
+    } catch (e) {
+      return { erro: `Não consegui editar no WhatsApp: ${falha(e)}`, ok: null };
+    }
+  }
+  const { data: atual } = await supabase.from("mensagens").select("texto_original").eq("id", id).maybeSingle();
+  const { error } = await supabase
+    .from("mensagens")
+    .update({ texto, texto_original: atual?.texto_original ?? m.texto, editada_em: new Date().toISOString() })
+    .eq("id", id);
+  if (error) return { erro: m.nota_interna ? traduzir015(error.message) : `Editada no WhatsApp, mas o CRM não registrou: ${traduzir015(error.message)}`, ok: null };
+  revalidatePath("/atendimento");
+  return { erro: null, ok: "Mensagem editada." };
 }

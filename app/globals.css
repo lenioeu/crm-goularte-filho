@@ -622,3 +622,29 @@ kbd { font-family: var(--f-mono); font-size: 11px; border: 1px solid var(--line-
 .view:has(.chat-abas .girando) .chat-lista, .view:has(.chat-lista .girando) .chat-painel { opacity: 0.55; transition: opacity 0.15s; }
 .conv .girando { position: absolute; right: 12px; top: 50%; margin-top: -7px; color: var(--accent); }
 .li.conv { position: relative; }
+/* mensagens: menu editar/apagar, apagadas e editadas */
+.bolha.com-menu { position: relative; padding-right: 30px; }
+.bolha-menu { position: absolute; top: 4px; right: 4px; }
+.bolha-menu-botao { width: 24px; height: 24px; border-radius: 50%; border: none; background: none; color: inherit; opacity: 0.55; display: grid; place-items: center; cursor: pointer; }
+.bolha-menu-botao:hover, .bolha-menu-botao[aria-expanded="true"] { opacity: 1; background: rgba(0, 0, 0, 0.08); }
+.bolha-menu-lista { position: fixed; z-index: 80; min-width: 190px; background: var(--panel); color: var(--fg); border: 1px solid var(--line-2); border-radius: 12px; box-shadow: var(--shadow); padding: 4px; display: flex; flex-direction: column; }
+.bolha-menu-lista button { display: flex; align-items: center; gap: 8px; text-align: left; padding: 9px 10px; border: none; background: none; color: inherit; font-size: 13.5px; border-radius: 8px; cursor: pointer; white-space: nowrap; }
+.bolha-menu-lista button:hover { background: var(--panel-2); }
+.bolha-menu-lista button.perigo { color: var(--crit); }
+.bolha-editar { display: flex; flex-direction: column; gap: 6px; min-width: min(320px, 70vw); }
+.bolha-editar textarea { width: 100%; border-radius: 8px; border: 1px solid var(--line-2); background: var(--panel); color: var(--fg); padding: 8px 10px; font-size: 14px; font-family: var(--f-body); resize: vertical; }
+.bolha-editar-acoes { display: flex; gap: 6px; justify-content: flex-end; }
+.bolha-erro { font-size: 12px; color: var(--crit); }
+.bolha-editada { font-style: italic; cursor: help; }
+.bolha-apagada { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-style: italic; color: var(--muted); }
+.bolha.apagada { background: var(--panel-2); color: var(--muted); border: 1px dashed var(--line-2); }
+.bolha.apagada-cliente { border: 1px dashed var(--crit); }
+.bolha.apagada-cliente .bolha-apagada { color: var(--crit); }
+.bolha-original { font-size: 13px; }
+.bolha-original summary { cursor: pointer; font-size: 12px; }
+@media (pointer: coarse) { .bolha-menu-botao { width: 32px; height: 32px; opacity: 0.8; } .bolha.com-menu { padding-right: 38px; } }
+
+/* celular: painéis de "Vincular a cliente" e "Nova conversa" ocupam a largura da tela, sem sair pelos lados */
+@media (max-width: 760px) {
+  .vincular-painel { position: fixed; left: 12px; right: 12px; top: calc(var(--top) + 12px); width: auto !important; max-width: none; max-height: calc(100vh - var(--top) - 24px); overflow-y: auto; z-index: 70; }
+}
