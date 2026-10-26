@@ -91,8 +91,13 @@ export async function registrarMensagem(db: Db, m: MensagemRecebida) {
     cliente = data;
   }
 
-  // Quem já tem área definida não passa pelo menu de novo
-  const conversa = await conversaAberta(db, cliente, cliente.area_id ? "aguardando" : "bot");
+  // Quem já tem área, ou já conversou com o escritório (inclusive histórico importado), não passa pelo menu de novo
+  let jaConversou = Boolean(cliente.area_id);
+  if (!jaConversou) {
+    const { count } = await db.from("conversas").select("id", { count: "exact", head: true }).eq("cliente_id", cliente.id);
+    jaConversou = (count ?? 0) > 0;
+  }
+  const conversa = await conversaAberta(db, cliente, jaConversou ? "aguardando" : "bot");
   const { error } = await db.from("mensagens").insert({
     conversa_id: conversa.id,
     direcao: m.deMim ? "saida" : "entrada",

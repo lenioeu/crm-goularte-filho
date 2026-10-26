@@ -130,7 +130,12 @@ export default async function Atendimento({ searchParams }: { searchParams: Prom
   const nada = Promise.resolve({ data: [] as never[] });
   // "status_envio" só existe depois do script 010
   const colsMsg = "id, direcao, texto, midia_tipo, midia_nome, midia_url, nota_interna, enviada_pelo_bot, criado_em, perfis(nome)";
-  const lerMsgs = (cols: string) => supabase.from("mensagens").select(cols).eq("conversa_id", atual!.id).order("criado_em", { ascending: false }).limit(200);
+  // Todas as conversas do cliente numa linha só (inclui o histórico antigo importado)
+  const lerMsgs = (cols: string) =>
+    (idCli
+      ? supabase.from("mensagens").select(cols + ", conversas!inner(cliente_id)").eq("conversas.cliente_id", idCli)
+      : supabase.from("mensagens").select(cols).eq("conversa_id", atual!.id)
+    ).order("criado_em", { ascending: false }).limit(300);
   // Dados do cliente da conversa; colunas novas (scripts 004 e 012) caem fora se ainda não existirem
   const colsCli = "id, nome, cpf_cnpj, email, area_id, origem";
   const lerCli = (cols: string) => supabase.from("clientes").select(cols).eq("id", idCli!).maybeSingle();
