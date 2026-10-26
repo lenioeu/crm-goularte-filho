@@ -122,21 +122,22 @@ export async function registrarMensagem(db: Db, m: MensagemRecebida) {
     .eq("status", "programada")
     .eq("cancelar_se_responder", true);
 
-  if (conversa.status === "bot") await triagem(db, conversa.id, cliente, m.texto);
-  else await avisoForaDoExpediente(db, conversa.id, cliente.telefone_whatsapp, cliente.nome);
+  // Triagem (menu) quando é o caso; se ela não respondeu nada, vale a mensagem automática simples
+  const respondeu = conversa.status === "bot" ? await triagem(db, conversa.id, cliente, m.texto) : false;
+  if (!respondeu) await respostaAutomatica(db, conversa.id, cliente.telefone_whatsapp, cliente.nome);
 
   await db.from("conversas").update({ aguardando_resposta: true }).eq("id", conversa.id);
   await avisarEquipe(db, conversa.id, cliente.nome, m);
 }
 
 /** Menu de áreas: o cliente responde com o número e a conversa vai para a fila da área. Regras em lib/bot.ts. */
-async function triagem(db: Db, conversaId: string, cliente: { id: string; nome: string; telefone_whatsapp: string | null }, texto: string | null) {
+async function triagem(db: Db, conversaId: string, cliente: { id: string; nome: string; telefone_whatsapp: string | null }, texto: string | null): Promise<boolean> {
   const cfg = await lerConfigBot(db);
   const telefone = cliente.telefone_whatsapp;
   const fora = !dentroDoExpediente(cfg);
   if (cfg.modo === "desligado" || (cfg.modo === "fora" && !fora) || !telefone) {
     await db.from("conversas").update({ status: "aguardando" }).eq("id", conversaId);
-    return;
+    return false;
   }
 
   const { data: areas } = await db.from("areas").select("id, nome, documentos_pedidos").eq("ativa", true).order("ordem_bot");
@@ -149,33 +150,57 @@ async function triagem(db: Db, conversaId: string, cliente: { id: string; nome: 
     await db.from("conversas").update({ status: "aguardando", area_id: escolhida.id }).eq("id", conversaId);
     await db.from("clientes").update({ area_id: escolhida.id }).eq("id", cliente.id).is("area_id", null);
     await enviarERegistrar(db, conversaId, telefone, montarTexto(cfg.encaminhado, { nome, area: escolhida.nome, documentos: escolhida.documentos_pedidos }), { bot: true });
-    return;
+    return true;
   }
   if (resposta === "0") {
     await db.from("conversas").update({ status: "aguardando" }).eq("id", conversaId);
     await enviarERegistrar(db, conversaId, telefone, montarTexto(cfg.outro, { nome }), { bot: true });
-    return;
+    return true;
   }
 
   // Manda o menu; depois de N tentativas sem resposta válida, passa para a equipe
   const { count } = await db.from("mensagens").select("id", { count: "exact", head: true }).eq("conversa_id", conversaId).eq("enviada_pelo_bot", true);
   if ((count ?? 0) >= Math.max(1, cfg.tentativas)) {
     await db.from("conversas").update({ status: "aguardando" }).eq("id", conversaId);
-    return;
+    return false;
   }
   const menu = [...lista.map((a, i) => `${i + 1} - ${a.nome}`), "0 - Outro assunto"].join("\n");
   let mensagem = montarTexto(cfg.saudacao.includes("{menu}") ? cfg.saudacao : `${cfg.saudacao}\n\n{menu}`, { nome, menu });
   if (fora && cfg.foraExpediente.trim() && !count) mensagem = `${montarTexto(cfg.foraExpediente, { nome })}\n\n${mensagem}`;
   await enviarERegistrar(db, conversaId, telefone, mensagem, { bot: true });
+  return true;
 }
 
-/** Fora do expediente, avisa quem já é cliente (no máximo uma vez a cada 12 horas por conversa). */
-async function avisoForaDoExpediente(db: Db, conversaId: string, telefone: string | null, nome: string) {
+/**
+ * Mensagem automática para quem não recebeu o menu: a "mensagem automática" simples (se ligada) ou,
+ * senão, o aviso de fora do expediente da triagem. No máximo uma vez por conversa a cada X horas.
+ */
+async function respostaAutomatica(db: Db, conversaId: string, telefone: string | null, nome: string) {
   if (!telefone) return;
   const cfg = await lerConfigBot(db);
-  if (cfg.modo === "desligado" || !cfg.avisarForaSempre || !cfg.foraExpediente.trim() || dentroDoExpediente(cfg)) return;
-  const desde = new Date(Date.now() - 12 * 3600_000).toISOString();
+  const ra = cfg.respostaAuto;
+  let texto: string | null = null;
+  let horas = 12;
+  if (ra.ativa && ra.texto.trim()) {
+    if (ra.quando === "sempre" || !dentroDoExpediente(cfg)) texto = ra.texto;
+    horas = ra.intervaloHoras;
+  } else if (cfg.modo !== "desligado" && cfg.avisarForaSempre && cfg.foraExpediente.trim() && !dentroDoExpediente(cfg)) {
+    texto = cfg.foraExpediente;
+  }
+  if (!texto) return;
+  const desde = new Date(Date.now() - horas * 3600_000).toISOString();
   const { count } = await db.from("mensagens").select("id", { count: "exact", head: true }).eq("conversa_id", conversaId).eq("enviada_pelo_bot", true).gte("criado_em", desde);
   if (count) return;
-  await enviarERegistrar(db, conversaId, telefone, montarTexto(cfg.foraExpediente, { nome: /^\d+$/.test(nome) ? "" : primeiroNome(nome) }), { bot: true });
+  // Se alguém da equipe respondeu nas últimas 2 horas, a conversa está em andamento: não interrompe
+  const recente = new Date(Date.now() - 2 * 3600_000).toISOString();
+  const { count: equipe } = await db
+    .from("mensagens")
+    .select("id", { count: "exact", head: true })
+    .eq("conversa_id", conversaId)
+    .eq("direcao", "saida")
+    .eq("enviada_pelo_bot", false)
+    .eq("nota_interna", false)
+    .gte("criado_em", recente);
+  if (equipe) return;
+  await enviarERegistrar(db, conversaId, telefone, montarTexto(texto, { nome: /^\d+$/.test(nome) ? "" : primeiroNome(nome) }), { bot: true });
 }

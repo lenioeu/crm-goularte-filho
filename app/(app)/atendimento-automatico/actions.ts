@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import type { Resultado } from "@/app/(app)/actions";
-import { BOT_PADRAO, type ConfigBot, RESPOSTAS_PADRAO } from "@/lib/bot";
+import { BOT_PADRAO, type ConfigBot, lerConfigBot, RESPOSTAS_PADRAO } from "@/lib/bot";
 import { quemSou } from "@/lib/permissoes";
 
 const SO_ADMIN = { erro: "Só o administrador altera o atendimento automático.", ok: null };
@@ -15,7 +15,9 @@ export async function salvarConfigBot(_: Resultado, f: FormData): Promise<Result
   const texto = (k: keyof ConfigBot) => String(f.get(k) ?? "").replace(/\r\n/g, "\n").trim() || (BOT_PADRAO[k] as string);
   const areas = f.getAll("areas").map(String);
   const todas = f.get("todas_areas") === "on";
+  const atual = await lerConfigBot(supabase);
   const cfg: ConfigBot = {
+    ...atual,
     modo: modo === "fora" || modo === "desligado" ? modo : "sempre",
     dias: f.getAll("dias").map(Number).filter((d) => d >= 0 && d <= 6),
     inicio: hora(f.get("inicio"), BOT_PADRAO.inicio),
@@ -35,6 +37,29 @@ export async function salvarConfigBot(_: Resultado, f: FormData): Promise<Result
   revalidatePath("/atendimento-automatico");
   revalidatePath("/integracoes");
   return { erro: null, ok: "Atendimento automático salvo. Vale para as próximas mensagens." };
+}
+
+/** Resposta automática simples (sem menu), guardada junto da configuração da triagem. */
+export async function salvarRespostaAuto(_: Resultado, f: FormData): Promise<Resultado> {
+  const { supabase, papel } = await quemSou();
+  if (papel !== "administrador") return SO_ADMIN;
+  const texto = String(f.get("texto") ?? "").replace(/\r\n/g, "\n").trim();
+  const ativa = f.get("ativa") === "on";
+  if (ativa && !texto) return { erro: "Escreva a mensagem automática.", ok: null };
+  const atual = await lerConfigBot(supabase);
+  const cfg: ConfigBot = {
+    ...atual,
+    respostaAuto: {
+      ativa,
+      quando: f.get("quando") === "sempre" ? "sempre" : "fora",
+      texto: texto || atual.respostaAuto.texto,
+      intervaloHoras: [1, 4, 12, 24, 48].includes(Number(f.get("intervalo"))) ? Number(f.get("intervalo")) : 12,
+    },
+  };
+  const { error } = await supabase.from("configuracoes").upsert({ chave: "whatsapp_bot_config", valor: cfg });
+  if (error) return { erro: error.message, ok: null };
+  revalidatePath("/atendimento-automatico");
+  return { erro: null, ok: ativa ? "Mensagem automática ligada. Vale para as próximas mensagens." : "Mensagem automática desligada." };
 }
 
 export type RespostaRapida = { atalho: string; texto: string };

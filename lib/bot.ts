@@ -16,7 +16,11 @@ export type ConfigBot = {
   avisarForaSempre: boolean; // fora do expediente, avisa também quem já é cliente
   tentativas: number;
   areasMenu: string[] | null; // null = todas as áreas ativas
+  /** Mensagem automática simples, sem o menu: vale mesmo com a triagem desligada */
+  respostaAuto: RespostaAuto;
 };
+
+export type RespostaAuto = { ativa: boolean; quando: "sempre" | "fora"; texto: string; intervaloHoras: number };
 
 export const BOT_PADRAO: ConfigBot = {
   modo: "sempre",
@@ -31,6 +35,12 @@ export const BOT_PADRAO: ConfigBot = {
   avisarForaSempre: false,
   tentativas: 2,
   areasMenu: null,
+  respostaAuto: {
+    ativa: false,
+    quando: "fora",
+    texto: "Olá, {nome}! Recebemos sua mensagem e logo uma pessoa da equipe responde por aqui. Nosso horário é de segunda a sexta, das 8h às 18h.",
+    intervaloHoras: 12,
+  },
 };
 
 /** Respostas rápidas de fábrica, usadas enquanto a equipe não salvar as suas em "Atendimento automático". */
@@ -47,7 +57,7 @@ export const DIAS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 export async function lerConfigBot(db: SupabaseClient): Promise<ConfigBot> {
   const { data } = await db.from("configuracoes").select("chave, valor").in("chave", ["whatsapp_bot_config", "whatsapp_bot"]);
   const salvo = (data?.find((c) => c.chave === "whatsapp_bot_config")?.valor ?? {}) as Partial<ConfigBot>;
-  const cfg = { ...BOT_PADRAO, ...salvo };
+  const cfg = { ...BOT_PADRAO, ...salvo, respostaAuto: { ...BOT_PADRAO.respostaAuto, ...salvo.respostaAuto } };
   // Chave antiga (liga/desliga de Integrações)
   if (!data?.some((c) => c.chave === "whatsapp_bot_config") && data?.find((c) => c.chave === "whatsapp_bot")?.valor === false) cfg.modo = "desligado";
   return cfg;

@@ -4,7 +4,7 @@ import { RespostasEditor } from "@/components/RespostasEditor";
 import { DIAS, dentroDoExpediente, lerConfigBot, montarTexto, RESPOSTAS_PADRAO } from "@/lib/bot";
 import { quemSou } from "@/lib/permissoes";
 import type { RespostaRapida } from "./actions";
-import { salvarConfigBot } from "./actions";
+import { salvarConfigBot, salvarRespostaAuto } from "./actions";
 
 export default async function AtendimentoAutomatico() {
   const { supabase, papel } = await quemSou();
@@ -109,6 +109,44 @@ export default async function AtendimentoAutomatico() {
         </FormAcao>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div className="card" id="mensagem-automatica">
+            <div className="ctitle"><h3>Mensagem automática</h3><span className={"chip " + (cfg.respostaAuto.ativa ? "good" : "")}>{cfg.respostaAuto.ativa ? "ligada" : "desligada"}</span></div>
+            <p style={{ margin: "0 0 12px", fontSize: 13, color: "var(--muted)" }}>
+              Uma resposta só, sem o menu de áreas, para quem escrever. Funciona mesmo com a triagem desligada. Não interrompe conversa em
+              andamento: se alguém da equipe respondeu nas últimas 2 horas, ela não sai.
+            </p>
+            <FormAcao action={salvarRespostaAuto} botao="Salvar mensagem automática" className="form" limparAoSalvar={false}>
+              <label className="nota-check full">
+                <input type="checkbox" name="ativa" defaultChecked={cfg.respostaAuto.ativa} disabled={!admin} /> Ligar a mensagem automática
+              </label>
+              <div className="field full">
+                <label>Quando</label>
+                <div className="opcoes">
+                  {[
+                    ["fora", "Só fora do expediente", `fora de ${cfg.inicio} às ${cfg.fim} nos dias marcados ao lado`],
+                    ["sempre", "Sempre", "a qualquer hora"],
+                  ].map(([v, r, d]) => (
+                    <label key={v} className="opcao">
+                      <input type="radio" name="quando" value={v} defaultChecked={cfg.respostaAuto.quando === v} disabled={!admin} />
+                      <span><b>{r}</b><small>{d}</small></span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div className="field full">
+                <label htmlFor="ra_texto">Mensagem</label>
+                <textarea id="ra_texto" name="texto" rows={4} defaultValue={cfg.respostaAuto.texto} disabled={!admin} />
+                <small className="dica">{"{nome}"} vira o primeiro nome da pessoa.</small>
+              </div>
+              <div className="field">
+                <label htmlFor="ra_intervalo">Mandar de novo para a mesma pessoa só depois de</label>
+                <select id="ra_intervalo" name="intervalo" defaultValue={String(cfg.respostaAuto.intervaloHoras)} disabled={!admin}>
+                  {[1, 4, 12, 24, 48].map((h) => <option key={h} value={h}>{h} {h === 1 ? "hora" : "horas"}</option>)}
+                </select>
+              </div>
+            </FormAcao>
+          </div>
+
           <div className="card">
             <div className="ctitle"><h3>Como chega no celular</h3><span className="tag">com o que está salvo</span></div>
             <div className="previa-wa">
