@@ -114,6 +114,33 @@ export async function editarNoWhatsApp(telefone: string, whatsappId: string, tex
   });
 }
 
+// ------------------------------------------------------------------ Histórico guardado no servidor do WhatsApp
+/** Pede ao WhatsApp o histórico completo na próxima vez que o celular for conectado (lendo o QR Code). */
+export async function pedirHistoricoCompleto() {
+  const atual = await evo<Record<string, unknown> | null>(`/settings/find/${INSTANCIA}`).catch(() => null);
+  const base = { rejectCall: false, groupsIgnore: true, alwaysOnline: false, readMessages: false, readStatus: false };
+  const manter = Object.fromEntries(Object.entries(atual ?? {}).filter(([k]) => k in base || k === "msgCall"));
+  await evo(`/settings/set/${INSTANCIA}`, { method: "POST", body: JSON.stringify({ ...base, ...manter, syncFullHistory: true }) });
+}
+
+/** Conversas individuais guardadas no servidor do WhatsApp (grupos ficam de fora). */
+export async function conversasNoServidor(): Promise<{ jid: string; nome: string | null }[]> {
+  const r = await evo<{ remoteJid?: string; pushName?: string | null }[]>(`/chat/findChats/${INSTANCIA}`, { method: "POST", body: "{}" }, 50);
+  return (Array.isArray(r) ? r : [])
+    .filter((c) => c.remoteJid && (c.remoteJid.endsWith("@s.whatsapp.net") || c.remoteJid.endsWith("@lid")))
+    .map((c) => ({ jid: c.remoteJid!, nome: c.pushName ?? null }));
+}
+
+/** Mensagens de uma conversa guardadas no servidor do WhatsApp, da mais nova para a mais antiga. */
+export async function mensagensNoServidor(jid: string, pagina: number, porPagina = 200) {
+  const r = await evo<{ messages?: { pages?: number; records?: unknown[] } }>(
+    `/chat/findMessages/${INSTANCIA}`,
+    { method: "POST", body: JSON.stringify({ where: { key: { remoteJid: jid } }, page: pagina, offset: porPagina }) },
+    50,
+  );
+  return { registros: r.messages?.records ?? [], paginas: r.messages?.pages ?? 0 };
+}
+
 /** Cria a instância se precisar, liga o aviso de mensagens ao CRM e devolve o QR Code (imagem base64). */
 export async function conectar(urlWebhook: string): Promise<string | null> {
   const webhook = configWebhook(urlWebhook);

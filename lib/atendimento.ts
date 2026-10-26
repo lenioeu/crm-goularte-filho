@@ -10,7 +10,7 @@ import { chaveTelefone, enviarTexto, INSTANCIA, type MensagemRecebida } from "@/
 
 type Db = SupabaseClient;
 
-async function acharCliente(db: Db, numero: string) {
+export async function acharCliente(db: Db, numero: string) {
   const chave = chaveTelefone(numero);
   const { data } = await db.from("clientes").select("id, nome, telefone_whatsapp, area_id").ilike("telefone_whatsapp", `%${chave.slice(-8)}`).limit(20);
   return (data ?? []).find((c) => c.telefone_whatsapp && chaveTelefone(c.telefone_whatsapp) === chave) ?? null;

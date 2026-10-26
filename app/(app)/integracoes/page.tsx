@@ -2,6 +2,7 @@ import Link from "next/link";
 import { BotaoAcao } from "@/components/BotaoAcao";
 import { FormAcao } from "@/components/FormAcao";
 import { ConexaoWhatsApp } from "@/components/ConexaoWhatsApp";
+import { ImportarHistorico } from "@/components/ImportarHistorico";
 import { googleConfigurado } from "@/lib/google";
 import { quemSou } from "@/lib/permissoes";
 import { whatsappConfigurado } from "@/lib/whatsapp";
@@ -122,6 +123,12 @@ export default async function Integracoes({ searchParams }: { searchParams: Prom
         ) : (
           <>
             <ConexaoWhatsApp admin={admin} />
+            {admin && (
+              <details style={{ borderTop: "1px solid var(--line)", paddingTop: 14 }}>
+                <summary style={{ cursor: "pointer", fontWeight: 500 }}>Trazer as conversas antigas do WhatsApp (histórico)</summary>
+                <ImportarHistorico />
+              </details>
+            )}
             <div style={{ borderTop: "1px solid var(--line)", paddingTop: 14, fontSize: 13.5 }}>
               Textos do bot, horário de expediente, áreas do menu e respostas rápidas: <Link href="/atendimento-automatico" style={{ color: "var(--accent)" }}>Atendimento automático</Link>.
             </div>

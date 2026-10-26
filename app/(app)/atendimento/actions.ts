@@ -5,13 +5,16 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import type { Resultado } from "@/app/(app)/actions";
 import { criarPastaCliente } from "@/app/(app)/integracoes/actions";
-import { conversaAberta, enviarERegistrar } from "@/lib/atendimento";
+import { acharCliente, conversaAberta, enviarERegistrar } from "@/lib/atendimento";
 import { enviarArquivo, tokenDeAcesso } from "@/lib/google";
 import { semColunaContato, TIPO_NOVO_CONTATO } from "@/lib/contatos";
 import { quemSou } from "@/lib/permissoes";
 import { TZ } from "@/lib/rotulos";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { apagarParaTodos, baixarMidia, conectar, desconectar, editarNoWhatsApp, enviarAudio, enviarMidia, estadoConexao, reaplicarWebhook, tipoDoArquivo, whatsappConfigurado, type Estado } from "@/lib/whatsapp";
+import {
+  apagarParaTodos, baixarMidia, conectar, conversasNoServidor, desconectar, editarNoWhatsApp, enviarAudio, enviarMidia, estadoConexao, INSTANCIA,
+  lerMensagem, mensagensNoServidor, pedirHistoricoCompleto, reaplicarWebhook, tipoDoArquivo, whatsappConfigurado, type Estado,
+} from "@/lib/whatsapp";
 
 type Rel<T> = T | T[] | null;
 const um = <T,>(r: Rel<T>): T | null => (Array.isArray(r) ? r[0] ?? null : r);
@@ -459,4 +462,116 @@ export async function editarMensagem(id: string, novoTexto: string): Promise<Res
   if (error) return { erro: m.nota_interna ? traduzir015(error.message) : `Editada no WhatsApp, mas o CRM não registrou: ${traduzir015(error.message)}`, ok: null };
   revalidatePath("/atendimento");
   return { erro: null, ok: "Mensagem editada." };
+}
+
+// ------------------------------------------------------------------ Histórico de conversas antigas
+// O servidor do WhatsApp (Evolution) guarda as mensagens que o celular manda ao conectar. Daqui elas
+// entram no CRM direto no banco: sem triagem automática, sem notificação e sem duplicar (whatsapp_id).
+async function soAdmin() {
+  const { papel } = await quemSou();
+  if (papel !== "administrador") return "Só o administrador importa o histórico.";
+  if (!whatsappConfigurado()) return "Faltam as variáveis do WhatsApp na Vercel.";
+  return null;
+}
+
+/** Passo 1: pede ao WhatsApp o histórico completo (vale na próxima conexão pelo QR Code). */
+export async function prepararHistorico(): Promise<Resultado> {
+  const erro = await soAdmin();
+  if (erro) return { erro, ok: null };
+  try {
+    await pedirHistoricoCompleto();
+  } catch (e) {
+    return { erro: `O servidor do WhatsApp não respondeu: ${falha(e)}`, ok: null };
+  }
+  return { erro: null, ok: "Pronto. Agora desconecte e conecte o WhatsApp de novo (lendo o QR Code) para o celular mandar o histórico." };
+}
+
+/** Passo 2a: lista as conversas individuais que o servidor do WhatsApp tem guardadas. */
+export async function listarConversasAntigas(): Promise<{ erro: string | null; conversas: { jid: string; nome: string | null }[] }> {
+  const erro = await soAdmin();
+  if (erro) return { erro, conversas: [] };
+  try {
+    return { erro: null, conversas: await conversasNoServidor() };
+  } catch (e) {
+    return { erro: `O servidor do WhatsApp não respondeu: ${falha(e)}`, conversas: [] };
+  }
+}
+
+/** Passo 2b: traz as mensagens de uma conversa antiga para o CRM. Pode rodar de novo: o que já veio é pulado. */
+export async function importarConversaAntiga(jid: string, nome: string | null): Promise<{ erro: string | null; novas: number }> {
+  const erro = await soAdmin();
+  if (erro) return { erro, novas: 0 };
+  const db = supabaseAdmin();
+  try {
+    // Até 2.000 mensagens por conversa (10 páginas de 200), da mais nova para a mais antiga
+    const lidas = [];
+    for (let pagina = 1; pagina <= 10; pagina++) {
+      const { registros, paginas } = await mensagensNoServidor(jid, pagina);
+      for (const r of registros) {
+        const m = lerMensagem(r);
+        if (m) lidas.push(m);
+      }
+      if (pagina >= paginas) break;
+    }
+    if (!lidas.length) return { erro: null, novas: 0 };
+
+    // Cliente: acha pelo telefone; se não existir, entra como contato
+    const numero = lidas[0].numero;
+    let cliente = await acharCliente(db, numero);
+    if (!cliente) {
+      const nomeContato = (lidas.find((m) => m.nomeContato)?.nomeContato ?? nome ?? numero).toUpperCase();
+      const novo = { nome: nomeContato, telefone_whatsapp: numero, origem: "WHATSAPP" };
+      const inserir = (dados: Record<string, unknown>) => db.from("clientes").insert(dados).select("id, nome, telefone_whatsapp, area_id").single();
+      let { data, error } = await inserir({ ...novo, situacao: "contato", contato_tipo: TIPO_NOVO_CONTATO });
+      if (error && semColunaContato(error.message)) ({ data, error } = await inserir(novo));
+      if (error || !data) return { erro: error?.message ?? "Não consegui cadastrar o contato.", novas: 0 };
+      cliente = data;
+    }
+
+    // Só o que ainda não está no CRM
+    const ids = lidas.map((m) => m.whatsappId);
+    const jaTem = new Set<string>();
+    for (let i = 0; i < ids.length; i += 300) {
+      const { data } = await db.from("mensagens").select("whatsapp_id").in("whatsapp_id", ids.slice(i, i + 300));
+      (data ?? []).forEach((x) => x.whatsapp_id && jaTem.add(x.whatsapp_id));
+    }
+    const novas = lidas.filter((m) => !jaTem.has(m.whatsappId));
+    if (!novas.length) return { erro: null, novas: 0 };
+
+    // Conversa: a mais recente do cliente; sem nenhuma, cria uma já encerrada (é histórico)
+    const ultima = novas.reduce((a, m) => (m.em > a ? m.em : a), novas[0].em);
+    const { data: existente } = await db.from("conversas").select("id, ultima_mensagem_em").eq("cliente_id", cliente.id).order("criado_em", { ascending: false }).limit(1).maybeSingle();
+    let conversaId = existente?.id as string | undefined;
+    if (!conversaId) {
+      const primeira = novas.reduce((a, m) => (m.em < a ? m.em : a), novas[0].em);
+      const { data, error } = await db
+        .from("conversas")
+        .insert({ cliente_id: cliente.id, numero_conexao: INSTANCIA, status: "resolvida", area_id: cliente.area_id, ultima_mensagem_em: ultima, criado_em: primeira })
+        .select("id")
+        .single();
+      if (error || !data) return { erro: error?.message ?? "Não consegui criar a conversa.", novas: 0 };
+      conversaId = data.id;
+    } else if (!existente?.ultima_mensagem_em || existente.ultima_mensagem_em < ultima) {
+      await db.from("conversas").update({ ultima_mensagem_em: ultima }).eq("id", conversaId);
+    }
+
+    for (let i = 0; i < novas.length; i += 500) {
+      const { error } = await db.from("mensagens").upsert(
+        novas.slice(i, i + 500).map((m) => ({
+          conversa_id: conversaId,
+          direcao: m.deMim ? "saida" : "entrada",
+          texto: m.texto,
+          midia_tipo: m.midiaTipo,
+          midia_nome: m.midiaNome,
+          whatsapp_id: m.whatsappId,
+          criado_em: m.em,
+        })),
+        { onConflict: "whatsapp_id", ignoreDuplicates: true },
+      );
+      if (error) return { erro: error.message, novas: i };
+    }
+    return { erro: null, novas: novas.length };
+  } catch (e) {
+    return { erro: falha(e), novas: 0 };
+  }
 }

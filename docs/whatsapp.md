@@ -138,3 +138,33 @@ ele for usado como disparador. Para reduzir o risco:
 - **Mensagens agendadas:** saem no horário marcado, no máximo 8 por minuto e com intervalo
   entre elas. Quando o cliente responde, os follow-ups marcados "cancela se responder"
   são cancelados.
+
+## Histórico de conversas antigas
+
+Para trazer ao CRM as conversas que o número já tinha antes (de outro sistema ou do
+próprio celular). O WhatsApp só manda o histórico para um aparelho no momento em que ele
+é conectado; por isso o caminho é: ligar a gravação, reconectar e importar.
+
+1. **No servidor (uma vez só).** Entre por SSH e cole:
+
+   ```bash
+   cd ~/crm-goularte-filho/infra/whatsapp
+   sed -i 's/^DATABASE_SAVE_DATA_HISTORIC=false/DATABASE_SAVE_DATA_HISTORIC=true/' .env
+   grep -q '^DATABASE_SAVE_DATA_HISTORIC=true' .env || echo 'DATABASE_SAVE_DATA_HISTORIC=true' >> .env
+   docker compose up -d
+   ```
+
+2. **No CRM:** Integrações › WhatsApp › "Trazer as conversas antigas" › **Pedir histórico completo**.
+3. **Reconecte:** clique em **Desconectar** e depois em **Conectar**, e leia o QR Code com o
+   celular do escritório. Deixe o celular ligado e com internet por alguns minutos.
+4. **Importe:** clique em **Importar conversas antigas**. Pode repetir mais tarde: o que já
+   está no CRM é pulado.
+
+O que acontece na importação:
+
+- cada número vira contato (ou é ligado ao cliente que já tem esse WhatsApp);
+- as mensagens entram com a data original, até 2.000 por conversa;
+- quem não tinha conversa no CRM ganha uma já **encerrada**; quem tinha, recebe o histórico nela;
+- não dispara a triagem automática nem notificações; grupos ficam de fora.
+
+O quanto de histórico chega depende do WhatsApp: em geral os últimos meses, às vezes mais.
