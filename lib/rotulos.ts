@@ -54,3 +54,6 @@ export const COLUNAS_TAREFA = [
   { id: "revisao", rotulo: "Revisão" },
   { id: "concluida", rotulo: "Concluída" },
 ] as const;
+
+/** Sugestões de "que documento é?" ao salvar arquivos do WhatsApp no Drive. */
+export const TIPOS_DOCUMENTO = ["RG", "CPF", "CNH", "COMPROVANTE DE RESIDÊNCIA", "CTPS", "HOLERITE", "TRCT", "EXTRATO FGTS", "CNIS", "LAUDO MÉDICO", "CONTRATO", "PROCURAÇÃO", "CERTIDÃO", "BOLETIM DE OCORRÊNCIA", "FOTO", "ÁUDIO", "DOCUMENTO"];

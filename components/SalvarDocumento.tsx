@@ -2,10 +2,9 @@
 
 import { useActionState } from "react";
 import type { Resultado } from "@/app/(app)/actions";
+import { TIPOS_DOCUMENTO as TIPOS } from "@/lib/rotulos";
 
 type Acao = (estado: Resultado, dados: FormData) => Promise<Resultado>;
-
-const TIPOS = ["RG", "CPF", "CNH", "COMPROVANTE DE RESIDÊNCIA", "CTPS", "HOLERITE", "TRCT", "EXTRATO FGTS", "CNIS", "LAUDO MÉDICO", "CONTRATO", "PROCURAÇÃO", "CERTIDÃO", "BOLETIM DE OCORRÊNCIA"];
 
 // "Salvar na pasta do cliente": pede o tipo do documento para montar o nome do arquivo.
 export function SalvarDocumento({ action, mensagemId }: { action: Acao; mensagemId: string }) {

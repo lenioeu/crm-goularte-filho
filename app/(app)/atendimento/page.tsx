@@ -6,6 +6,7 @@ import { BotaoAcao } from "@/components/BotaoAcao";
 import { BotaoPainel } from "@/components/BotaoPainel";
 import { CarregandoLink } from "@/components/CarregandoLink";
 import { MensagemTexto } from "@/components/MensagemTexto";
+import { type ArquivoConversa, SalvarVariosDrive } from "@/components/SalvarVariosDrive";
 import { ComposerAtendimento } from "@/components/ComposerAtendimento";
 import { FormAcao } from "@/components/FormAcao";
 import { NovaConversa } from "@/components/NovaConversa";
@@ -159,6 +160,10 @@ export default async function Atendimento({ searchParams }: { searchParams: Prom
       : Promise.resolve({ data: null }),
   ]);
   const mensagens = (rMsgs.data ?? []) as unknown as Msg[];
+  // Arquivos da conversa que ainda não foram para o Drive (para "Salvar arquivos no Drive")
+  const arquivosPendentes: ArquivoConversa[] = mensagens
+    .filter((m) => m.midia_tipo && m.midia_tipo !== "figurinha" && !m.midia_url && !m.nota_interna && !(m.apagada_em && m.apagada_por === "escritorio"))
+    .map((m) => ({ id: m.id, tipo: m.midia_tipo!, nome: m.midia_nome, em: m.criado_em, doCliente: m.direcao === "entrada" }));
   const previa = new Map<string, string>();
   for (const m of (ultimas ?? []) as { conversa_id: string; texto: string | null; midia_tipo: string | null; direcao: string; nota_interna: boolean }[]) {
     if (previa.has(m.conversa_id)) continue;
@@ -276,6 +281,7 @@ export default async function Atendimento({ searchParams }: { searchParams: Prom
                 </div>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                   <BotaoPainel />
+                  <SalvarVariosDrive arquivos={arquivosPendentes} />
                   {ehContato && contato && <CadastrarCliente contato={{ ...contato, cep: contato.cep ?? null, endereco: contato.endereco ?? null }} areas={areas ?? []} />}
                   <VincularCliente conversaId={atual.id} atual={cliAtual.id} />
                   {atual.status !== "resolvida" && atual.atendente_id !== user?.id && <BotaoAcao acao={assumirConversa.bind(null, atual.id)} rotulo="Assumir" />}
