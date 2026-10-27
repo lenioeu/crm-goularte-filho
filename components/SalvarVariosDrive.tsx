@@ -6,7 +6,7 @@ import { salvarDocumento } from "@/app/(app)/atendimento/actions";
 import { useAviso } from "@/components/Avisos";
 import { Icone, type NomeIcone } from "@/components/Icone";
 import { IconeDrive } from "@/components/IconeDrive";
-import { TIPOS_DOCUMENTO } from "@/lib/rotulos";
+import { TIPO_OUTRO, TIPOS_DOCUMENTO } from "@/lib/rotulos";
 
 export type ArquivoConversa = { id: string; tipo: string; nome: string | null; em: string; doCliente: boolean };
 
@@ -23,6 +23,7 @@ export function SalvarVariosDrive({ arquivos }: { arquivos: ArquivoConversa[] })
   const [marcados, setMarcados] = useState<Set<string>>(new Set());
   const [tipos, setTipos] = useState<Record<string, string>>({});
   const [todos, setTodos] = useState("");
+  const [nomes, setNomes] = useState<Record<string, string>>({});
   const [resultado, setResultado] = useState<Record<string, { ok?: string; erro?: string }>>({});
   const [salvando, setSalvando] = useState(false);
 
@@ -37,19 +38,21 @@ export function SalvarVariosDrive({ arquivos }: { arquivos: ArquivoConversa[] })
 
   const alternar = (id: string) => setMarcados((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const escolhidos = arquivos.filter((a) => marcados.has(a.id) && !resultado[a.id]?.ok);
-  const semTipo = escolhidos.filter((a) => !(tipos[a.id] ?? todos).trim());
+  const tipoDe = (a: ArquivoConversa) => (tipos[a.id] || todos).trim();
+  // Sem tipo, ou "Outro" sem o nome escrito
+  const semTipo = escolhidos.filter((a) => !tipoDe(a) || (tipoDe(a) === TIPO_OUTRO && !(nomes[a.id] ?? "").trim()));
 
   async function salvar() {
     if (!escolhidos.length || semTipo.length) return;
     setSalvando(true);
     // Mesmo tipo em vários arquivos: numera ("RG 1", "RG 2") para os nomes não se repetirem
     const contagem: Record<string, number> = {};
-    escolhidos.forEach((a) => { const t = (tipos[a.id] ?? todos).trim().toUpperCase(); contagem[t] = (contagem[t] ?? 0) + 1; });
+    escolhidos.forEach((a) => { const t = tipoDe(a).toUpperCase(); contagem[t] = (contagem[t] ?? 0) + 1; });
     const vistos: Record<string, number> = {};
     const fila = escolhidos.map((a) => {
-      const t = (tipos[a.id] ?? todos).trim().toUpperCase();
+      const t = tipoDe(a).toUpperCase();
       vistos[t] = (vistos[t] ?? 0) + 1;
-      return { a, tipo: contagem[t] > 1 ? `${t} ${vistos[t]}` : t };
+      return { a, tipo: t !== TIPO_OUTRO && contagem[t] > 1 ? `${t} ${vistos[t]}` : t };
     });
     let i = 0, certos = 0;
     async function trabalhador() {
@@ -58,6 +61,7 @@ export function SalvarVariosDrive({ arquivos }: { arquivos: ArquivoConversa[] })
         const f = new FormData();
         f.set("mensagem_id", a.id);
         f.set("tipo", tipo);
+        if (tipo === TIPO_OUTRO) f.set("nome_livre", nomes[a.id] ?? "");
         const r = await salvarDocumento({ erro: null, ok: null }, f).catch((e: unknown) => ({ erro: e instanceof Error ? e.message : String(e), ok: null }));
         if (r.ok) certos++;
         setResultado((x) => ({ ...x, [a.id]: r.ok ? { ok: r.ok } : { erro: r.erro ?? "Erro" } }));
@@ -87,9 +91,11 @@ export function SalvarVariosDrive({ arquivos }: { arquivos: ArquivoConversa[] })
             </p>
             <div className="varios-topo">
               <label><input type="checkbox" checked={escolhidos.length > 0 && escolhidos.length === arquivos.filter((a) => !resultado[a.id]?.ok).length} onChange={(e) => setMarcados(e.target.checked ? new Set(arquivos.map((a) => a.id)) : new Set())} /> Todos</label>
-              <input list="tipos-varios" value={todos} onChange={(e) => setTodos(e.target.value)} placeholder="Tipo para os marcados sem tipo (ex.: DOCUMENTO)" aria-label="Tipo para todos" />
+              <select value={todos} onChange={(e) => setTodos(e.target.value)} aria-label="Tipo para todos">
+                <option value="">Tipo para os marcados sem tipo…</option>
+                {TIPOS_DOCUMENTO.map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
             </div>
-            <datalist id="tipos-varios">{TIPOS_DOCUMENTO.map((t) => <option key={t} value={t} />)}</datalist>
             <div className="varios-lista">
               {arquivos.map((a) => {
                 const r = resultado[a.id];
@@ -104,14 +110,33 @@ export function SalvarVariosDrive({ arquivos }: { arquivos: ArquivoConversa[] })
                       {r?.erro && <small className="doc-erro">{r.erro}</small>}
                     </div>
                     {!r?.ok && (
-                      <input
-                        list="tipos-varios"
-                        value={tipos[a.id] ?? ""}
-                        onChange={(e) => setTipos((t) => ({ ...t, [a.id]: e.target.value }))}
-                        placeholder={todos || "Que documento é?"}
-                        disabled={salvando}
-                        aria-label="Tipo do documento"
-                      />
+                      <div className="varios-tipo">
+                        <select
+                          value={tipos[a.id] ?? ""}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            setTipos((t) => ({ ...t, [a.id]: v }));
+                            // "Outro": começa com o nome original do arquivo, para só ajustar
+                            if (v === TIPO_OUTRO && nomes[a.id] === undefined) setNomes((n) => ({ ...n, [a.id]: a.nome?.replace(/\.[^.]+$/, "") ?? "" }));
+                          }}
+                          disabled={salvando}
+                          aria-label="Tipo do documento"
+                        >
+                          <option value="">{todos ? `${todos} (de cima)` : "Que documento é?"}</option>
+                          {TIPOS_DOCUMENTO.map((t) => <option key={t} value={t}>{t}</option>)}
+                          <option value={TIPO_OUTRO}>Outro (escrever o nome)</option>
+                        </select>
+                        {tipos[a.id] === TIPO_OUTRO && (
+                          <input
+                            value={nomes[a.id] ?? ""}
+                            onChange={(e) => setNomes((n) => ({ ...n, [a.id]: e.target.value }))}
+                            placeholder="Nome do arquivo no Drive"
+                            disabled={salvando}
+                            aria-label="Nome do arquivo"
+                            autoFocus
+                          />
+                        )}
+                      </div>
                     )}
                   </div>
                 );
@@ -122,7 +147,7 @@ export function SalvarVariosDrive({ arquivos }: { arquivos: ArquivoConversa[] })
                 {salvando ? <><span className="girando" style={{ margin: "0 6px 0 0" }} /> Salvando…</> : `Salvar ${escolhidos.length} no Drive`}
               </button>
               <button type="button" className="btn" onClick={() => setAberto(false)} disabled={salvando}>Fechar</button>
-              {semTipo.length > 0 && escolhidos.length > 0 && <small style={{ color: "var(--warn)" }}>Falta o tipo de {semTipo.length} {semTipo.length === 1 ? "arquivo" : "arquivos"}.</small>}
+              {semTipo.length > 0 && escolhidos.length > 0 && <small style={{ color: "var(--warn)" }}>Falta o tipo (ou o nome, em “Outro”) de {semTipo.length} {semTipo.length === 1 ? "arquivo" : "arquivos"}.</small>}
             </div>
           </div>
         </div>

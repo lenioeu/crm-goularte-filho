@@ -353,7 +353,7 @@ export default async function Atendimento({ searchParams }: { searchParams: Prom
                             {m.midia_url ? (
                               <a href={m.midia_url} target="_blank" rel="noopener" className="doc-ok"><IconeDrive tamanho={14} />Salvo no Drive · abrir</a>
                             ) : (
-                              m.direcao === "entrada" && m.midia_tipo !== "figurinha" && <SalvarDocumento action={salvarDocumento} mensagemId={m.id} />
+                              m.direcao === "entrada" && m.midia_tipo !== "figurinha" && <SalvarDocumento action={salvarDocumento} mensagemId={m.id} nomeOriginal={m.midia_nome} />
                             )}
                           </div>
                         )}

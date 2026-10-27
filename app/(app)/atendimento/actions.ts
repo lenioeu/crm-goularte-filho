@@ -119,6 +119,9 @@ export async function salvarDocumento(_: Resultado, f: FormData): Promise<Result
   const mensagemId = String(f.get("mensagem_id") ?? "");
   const tipo = String(f.get("tipo") ?? "").trim().toUpperCase();
   if (!tipo) return { erro: "Diga que documento é (ex.: RG, CTPS).", ok: null };
+  // "Outro": a pessoa escreve o nome do arquivo do jeito que quiser
+  const nomeLivre = String(f.get("nome_livre") ?? "").replace(/[\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ").trim();
+  if (tipo === "OUTRO" && !nomeLivre) return { erro: "Escreva o nome do arquivo.", ok: null };
 
   const { data: m } = await supabase
     .from("mensagens")
@@ -147,7 +150,9 @@ export async function salvarDocumento(_: Resultado, f: FormData): Promise<Result
     const original = arq.fileName || m.midia_nome || "";
     const extensao = original.includes(".") ? original.slice(original.lastIndexOf(".")) : arq.mimetype?.includes("pdf") ? ".pdf" : arq.mimetype?.startsWith("image/") ? `.${arq.mimetype.slice(6).replace("jpeg", "jpg")}` : "";
     const data = new Date().toLocaleDateString("sv-SE", { timeZone: TZ });
-    const nome = `${data} ${tipo} - ${cliente.nome.toUpperCase()}${extensao}`;
+    const nome = nomeLivre
+      ? nomeLivre.toLowerCase().endsWith(extensao.toLowerCase()) ? nomeLivre : `${nomeLivre}${extensao}`
+      : `${data} ${tipo} - ${cliente.nome.toUpperCase()}${extensao}`;
     const salvo = await enviarArquivo(token, { nome, mimetype: arq.mimetype || "application/octet-stream", base64: arq.base64, paiId: cliente.pasta_drive_id });
     await supabase.from("documentos").insert({
       cliente_id: clienteId,

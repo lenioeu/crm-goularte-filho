@@ -6,7 +6,13 @@ const URL_GROQ = process.env.GROQ_URL_TESTE || "https://api.groq.com/openai/v1/a
 const MODELO = process.env.GROQ_MODELO_AUDIO || "whisper-large-v3-turbo";
 const LIMITE_MB = 25; // limite do Groq por arquivo
 
-export const transcricaoConfigurada = () => Boolean(process.env.GROQ_API_KEY);
+/** A chave do Groq começa com "gsk_"; ignora o que vier colado junto (espaços, aspas, "›"…). */
+function chaveGroq() {
+  const bruta = process.env.GROQ_API_KEY ?? "";
+  return bruta.match(/gsk_[A-Za-z0-9]+/)?.[0] ?? bruta.replace(/[^\x21-\x7e]/g, "");
+}
+
+export const transcricaoConfigurada = () => Boolean(chaveGroq());
 
 const EXTENSAO: Record<string, string> = { "audio/ogg": "ogg", "audio/mpeg": "mp3", "audio/mp4": "m4a", "audio/webm": "webm", "audio/wav": "wav", "video/mp4": "mp4" };
 
@@ -23,10 +29,11 @@ export async function transcrever(base64: string, mimetype = "audio/ogg"): Promi
   form.append("temperature", "0");
   const r = await fetch(URL_GROQ, {
     method: "POST",
-    headers: { Authorization: `Bearer ${process.env.GROQ_API_KEY}` },
+    headers: { Authorization: `Bearer ${chaveGroq()}` },
     body: form,
     signal: AbortSignal.timeout(45_000),
   });
+  if (r.status === 401) throw new Error("O Groq recusou a chave. Confira a GROQ_API_KEY na Vercel (só a chave, começando com gsk_) e faça um Redeploy.");
   if (!r.ok) throw new Error(`Groq respondeu ${r.status}: ${(await r.text()).slice(0, 200)}`);
   const j = (await r.json()) as { text?: string };
   return (j.text ?? "").trim();

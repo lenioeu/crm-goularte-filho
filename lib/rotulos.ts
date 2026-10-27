@@ -56,4 +56,7 @@ export const COLUNAS_TAREFA = [
 ] as const;
 
 /** Sugestões de "que documento é?" ao salvar arquivos do WhatsApp no Drive. */
+/** Opção da lista que deixa a pessoa escrever o nome inteiro do arquivo. */
+export const TIPO_OUTRO = "OUTRO";
+
 export const TIPOS_DOCUMENTO = ["RG", "CPF", "CNH", "COMPROVANTE DE RESIDÊNCIA", "CTPS", "HOLERITE", "TRCT", "EXTRATO FGTS", "CNIS", "LAUDO MÉDICO", "CONTRATO", "PROCURAÇÃO", "CERTIDÃO", "BOLETIM DE OCORRÊNCIA", "FOTO", "ÁUDIO", "DOCUMENTO"];
