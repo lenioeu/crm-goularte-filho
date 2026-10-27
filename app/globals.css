@@ -663,3 +663,7 @@ kbd { font-family: var(--f-mono); font-size: 11px; border: 1px solid var(--line-
 .varios-info b { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .varios-info small { color: var(--muted); font-size: 12px; }
 .varios-item input[type="checkbox"], .varios-topo input[type="checkbox"] { width: 18px; height: 18px; }
+/* transcrição de áudio */
+.transcricao { font-size: 13px; line-height: 1.45; padding: 6px 9px; border-radius: 8px; background: rgba(0, 0, 0, 0.05); white-space: pre-wrap; max-width: 420px; }
+.transcricao span { display: block; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.4px; color: var(--muted); margin-bottom: 2px; }
+.transcricao-acoes { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }

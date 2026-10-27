@@ -1,6 +1,7 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { registrarMensagem } from "@/lib/atendimento";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { transcricaoConfigurada, transcreverMensagem } from "@/lib/transcricao";
 import { lerApagada, lerEdicao, lerMensagem, lerRecibo, tokenWebhook, whatsappConfigurado } from "@/lib/whatsapp";
 
 export const maxDuration = 60;
@@ -61,6 +62,12 @@ export async function POST(request: Request) {
     if (!m) continue;
     try {
       await registrarMensagem(db, m);
+      // Áudio do cliente: transcreve depois de responder ao WhatsApp, sem atrasar o aviso
+      if (m.midiaTipo === "audio" && !m.deMim && transcricaoConfigurada()) {
+        after(() =>
+          transcreverMensagem(db, { whatsappId: m.whatsappId }).catch((e) => console.error("transcrição:", e instanceof Error ? e.message : e)),
+        );
+      }
     } catch (e) {
       console.error("whatsapp webhook:", e instanceof Error ? e.message : e);
       return NextResponse.json({ erro: "falha ao registrar" }, { status: 500 });

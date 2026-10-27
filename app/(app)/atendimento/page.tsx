@@ -6,6 +6,8 @@ import { BotaoAcao } from "@/components/BotaoAcao";
 import { BotaoPainel } from "@/components/BotaoPainel";
 import { CarregandoLink } from "@/components/CarregandoLink";
 import { MensagemTexto } from "@/components/MensagemTexto";
+import { TranscricaoAudio } from "@/components/TranscricaoAudio";
+import { transcricaoConfigurada } from "@/lib/transcricao";
 import { type ArquivoConversa, SalvarVariosDrive } from "@/components/SalvarVariosDrive";
 import { ComposerAtendimento } from "@/components/ComposerAtendimento";
 import { FormAcao } from "@/components/FormAcao";
@@ -120,6 +122,7 @@ export default async function Atendimento({ searchParams }: { searchParams: Prom
     id: string; direcao: string; texto: string | null; midia_tipo: string | null; midia_nome: string | null; midia_url: string | null;
     nota_interna: boolean; enviada_pelo_bot: boolean; criado_em: string; perfis: unknown; status_envio?: string | null;
     whatsapp_id?: string | null; apagada_em?: string | null; apagada_por?: string | null; editada_em?: string | null; texto_original?: string | null;
+    transcricao?: string | null;
   };
   type DadosCliente = {
     id: string; nome: string; cpf_cnpj: string | null; email: string | null; area_id: string | null; origem: string | null;
@@ -148,7 +151,8 @@ export default async function Atendimento({ searchParams }: { searchParams: Prom
       : nada,
     // Colunas novas (scripts 010 e 015) caem fora se ainda não existirem
     atual
-      ? lerMsgs(colsMsg + ", status_envio, whatsapp_id, apagada_em, apagada_por, editada_em, texto_original")
+      ? lerMsgs(colsMsg + ", status_envio, whatsapp_id, apagada_em, apagada_por, editada_em, texto_original, transcricao")
+          .then((r) => (r.error ? lerMsgs(colsMsg + ", status_envio, whatsapp_id, apagada_em, apagada_por, editada_em, texto_original") : r))
           .then((r) => (r.error ? lerMsgs(colsMsg + ", status_envio, whatsapp_id") : r))
           .then((r) => (r.error ? lerMsgs(colsMsg) : r))
       : nada,
@@ -201,6 +205,7 @@ export default async function Atendimento({ searchParams }: { searchParams: Prom
     .filter((m) => new Date(`${m.quando.data}T${m.quando.hora}:00-03:00`).getTime() > Date.now());
 
   const agora = Date.now();
+  const transcrever = transcricaoConfigurada();
   const ligado = whatsappConfigurado();
   const abertoAgora = Boolean(atual || novoCliente.data);
   const cliAtual = atual ? um(atual.clientes) : null;
@@ -344,6 +349,7 @@ export default async function Atendimento({ searchParams }: { searchParams: Prom
                         {m.midia_tipo && (
                           <div className="bolha-midia">
                             <Midia id={m.id} tipo={m.midia_tipo} nome={m.midia_nome} />
+                            {m.midia_tipo === "audio" && m.whatsapp_id && <TranscricaoAudio id={m.id} texto={m.transcricao} ligada={transcrever && "transcricao" in m} />}
                             {m.midia_url ? (
                               <a href={m.midia_url} target="_blank" rel="noopener" className="doc-ok"><IconeDrive tamanho={14} />Salvo no Drive · abrir</a>
                             ) : (

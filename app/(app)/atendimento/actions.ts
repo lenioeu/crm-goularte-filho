@@ -9,6 +9,7 @@ import { acharCliente, conversaAberta, enviarERegistrar } from "@/lib/atendiment
 import { enviarArquivo, tokenDeAcesso } from "@/lib/google";
 import { semColunaContato, TIPO_NOVO_CONTATO } from "@/lib/contatos";
 import { quemSou } from "@/lib/permissoes";
+import { transcreverMensagem } from "@/lib/transcricao";
 import { TZ } from "@/lib/rotulos";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import {
@@ -573,5 +574,20 @@ export async function importarConversaAntiga(jid: string, nome: string | null): 
     return { erro: null, novas: novas.length };
   } catch (e) {
     return { erro: falha(e), novas: 0 };
+  }
+}
+
+// ------------------------------------------------------------------ Transcrição de áudio
+/** Botão "Transcrever" (áudios antigos ou quando a transcrição automática falhou). */
+export async function transcreverAudio(id: string): Promise<{ erro: string | null; texto: string | null }> {
+  const { papel } = await quemSou();
+  if (!papel) return { erro: "Sem permissão.", texto: null };
+  try {
+    // Chave secreta: a gravação vale mesmo para quem só lê a conversa
+    const texto = await transcreverMensagem(supabaseAdmin(), { id });
+    revalidatePath("/atendimento");
+    return { erro: null, texto };
+  } catch (e) {
+    return { erro: falha(e), texto: null };
   }
 }

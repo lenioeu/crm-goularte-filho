@@ -66,6 +66,9 @@ const banco = http.createServer((req, res) => {
   // Evolution API falso (WhatsApp)
   if (url.pathname.startsWith("/instance/connectionState/")) return res.end(JSON.stringify({ instance: { state: "open" } }));
   if (url.pathname.startsWith("/message/sendText/")) return res.end(JSON.stringify({ key: { id: "WA" + Date.now() } }));
+  if (url.pathname.startsWith("/chat/getBase64FromMediaMessage/")) return res.end(JSON.stringify({ base64: Buffer.from("OggS").toString("base64"), mimetype: "audio/ogg" }));
+  // Groq falso (transcrição de áudio)
+  if (url.pathname === "/groq") return res.end(JSON.stringify({ text: "Transcrição de teste" }));
   // Mensagem nova do WhatsApp ainda não registrada
   if (url.searchParams.has("whatsapp_id")) return res.end((req.headers.accept ?? "").includes("vnd.pgrst.object") ? "null" : "[]");
   if (url.pathname === "/auth/v1/user") return res.end(JSON.stringify(usuario));
@@ -115,6 +118,8 @@ const app = spawn(process.execPath, ["node_modules/next/dist/bin/next", "start",
     SUPABASE_SECRET_KEY: "teste",
     EVOLUTION_URL: `http://127.0.0.1:${PORTA_BANCO}`,
     EVOLUTION_API_KEY: "teste",
+    GROQ_API_KEY: "teste",
+    GROQ_URL_TESTE: `http://127.0.0.1:${PORTA_BANCO}/groq`,
     CRON_SECRET: "teste",
     GOOGLE_CLIENT_ID: "",
     GOOGLE_CLIENT_SECRET: "",

@@ -657,3 +657,6 @@ alter table mensagens add column if not exists apagada_em     timestamptz;
 alter table mensagens add column if not exists apagada_por    text check (apagada_por in ('cliente', 'escritorio'));
 alter table mensagens add column if not exists editada_em     timestamptz;
 alter table mensagens add column if not exists texto_original text;
+
+-- Transcrição dos áudios (mesmo conteúdo de 016_transcricao_audio.sql)
+alter table mensagens add column if not exists transcricao text;

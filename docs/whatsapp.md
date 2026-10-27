@@ -168,3 +168,14 @@ O que acontece na importação:
 - não dispara a triagem automática nem notificações; grupos ficam de fora.
 
 O quanto de histórico chega depende do WhatsApp: em geral os últimos meses, às vezes mais.
+
+## Transcrição dos áudios
+
+Os áudios que os clientes mandam ganham o texto embaixo do player, sozinhos, alguns
+segundos depois de chegar. Usa o Whisper do Groq (plano gratuito).
+
+1. Crie a chave em console.groq.com › API Keys (começa com `gsk_`).
+2. Na Vercel: Settings › Environment Variables › `GROQ_API_KEY` = a chave. Faça um Redeploy.
+3. Rode no Supabase o script `supabase/016_transcricao_audio.sql`.
+
+Áudios antigos (ou se a transcrição automática falhar) têm o botão **Transcrever**.
