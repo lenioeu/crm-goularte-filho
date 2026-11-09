@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { CartaoTarefa, type Tarefa } from "@/components/CartaoTarefa";
+import { usuarioAtual } from "@/lib/sessao";
 import { COLUNAS_TAREFA } from "@/lib/rotulos";
 import { FormAcao } from "@/components/FormAcao";
 import { supabaseServer } from "@/lib/supabase/server";
@@ -8,9 +9,7 @@ import { criarTarefa } from "../actions";
 export default async function Tarefas({ searchParams }: { searchParams: Promise<{ minhas?: string; nova?: string }> }) {
   const { minhas, nova } = await searchParams;
   const supabase = await supabaseServer();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await usuarioAtual();
 
   let consulta = supabase
     .from("tarefas")

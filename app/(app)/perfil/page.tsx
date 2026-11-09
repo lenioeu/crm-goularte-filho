@@ -1,14 +1,13 @@
 import { AtivarNotificacoes } from "@/components/AtivarNotificacoes";
 import { EscolherTema } from "@/components/EscolherTema";
+import { usuarioAtual } from "@/lib/sessao";
 import { FormAcao } from "@/components/FormAcao";
 import { supabaseServer } from "@/lib/supabase/server";
 import { salvarPerfil, trocarSenha } from "../actions";
 
 export default async function Perfil() {
   const supabase = await supabaseServer();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await usuarioAtual();
   const { data: p } = await supabase.from("perfis").select("nome, oab, telefone, assinatura").eq("id", user!.id).maybeSingle();
 
   return (

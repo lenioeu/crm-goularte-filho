@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { usuarioAtual } from "@/lib/sessao";
 import { redirect } from "next/navigation";
 import { criarEvento, excluirEvento, tokenDeAcesso } from "@/lib/google";
 import { randomInt } from "node:crypto";
@@ -88,9 +89,7 @@ export async function salvarPerfil(_: Resultado, f: FormData): Promise<Resultado
   const nome = texto(f, "nome");
   if (!nome) return { erro: "Informe o seu nome.", ok: null };
   const supabase = await supabaseServer();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await usuarioAtual();
   if (!user) return { erro: "Sessão expirada. Entre de novo.", ok: null };
   const { error } = await supabase
     .from("perfis")
@@ -206,9 +205,7 @@ export async function criarAudiencia(_: Resultado, f: FormData): Promise<Resulta
   if (Number.isNaN(new Date(inicio).getTime())) return { erro: "Data ou hora inválida.", ok: null };
 
   const supabase = await supabaseServer();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await usuarioAtual();
   const modalidade = texto(f, "modalidade") === "video" ? "video" : "presencial";
   const local = texto(f, "local");
 

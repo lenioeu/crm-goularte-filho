@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { Marca } from "@/components/Marca";
 import { Shell } from "@/components/Shell";
-import { supabaseServer } from "@/lib/supabase/server";
+import { perfilAtual, usuarioAtual } from "@/lib/sessao";
 import { sair } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -14,18 +14,9 @@ const PAPEL: Record<string, string> = {
 };
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const supabase = await supabaseServer();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const [user, perfil] = await Promise.all([usuarioAtual(), perfilAtual()]);
   if (!user) redirect("/login");
-
-  // Quem ainda não foi liberado não consegue ler o próprio perfil (regra do banco).
-  const { data: perfil } = await supabase
-    .from("perfis")
-    .select("nome, papel, ativo, cargos(nome)")
-    .eq("id", user.id)
-    .maybeSingle();
+  // Quem ainda não foi liberado não consegue ler o próprio perfil (regra do banco): perfil vem null.
 
   if (!perfil || !perfil.ativo) {
     return (

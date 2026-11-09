@@ -146,7 +146,10 @@ for (let i = 0; ; i++) {
   }
 }
 
-const sessao = { access_token: "a.b.c", refresh_token: "r", token_type: "bearer", expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, user: usuario };
+// Token no formato real (JWT); a assinatura é conferida pelo Supabase falso (getUser), que aceita qualquer uma
+const b64 = (o) => Buffer.from(JSON.stringify(o)).toString("base64url");
+const jwt = [b64({ alg: "HS256", typ: "JWT" }), b64({ sub: ID, email: "teste@exemplo.com", role: "authenticated", aud: "authenticated", exp: Math.floor(Date.now() / 1000) + 3600, iat: Math.floor(Date.now() / 1000) }), "assinatura"].join(".");
+const sessao = { access_token: jwt, refresh_token: "r", token_type: "bearer", expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, user: usuario };
 const cookie = "sb-127-auth-token=base64-" + Buffer.from(JSON.stringify(sessao)).toString("base64url");
 
 let falhas = 0;

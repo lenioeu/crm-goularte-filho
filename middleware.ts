@@ -19,9 +19,10 @@ export async function middleware(request: NextRequest) {
     },
   });
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // getClaims renova a sessão quando o token vence e confere a assinatura dele; com as chaves de
+  // assinatura novas do Supabase não precisa ir ao servidor de login a cada página
+  const { data } = await supabase.auth.getClaims();
+  const user = data?.claims?.sub ? data.claims : null;
 
   const caminho = request.nextUrl.pathname;
   const publico = ["/login", "/auth", "/sobre", "/privacidade", "/api/cron", "/api/whatsapp"].some((p) => caminho.startsWith(p));
