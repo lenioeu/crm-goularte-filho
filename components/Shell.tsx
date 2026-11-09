@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { ProvedorAvisos } from "@/components/Avisos";
 import { BotaoTema } from "@/components/EscolherTema";
@@ -59,6 +59,7 @@ function tocarSom() {
 
 export function Shell({ nome, cargo, children }: { nome: string; cargo: string; children: React.ReactNode }) {
   const caminho = usePathname();
+  const router = useRouter();
   const [recolhido, setRecolhido] = useState(false);
   const [aberto, setAberto] = useState(false);
 
@@ -112,8 +113,18 @@ export function Shell({ nome, cargo, children }: { nome: string; cargo: string; 
   }
 
   const ativo = (href: string) => (href === "/" ? caminho === "/" : caminho.startsWith(href));
+  // Ao passar o mouse (ou encostar o dedo) no menu, a página já começa a carregar antes do clique
+  const preCarregar = (href: string) => !ativo(href) && router.prefetch(href);
   const link = (i: Item) => (
-    <Link key={i.href} href={i.href} className={"nav" + (ativo(i.href) ? " ativo" : "")} title={i.rotulo}>
+    <Link
+      key={i.href}
+      href={i.href}
+      className={"nav" + (ativo(i.href) ? " ativo" : "")}
+      title={i.rotulo}
+      onMouseEnter={() => preCarregar(i.href)}
+      onTouchStart={() => preCarregar(i.href)}
+      onFocus={() => preCarregar(i.href)}
+    >
       {i.icone}
       <span>{i.rotulo}</span>
       {!i.pronto && <span className="breve">em breve</span>}

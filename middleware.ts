@@ -19,10 +19,13 @@ export async function middleware(request: NextRequest) {
     },
   });
 
-  // getClaims renova a sessão quando o token vence e confere a assinatura dele; com as chaves de
-  // assinatura novas do Supabase não precisa ir ao servidor de login a cada página
-  const { data } = await supabase.auth.getClaims();
-  const user = data?.claims?.sub ? data.claims : null;
+  // O middleware roda perto de quem acessa (Brasil) e o Supabase fica nos EUA: aqui só lê a sessão do
+  // cookie e a renova quando o token vence, sem ir ao servidor de login a cada página. Quem confere de
+  // verdade é a moldura das páginas (lib/sessao.ts, getClaims), as rotas da API (quemSou) e as regras do banco.
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  const user = session?.access_token ? true : null; // sem ler session.user (o Supabase avisa que ele não é conferido)
 
   const caminho = request.nextUrl.pathname;
   const publico = ["/login", "/auth", "/sobre", "/privacidade", "/api/cron", "/api/whatsapp"].some((p) => caminho.startsWith(p));
