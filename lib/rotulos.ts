@@ -60,3 +60,6 @@ export const COLUNAS_TAREFA = [
 export const TIPO_OUTRO = "OUTRO";
 
 export const TIPOS_DOCUMENTO = ["RG", "CPF", "CNH", "COMPROVANTE DE RESIDÊNCIA", "CTPS", "HOLERITE", "TRCT", "EXTRATO FGTS", "CNIS", "LAUDO MÉDICO", "CONTRATO", "PROCURAÇÃO", "CERTIDÃO", "BOLETIM DE OCORRÊNCIA", "FOTO", "ÁUDIO", "DOCUMENTO"];
+
+/** Tipos de audiência oferecidos ao agendar ou editar. */
+export const TIPOS_AUDIENCIA = ["Conciliação", "Instrução", "Instrução e julgamento", "Una", "Inicial", "Perícia", "Custódia", "Sessão de julgamento"];

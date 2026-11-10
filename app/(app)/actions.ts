@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { usuarioAtual } from "@/lib/sessao";
 import { redirect } from "next/navigation";
-import { criarEvento, excluirEvento, tokenDeAcesso } from "@/lib/google";
+import { atualizarEvento, criarEvento, excluirEvento, tokenDeAcesso } from "@/lib/google";
 import { randomInt } from "node:crypto";
 import { ehDeAudiencia, lerModelosMensagem, preencherMensagem, quandoEnviar } from "@/lib/modelosMensagem";
 import { quemSou } from "@/lib/permissoes";
@@ -280,6 +280,109 @@ export async function criarAudiencia(_: Resultado, f: FormData): Promise<Resulta
   revalidatePath("/audiencias");
   revalidatePath("/");
   return { erro: null, ok: `Audiência agendada.${agenda}${lembrete}` };
+}
+
+/** Corrige uma audiência já marcada: atualiza a Google Agenda e reprograma as mensagens ao cliente. */
+export async function editarAudiencia(_: Resultado, f: FormData): Promise<Resultado> {
+  const id = texto(f, "id");
+  const tipo = texto(f, "tipo_outro") ?? texto(f, "tipo");
+  const data = texto(f, "data");
+  const hora = texto(f, "hora");
+  if (!id) return { erro: "Audiência não encontrada.", ok: null };
+  if (!tipo) return { erro: "Informe o tipo da audiência.", ok: null };
+  if (!data || !hora) return { erro: "Informe o dia e a hora.", ok: null };
+  const inicio = `${data}T${hora}:00-03:00`;
+  if (Number.isNaN(new Date(inicio).getTime())) return { erro: "Data ou hora inválida.", ok: null };
+
+  const { supabase, user, papel } = await quemSou();
+  if (!user || !papel) return { erro: "Sem permissão.", ok: null };
+  const modalidade = texto(f, "modalidade") === "video" ? "video" : "presencial";
+  const local = texto(f, "local");
+  const observacoes = texto(f, "observacoes");
+
+  const { data: aud } = await supabase
+    .from("audiencias")
+    .select("id, google_event_id, processos(numero_cnj, vara), casos(cliente_id, titulo, clientes(nome))")
+    .eq("id", id)
+    .maybeSingle();
+  if (!aud) return { erro: "Audiência não encontrada. Recarregue a página.", ok: null };
+  type Rel<T> = T | T[] | null;
+  const um = <T,>(r: Rel<T>): T | null => (Array.isArray(r) ? r[0] ?? null : r);
+  const processo = um(aud.processos as Rel<{ numero_cnj: string; vara: string | null }>);
+  const caso = um(aud.casos as Rel<{ cliente_id: string; titulo: string; clientes: Rel<{ nome: string }> }>);
+  const nomeCliente = um(caso?.clientes ?? null)?.nome ?? "";
+
+  const { error } = await supabase
+    .from("audiencias")
+    .update({ tipo, inicio, local, modalidade, responsavel_id: texto(f, "responsavel_id"), observacoes })
+    .eq("id", id);
+  if (error) return { erro: traduzirErro(error.message), ok: null };
+
+  // Google Agenda: corrige o evento; se ele não existia (ou foi apagado lá), cria de novo
+  let agenda = "";
+  try {
+    const token = await tokenDeAcesso();
+    if (token) {
+      const ev = {
+        titulo: `Audiência de ${tipo.toLowerCase()} · ${nomeCliente}`,
+        inicio,
+        fim: new Date(new Date(inicio).getTime() + 60 * 60 * 1000).toISOString(),
+        local: local ?? (modalidade === "video" ? "Por vídeo" : undefined),
+        descricao: `${processo ? `Processo: ${processo.numero_cnj}${processo.vara ? ` · ${processo.vara}` : ""}\n` : ""}Caso: ${caso?.titulo ?? ""}\n${observacoes ?? ""}\nRegistrado pelo Órion CRM`.trim(),
+      };
+      let atualizado = false;
+      if (aud.google_event_id) {
+        try {
+          await atualizarEvento(token, aud.google_event_id, ev);
+          atualizado = true;
+        } catch {
+          // evento apagado direto na Google Agenda: cria outro abaixo
+        }
+      }
+      if (!atualizado) {
+        const novo = await criarEvento(token, ev);
+        await supabase.from("audiencias").update({ google_event_id: novo.id }).eq("id", id);
+      }
+      agenda = " Google Agenda atualizada.";
+    }
+  } catch {
+    agenda = " Não foi possível atualizar a Google Agenda agora.";
+  }
+
+  // Mensagens ao cliente: cancela as que ainda não saíram e programa de novo, com os dados novos,
+  // as dos modelos marcados no formulário
+  await supabase
+    .from("mensagens_agendadas")
+    .update({ status: "cancelada", erro: "audiência alterada" })
+    .eq("audiencia_id", id)
+    .eq("status", "programada")
+    .eq("automatico", true);
+  const { modelos } = await lerModelosMensagem(supabase);
+  const dadosAud = { inicio, tipo, local, modalidade, processo: processo?.numero_cnj ?? null };
+  const programados: string[] = [];
+  for (const m of modelos.filter((x) => ehDeAudiencia(x.gatilho) && f.get(`modelo_${x.id}`) === "on")) {
+    const q = quandoEnviar(m, inicio);
+    if (!q) continue;
+    const enviarEm = `${q.data}T${q.hora}:00-03:00`;
+    if (!caso?.cliente_id || new Date(enviarEm).getTime() <= Date.now()) continue; // já passou: não programa
+    const { error: e2 } = await supabase.from("mensagens_agendadas").insert({
+      cliente_id: caso.cliente_id,
+      audiencia_id: id,
+      tipo: "lembrete_audiencia",
+      texto: preencherMensagem(m.texto, nomeCliente, dadosAud),
+      enviar_em: enviarEm,
+      cancelar_se_responder: m.cancelar_se_responder,
+      automatico: true,
+      criado_por: user.id,
+    });
+    if (!e2) programados.push(`${q.data.slice(8, 10)}/${q.data.slice(5, 7)} às ${q.hora.replace(":00", "h")}`);
+  }
+  const lembrete = programados.length ? ` Mensage${programados.length > 1 ? "ns" : "m"} ao cliente: ${programados.join(", ")}.` : " Nenhuma mensagem ao cliente programada.";
+
+  revalidatePath("/audiencias");
+  revalidatePath("/agendamentos");
+  revalidatePath("/");
+  return { erro: null, ok: `Audiência atualizada.${agenda}${lembrete}` };
 }
 
 export async function excluirAudiencia(id: string): Promise<Resultado> {

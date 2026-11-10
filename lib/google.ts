@@ -187,6 +187,19 @@ export async function criarEvento(
   });
 }
 
+export async function atualizarEvento(token: string, id: string, ev: { titulo: string; inicio: string; fim: string; local?: string; descricao?: string }) {
+  await google(token, `https://www.googleapis.com/calendar/v3/calendars/primary/events/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      summary: ev.titulo,
+      location: ev.local ?? "",
+      description: ev.descricao,
+      start: { dateTime: ev.inicio, timeZone: TZ },
+      end: { dateTime: ev.fim, timeZone: TZ },
+    }),
+  });
+}
+
 export async function excluirEvento(token: string, id: string) {
   await google(token, `https://www.googleapis.com/calendar/v3/calendars/primary/events/${encodeURIComponent(id)}`, {
     method: "DELETE",

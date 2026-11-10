@@ -1,6 +1,8 @@
+import Link from "next/link";
+import { EditarAudiencia, type ModeloDaAudiencia } from "@/components/EditarAudiencia";
 import { ExcluirAudiencia } from "@/components/ExcluirAudiencia";
 import { FormAudiencia, type ProcessoOpcao } from "@/components/FormAudiencia";
-import { lerModelosMensagem } from "@/lib/modelosMensagem";
+import { ehDeAudiencia, lerModelosMensagem, type ModeloMensagem, quandoEnviar } from "@/lib/modelosMensagem";
 import { supabaseServer } from "@/lib/supabase/server";
 
 const TZ = "America/Sao_Paulo";
@@ -12,9 +14,10 @@ type Audiencia = {
   local: string | null;
   modalidade: "presencial" | "video";
   observacoes: string | null;
+  responsavel_id: string | null;
   perfis: { nome: string } | null;
   processos: { numero_cnj: string } | null;
-  casos: { titulo: string; clientes: { nome: string } | null; areas: { nome: string; cor: string } | null } | null;
+  casos: { titulo: string; clientes: { id: string; nome: string } | null; areas: { nome: string; cor: string } | null } | null;
 };
 
 function diaTitulo(iso: string) {
@@ -28,18 +31,48 @@ function diaTitulo(iso: string) {
   return extenso;
 }
 
-function Linha({ a }: { a: Audiencia }) {
+type Apoio = { pessoas: { id: string; nome: string }[]; modelos: ModeloMensagem[]; programadas: Map<string, Set<number>> };
+
+function Linha({ a, apoio }: { a: Audiencia; apoio: Apoio }) {
   const hora = new Date(a.inicio).toLocaleTimeString("pt-BR", { timeZone: TZ, hour: "2-digit", minute: "2-digit" });
-  const cliente = a.casos?.clientes?.nome ?? "Cliente";
+  const cli = a.casos?.clientes ?? null;
+  const cliente = cli?.nome ?? "Cliente";
+  // Modelos de mensagem: marcado quando há uma mensagem ainda programada para o horário daquele modelo
+  const pendentes = apoio.programadas.get(a.id);
+  const modelos: ModeloDaAudiencia[] = apoio.modelos.map((m) => {
+    const q = quandoEnviar(m, a.inicio);
+    const ms = q ? new Date(`${q.data}T${q.hora}:00-03:00`).getTime() : NaN;
+    return {
+      id: m.id,
+      nome: m.nome,
+      quando: `${m.dias === 0 ? "no dia" : `${m.dias} ${m.dias === 1 ? "dia" : "dias"} ${m.gatilho === "antes_audiencia" ? "antes" : "depois"}`}, às ${m.hora.replace(":00", "h")}`,
+      marcado: Boolean(pendentes?.has(ms)),
+    };
+  });
   return (
     <div className="li">
       <div className="hora">{hora}<small>{a.modalidade === "video" ? "vídeo" : "presencial"}</small></div>
       <div className="bd">
-        <b>{a.tipo} · {cliente}</b>
+        <b>{a.tipo} · {cli ? <Link href={`/clientes/${cli.id}`} className="link-cliente">{cliente}</Link> : cliente}</b>
         <small>{[a.processos?.numero_cnj ?? a.casos?.titulo, a.local, a.perfis?.nome].filter(Boolean).join(" · ")}</small>
         {a.observacoes && <small style={{ color: "var(--dim)" }}>{a.observacoes}</small>}
       </div>
       {a.casos?.areas && <span className="chip area" style={{ "--c": a.casos.areas.cor } as React.CSSProperties}>{a.casos.areas.nome}</span>}
+      <EditarAudiencia
+        aud={{
+          id: a.id,
+          tipo: a.tipo,
+          data: new Date(a.inicio).toLocaleDateString("sv-SE", { timeZone: TZ }),
+          hora,
+          modalidade: a.modalidade,
+          local: a.local,
+          observacoes: a.observacoes,
+          responsavel_id: a.responsavel_id,
+          descricao: `${a.tipo} · ${cliente}${a.processos ? ` · ${a.processos.numero_cnj}` : ""}`,
+        }}
+        pessoas={apoio.pessoas}
+        modelos={modelos}
+      />
       <ExcluirAudiencia id={a.id} descricao={`${a.tipo} · ${cliente}`} />
     </div>
   );
@@ -50,15 +83,24 @@ export default async function Audiencias({ searchParams }: { searchParams: Promi
   const supabase = await supabaseServer();
   const inicioHoje = new Date(`${new Date().toLocaleDateString("sv-SE", { timeZone: TZ })}T00:00:00-03:00`).toISOString();
   const ha30 = new Date(Date.now() - 30 * 86_400_000).toISOString();
-  const campos = "id, tipo, inicio, local, modalidade, observacoes, perfis(nome), processos(numero_cnj), casos(titulo, clientes(nome), areas(nome, cor))";
+  const campos = "id, tipo, inicio, local, modalidade, observacoes, responsavel_id, perfis(nome), processos(numero_cnj), casos(titulo, clientes(id, nome), areas(nome, cor))";
 
-  const [{ data: proximas, error }, { data: passadas }, { data: procs }, { data: pessoas }, { modelos: modelosMensagem }] = await Promise.all([
+  const [{ data: proximas, error }, { data: passadas }, { data: procs }, { data: pessoas }, { modelos: modelosMensagem }, { data: msgs }] = await Promise.all([
     supabase.from("audiencias").select(campos).gte("inicio", inicioHoje).order("inicio").limit(300),
     supabase.from("audiencias").select(campos).lt("inicio", inicioHoje).gte("inicio", ha30).order("inicio", { ascending: false }).limit(100),
     supabase.from("processos").select("id, numero_cnj, vara, casos(clientes(nome))").order("criado_em", { ascending: false }).limit(3000),
     supabase.from("perfis").select("id, nome").eq("ativo", true).order("nome"),
     lerModelosMensagem(supabase),
+    // Mensagens automáticas ainda por sair, para marcar no "Editar" os modelos que estão programados
+    supabase.from("mensagens_agendadas").select("audiencia_id, enviar_em").eq("status", "programada").eq("automatico", true).not("audiencia_id", "is", null).limit(3000),
   ]);
+  const programadas = new Map<string, Set<number>>();
+  for (const m of msgs ?? []) {
+    if (!m.audiencia_id) continue;
+    if (!programadas.has(m.audiencia_id)) programadas.set(m.audiencia_id, new Set());
+    programadas.get(m.audiencia_id)!.add(new Date(m.enviar_em).getTime());
+  }
+  const apoio: Apoio = { pessoas: pessoas ?? [], modelos: modelosMensagem.filter((m) => ehDeAudiencia(m.gatilho)), programadas };
 
   const lista = (proximas ?? []) as unknown as Audiencia[];
   const antigas = (passadas ?? []) as unknown as Audiencia[];
@@ -105,7 +147,7 @@ export default async function Audiencias({ searchParams }: { searchParams: Promi
           porDia.map((g) => (
             <div key={g.titulo}>
               <div className="dayhead">{g.titulo}</div>
-              <div className="list">{g.itens.map((a) => <Linha key={a.id} a={a} />)}</div>
+              <div className="list">{g.itens.map((a) => <Linha key={a.id} a={a} apoio={apoio} />)}</div>
             </div>
           ))
         )}
@@ -116,7 +158,7 @@ export default async function Audiencias({ searchParams }: { searchParams: Promi
         {antigas.length === 0 ? (
           <div className="vazio">Nenhuma audiência nos últimos 30 dias.</div>
         ) : (
-          <div className="list" style={{ marginTop: 10 }}>{antigas.map((a) => <Linha key={a.id} a={a} />)}</div>
+          <div className="list" style={{ marginTop: 10 }}>{antigas.map((a) => <Linha key={a.id} a={a} apoio={apoio} />)}</div>
         )}
       </details>
     </div>

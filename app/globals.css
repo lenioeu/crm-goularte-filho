@@ -670,3 +670,6 @@ kbd { font-family: var(--f-mono); font-size: 11px; border: 1px solid var(--line-
 .varios-tipo { display: flex; flex-direction: column; gap: 6px; flex: 1 1 200px; min-width: 180px; }
 .salvar-doc select { height: 32px; font-size: 13px; min-width: 160px; flex: 1; border-radius: 8px; border: 1px solid var(--line-2); background: var(--panel); color: var(--fg); padding: 0 8px; }
 .varios-tipo select, .varios-tipo input:not([type="checkbox"]) { flex: none; width: 100%; }
+.link-cliente { color: var(--accent); }
+.link-cliente:hover { text-decoration: underline; }
+.linkbtn.editar { color: var(--accent); }

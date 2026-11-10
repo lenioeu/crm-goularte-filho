@@ -1,8 +1,7 @@
 import { FormAcao } from "@/components/FormAcao";
 import { criarAudiencia } from "@/app/(app)/actions";
 import { ehDeAudiencia, type ModeloMensagem } from "@/lib/modelosMensagem";
-
-const TIPOS = ["Conciliação", "Instrução", "Instrução e julgamento", "Una", "Inicial", "Perícia", "Custódia", "Sessão de julgamento"];
+import { TIPOS_AUDIENCIA as TIPOS } from "@/lib/rotulos";
 
 export type ProcessoOpcao = { id: string; numero_cnj: string; cliente?: string | null; vara?: string | null };
 
