@@ -103,9 +103,17 @@ export default async function Atendimento({ searchParams }: { searchParams: Prom
   const consulta = listar(campos + ", aguardando_resposta").then(async (r) => (r.error ? listar(campos) : r));
 
   // 1ª rodada: tudo que não depende de outra consulta vai junto
-  const [{ data: lista, error }, { count: naFila }, { data: areas }, sel, novoCliente, { data: cfgRespostas }, tiposContato, { modelos: modelosMsg }] = await Promise.all([
+  const [{ data: lista, error }, esperando, { data: areas }, sel, novoCliente, { data: cfgRespostas }, tiposContato, { modelos: modelosMsg }] = await Promise.all([
     consulta,
-    supabase.from("conversas").select("id", { count: "exact", head: true }).in("status", ["bot", "aguardando"]),
+    // Conversas esperando resposta, para o número em cima de cada aba ("aguardando_resposta" é do script 008;
+    // sem ele, conta só o que está na fila)
+    supabase
+      .from("conversas")
+      .select("status, atendente_id")
+      .eq("aguardando_resposta", true)
+      .neq("status", "resolvida")
+      .limit(2000)
+      .then(async (r) => (r.error ? supabase.from("conversas").select("status, atendente_id").in("status", ["bot", "aguardando"]).limit(2000) : r)),
     supabase.from("areas").select("id, nome").eq("ativa", true).order("ordem_bot"),
     c ? supabase.from("conversas").select(campos + ", area_id").eq("id", c).maybeSingle() : Promise.resolve({ data: null }),
     clienteParam && !c ? supabase.from("clientes").select("id, nome, telefone_whatsapp").eq("id", clienteParam).maybeSingle() : Promise.resolve({ data: null }),
@@ -114,6 +122,13 @@ export default async function Atendimento({ searchParams }: { searchParams: Prom
     c ? lerModelosMensagem(supabase) : Promise.resolve({ modelos: [] as Awaited<ReturnType<typeof lerModelosMensagem>>["modelos"], tabela: false }),
   ]);
   const conversas = (lista ?? []) as unknown as Conversa[];
+  // Quantas conversas esperam resposta em cada aba
+  const pendentes: Record<string, number> = {};
+  for (const x of FILTROS) {
+    pendentes[x.id] = ((esperando.data ?? []) as { status: string; atendente_id: string | null }[]).filter(
+      (k) => x.status.includes(k.status) && (x.id !== "meus" || k.atendente_id === user?.id),
+    ).length;
+  }
   const atual = sel.data as unknown as (Conversa & { area_id: string | null }) | null;
   // Enquanto a equipe não salvar as suas, valem as respostas de fábrica
   const respostas = (Array.isArray(cfgRespostas?.valor) ? cfgRespostas.valor : cfgRespostas ? [] : RESPOSTAS_PADRAO) as { atalho: string; texto: string }[];
@@ -233,7 +248,9 @@ export default async function Atendimento({ searchParams }: { searchParams: Prom
           // prefetch: a aba já vem carregada ao passar o mouse/abrir a tela, e a troca fica instantânea
           <Link key={x.id} className={"fp" + (x.id === filtro.id ? " on" : "")} href={`/atendimento?f=${x.id}`} prefetch>
             {x.rotulo}
-            {x.id === "fila" && naFila ? ` · ${naFila}` : ""}
+            {pendentes[x.id] > 0 && (
+              <span className="aba-pendentes" aria-label={`${pendentes[x.id]} esperando resposta`}>{pendentes[x.id] > 99 ? "99+" : pendentes[x.id]}</span>
+            )}
             <CarregandoLink />
           </Link>
         ))}

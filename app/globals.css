@@ -677,3 +677,7 @@ kbd { font-family: var(--f-mono); font-size: 11px; border: 1px solid var(--line-
 .codigo-wa { font-family: var(--f-mono); font-size: 30px; font-weight: 600; letter-spacing: 4px; padding: 14px 20px; border-radius: 14px; background: var(--panel-2); border: 1px solid var(--line-2); user-select: all; }
 .conectar-numero { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .conectar-numero input { height: 40px; border-radius: 10px; border: 1px solid var(--line-2); background: var(--panel); color: var(--fg); padding: 0 12px; font-size: 14px; font-family: var(--f-body); min-width: 240px; }
+/* número de conversas esperando resposta, em cima de cada aba do atendimento */
+.chat-abas .fp { position: relative; }
+.aba-pendentes { position: absolute; top: -9px; right: -7px; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--crit); color: #fff; font-size: 11.5px; font-weight: 700; line-height: 20px; text-align: center; box-shadow: 0 0 0 2px var(--bg); pointer-events: none; }
+.chat-abas { padding-top: 6px; gap: 12px; }
