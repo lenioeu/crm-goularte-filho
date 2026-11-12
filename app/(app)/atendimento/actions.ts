@@ -13,7 +13,7 @@ import { transcreverMensagem } from "@/lib/transcricao";
 import { TZ } from "@/lib/rotulos";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import {
-  apagarParaTodos, baixarMidia, conectar, conversasNoServidor, desconectar, editarNoWhatsApp, enviarAudio, enviarMidia, estadoConexao, INSTANCIA,
+  apagarParaTodos, baixarMidia, conectar, conectarPorNumero, conversasNoServidor, desconectar, editarNoWhatsApp, enviarAudio, enviarMidia, estadoConexao, INSTANCIA,
   lerMensagem, mensagensNoServidor, pedirHistoricoCompleto, reaplicarWebhook, tipoDoArquivo, whatsappConfigurado, type Estado,
 } from "@/lib/whatsapp";
 
@@ -184,6 +184,25 @@ export async function conectarWhatsApp(): Promise<{ erro: string | null; qr: str
     return { erro: null, qr: await conectar(url), estado: "connecting" };
   } catch (e) {
     return { erro: `O servidor do WhatsApp não respondeu: ${falha(e)}`, qr: null, estado: null };
+  }
+}
+
+/** Conectar sem QR Code: gera o código para digitar no celular ("Conectar com número de telefone"). */
+export async function conectarWhatsAppPorNumero(telefone: string): Promise<{ erro: string | null; codigo: string | null; estado: Estado | null }> {
+  const { papel } = await quemSou();
+  if (papel !== "administrador") return { erro: "Só o administrador conecta o WhatsApp.", codigo: null, estado: null };
+  if (!whatsappConfigurado()) return { erro: "Faltam as variáveis do WhatsApp na Vercel.", codigo: null, estado: null };
+  const digitos = telefone.replace(/\D/g, "");
+  if (digitos.length < 10) return { erro: "Informe o número do WhatsApp do escritório com DDD.", codigo: null, estado: null };
+  const h = await headers();
+  const url = `https://${h.get("x-forwarded-host") ?? h.get("host")}/api/whatsapp/webhook`;
+  try {
+    if ((await estadoConexao()) === "open") return { erro: null, codigo: null, estado: "open" };
+    const codigo = await conectarPorNumero(url, digitos);
+    if (!codigo) return { erro: "O servidor do WhatsApp não gerou o código. Espere alguns segundos e tente de novo, ou use o QR Code.", codigo: null, estado: null };
+    return { erro: null, codigo, estado: "connecting" };
+  } catch (e) {
+    return { erro: `O servidor do WhatsApp não respondeu: ${falha(e)}`, codigo: null, estado: null };
   }
 }
 

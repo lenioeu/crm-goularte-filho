@@ -156,6 +156,41 @@ export async function conectar(urlWebhook: string): Promise<string | null> {
   return r.base64 ?? null;
 }
 
+/**
+ * Conexão sem QR Code: devolve o código de 8 caracteres que a pessoa digita no celular em
+ * "Aparelhos conectados › Conectar um aparelho › Conectar com número de telefone".
+ */
+export async function conectarPorNumero(urlWebhook: string, telefone: string): Promise<string | null> {
+  const webhook = configWebhook(urlWebhook);
+  const numero = numeroWhatsApp(telefone);
+  type Qr = { pairingCode?: string | null; qrcode?: { pairingCode?: string | null } };
+  const codigo = (r: Qr) => r.pairingCode ?? r.qrcode?.pairingCode ?? null;
+  const pausa = (ms: number) => new Promise((ok) => setTimeout(ok, ms));
+
+  const estado = await estadoConexao();
+  if (estado === "inexistente") {
+    const r = await evo<Qr>("/instance/create", {
+      method: "POST",
+      body: JSON.stringify({ instanceName: INSTANCIA, integration: "WHATSAPP-BAILEYS", qrcode: true, number: numero, groupsIgnore: true, webhook }),
+    });
+    if (codigo(r)) return codigo(r);
+  } else {
+    await evo(`/webhook/set/${INSTANCIA}`, { method: "POST", body: JSON.stringify({ webhook }) });
+    // Com um QR Code pendente o servidor não gera código: encerra a tentativa anterior primeiro
+    if (estado === "connecting") {
+      await evo(`/instance/logout/${INSTANCIA}`, { method: "DELETE" }).catch(() => null);
+      await pausa(1500);
+    }
+  }
+  // O código leva alguns segundos para ficar pronto
+  for (let i = 0; i < 4; i++) {
+    const r = await evo<Qr>(`/instance/connect/${INSTANCIA}?number=${numero}`);
+    if (codigo(r)) return codigo(r);
+    await pausa(1500);
+  }
+  return null;
+}
+
 export async function desconectar() {
   await evo(`/instance/logout/${INSTANCIA}`, { method: "DELETE" });
 }

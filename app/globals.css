@@ -673,3 +673,7 @@ kbd { font-family: var(--f-mono); font-size: 11px; border: 1px solid var(--line-
 .link-cliente { color: var(--accent); }
 .link-cliente:hover { text-decoration: underline; }
 .linkbtn.editar { color: var(--accent); }
+/* conectar o WhatsApp pelo número (código no lugar do QR) */
+.codigo-wa { font-family: var(--f-mono); font-size: 30px; font-weight: 600; letter-spacing: 4px; padding: 14px 20px; border-radius: 14px; background: var(--panel-2); border: 1px solid var(--line-2); user-select: all; }
+.conectar-numero { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.conectar-numero input { height: 40px; border-radius: 10px; border: 1px solid var(--line-2); background: var(--panel); color: var(--fg); padding: 0 12px; font-size: 14px; font-family: var(--f-body); min-width: 240px; }
