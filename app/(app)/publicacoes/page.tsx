@@ -4,6 +4,7 @@ import { FormAcao } from "@/components/FormAcao";
 import { Icone } from "@/components/Icone";
 import { TextoPublicacao } from "@/components/TextoPublicacao";
 import { quemSou } from "@/lib/permissoes";
+import { religarPublicacoes } from "@/lib/recorte";
 import { TIPOS_AUDIENCIA, TZ } from "@/lib/rotulos";
 import { audienciaDaPublicacao, darCiencia, tarefaDaPublicacao, voltarParaTratar } from "./actions";
 
@@ -49,6 +50,8 @@ function maisDiasUteis(iso: string | null, n: number) {
 export default async function Publicacoes({ searchParams }: { searchParams: Promise<{ f?: string; tipo?: string }> }) {
   const { f = "novas", tipo } = await searchParams;
   const { supabase, papel } = await quemSou();
+  // Publicações de processos cadastrados depois que elas chegaram: liga agora (sem a tabela, não faz nada)
+  await religarPublicacoes(supabase).catch(() => 0);
   const tratadas = f === "tratadas";
   const ha30 = new Date(Date.now() - 30 * 86_400_000).toISOString();
 

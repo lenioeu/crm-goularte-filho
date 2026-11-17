@@ -70,6 +70,7 @@ export async function cadastrarProcesso(_: Resultado, f: FormData): Promise<Resu
   if (r.ok) {
     revalidatePath("/processos");
     revalidatePath("/atendimento");
+    revalidatePath("/publicacoes"); // publicações desse número que já tinham chegado passam a aparecer ligadas
     if (clienteId) revalidatePath(`/clientes/${clienteId}`);
   }
   return r;

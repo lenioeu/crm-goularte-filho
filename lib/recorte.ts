@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 // Leitura do e-mail diário do Recorte Digital da OAB/ES (feito pela WEBJUR).
 // Cada publicação vem entre os comentários <!--Inicio publicacao;;Processo:NNN--> e <!--Fim publicacao;;Processo:...-->,
@@ -120,4 +121,22 @@ export function diaDoAssunto(assunto: string, recebidoEm: Date) {
   const m = assunto.match(/DJES\s+(\d{2})\/(\d{2})\/(\d{2,4})/i);
   if (m) return `${m[3].length === 2 ? `20${m[3]}` : m[3]}-${m[2]}-${m[1]}`;
   return recebidoEm.toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
+}
+
+/**
+ * Liga ao processo (e ao cliente) as publicações que chegaram antes de o processo ser cadastrado no Órion.
+ * Roda ao abrir Publicações: quem cadastra o processo pelo "cadastrar" volta e já encontra a publicação ligada.
+ */
+export async function religarPublicacoes(db: SupabaseClient) {
+  const { data: soltas } = await db.from("publicacoes").select("id, numero_cnj").is("processo_id", null).not("numero_cnj", "is", null).limit(500);
+  const numeros = [...new Set((soltas ?? []).map((p) => p.numero_cnj as string))];
+  if (!numeros.length) return 0;
+  const { data: procs } = await db.from("processos").select("id, numero_cnj, casos(cliente_id)").in("numero_cnj", numeros);
+  let ligadas = 0;
+  for (const p of (procs ?? []) as { id: string; numero_cnj: string; casos: { cliente_id: string } | { cliente_id: string }[] | null }[]) {
+    const cliente = (Array.isArray(p.casos) ? p.casos[0] : p.casos)?.cliente_id ?? null;
+    const { data } = await db.from("publicacoes").update({ processo_id: p.id, cliente_id: cliente }).eq("numero_cnj", p.numero_cnj).is("processo_id", null).select("id");
+    ligadas += data?.length ?? 0;
+  }
+  return ligadas;
 }
