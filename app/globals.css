@@ -698,3 +698,24 @@ kbd { font-family: var(--f-mono); font-size: 11px; border: 1px solid var(--line-
 .pub-mais[open] > summary { background: var(--accent-soft); color: var(--accent-soft-ink); border-color: transparent; }
 .script-recorte { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
 .script-recorte pre { max-height: 260px; overflow: auto; font-size: 11.5px; background: var(--panel-2); padding: 10px; border-radius: 10px; white-space: pre; max-width: 100%; }
+/* prazos */
+.prazo-kpis .kpi { text-decoration: none; color: inherit; }
+.kpi.kpi-crit .val { color: var(--crit); }
+.kpi.kpi-warn .val { color: var(--warn); }
+.li.prazo { align-items: flex-start; }
+.li.prazo .bd small { display: block; margin-top: 3px; }
+.li.prazo.urgente .prazo-data { background: var(--crit); color: #fff; }
+.prazo-data { width: 64px; flex: none; text-align: center; border-radius: 12px; background: var(--panel-2); padding: 6px 4px; display: flex; flex-direction: column; line-height: 1.15; }
+.prazo-data b { font-size: 18px; font-variant-numeric: tabular-nums; }
+.prazo-data small { font-size: 11px; opacity: 0.8; text-transform: uppercase; }
+.prazo-acoes { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.prazo-calculo { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; border-radius: 12px; background: var(--panel-2); padding: 12px; }
+.prazo-calculo > div { display: flex; flex-direction: column; gap: 2px; }
+.prazo-calculo small { color: var(--muted); font-size: 12px; }
+.prazo-calculo .interno b { color: var(--warn); }
+.prazo-calculo .fatal b { color: var(--crit); }
+.prazo-calculo p { grid-column: 1 / -1; margin: 0; font-size: 12px; color: var(--muted); }
+@media (max-width: 600px) { .prazo-calculo { grid-template-columns: 1fr; } }
+.feriados-lista { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; align-items: center; }
+.feriados-lista .chip { height: 30px; font-size: 13px; padding-right: 4px; }
+.feriados-lista .tipo-remover { border: none; background: none; color: inherit; cursor: pointer; width: 22px; height: 22px; border-radius: 50%; }

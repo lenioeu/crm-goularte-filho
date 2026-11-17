@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { camposDoResumo, consultarDataJud, somenteDigitos } from "@/lib/datajud";
+import { enviarPush } from "@/lib/push";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export const maxDuration = 60;
@@ -13,6 +14,7 @@ export async function GET(request: Request) {
   }
 
   const admin = supabaseAdmin();
+  const prazos = await avisarPrazos(admin).catch(() => 0);
   const { data } = await admin
     .from("processos")
     .select("id, numero_cnj")
@@ -37,5 +39,34 @@ export async function GET(request: Request) {
     }
   }
   await Promise.all(Array.from({ length: 5 }, trabalhador));
-  return NextResponse.json({ processos: data?.length ?? 0, atualizados, falhas });
+  return NextResponse.json({ processos: data?.length ?? 0, atualizados, falhas, prazos });
+}
+
+/**
+ * Às 7h de dia útil, cada responsável recebe no celular o resumo dos prazos dele: vencidos, que vencem
+ * hoje e com prazo interno chegando. Sem o script 018, não faz nada.
+ */
+async function avisarPrazos(admin: ReturnType<typeof supabaseAdmin>) {
+  const hoje = new Date().toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
+  const semana = new Date(`${hoje}T12:00:00-03:00`).getDay();
+  if (semana === 0 || semana === 6) return 0;
+  const { data, error } = await admin.from("prazos").select("responsavel_id, vence_em").eq("situacao", "aberto").lte("vence_interno", hoje).not("responsavel_id", "is", null);
+  if (error || !data?.length) return 0;
+  const porPessoa = new Map<string, { vencidos: number; hoje: number; internos: number }>();
+  for (const p of data) {
+    const c = porPessoa.get(p.responsavel_id as string) ?? { vencidos: 0, hoje: 0, internos: 0 };
+    if (p.vence_em < hoje) c.vencidos++;
+    else if (p.vence_em === hoje) c.hoje++;
+    else c.internos++;
+    porPessoa.set(p.responsavel_id as string, c);
+  }
+  for (const [pessoa, c] of porPessoa) {
+    const partes = [
+      c.vencidos && `${c.vencidos} ${c.vencidos === 1 ? "vencido" : "vencidos"}`,
+      c.hoje && `${c.hoje} ${c.hoje === 1 ? "vence" : "vencem"} hoje`,
+      c.internos && `${c.internos} com prazo interno hoje`,
+    ].filter(Boolean);
+    await enviarPush(admin, [pessoa], { titulo: "Seus prazos de hoje", texto: partes.join(" · "), url: "/prazos?quem=meus", tag: "prazos-dia" }).catch(() => null);
+  }
+  return data.length;
 }

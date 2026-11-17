@@ -135,3 +135,12 @@ separa as publicações (comentários "Inicio/Fim publicacao" do HTML da WEBJUR)
 e a equipe trata em Publicações (ciência, tarefa, audiência). O Órion não guarda a senha do Recorte. Um
 cron às 10h avisa os administradores quando o e-mail do dia útil não chegou. Prazos com contagem em dias
 úteis ficam para a etapa seguinte, em cima dessa triagem.
+
+Prazos (nov/2026): o Órion conta o vencimento (lib/prazos.ts) a partir da data de publicação/intimação:
+começa no dia útil seguinte; em dias úteis pula fins de semana, feriados nacionais, a Sexta-feira Santa e o
+recesso de 20/12 a 20/01; em dias corridos, só empurra o último dia para o próximo dia útil. Feriados que
+dependem do tribunal (Carnaval, Semana Santa, Corpus Christi, 8/12, os da Justiça Federal) e os estaduais e
+municipais só contam depois de o escritório confirmar na aba Prazos (tabela feriados): na dúvida o Órion
+não pula o dia, porque errar para menos é seguro e para mais perde prazo. Prazo interno padrão: 2 dias
+úteis antes do fatal. O prazo fatal vai para a Google Agenda (9h) e, às 7h de dia útil, cada responsável
+recebe no celular o resumo dos seus prazos.

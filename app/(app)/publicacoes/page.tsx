@@ -3,6 +3,9 @@ import { BotaoAcao } from "@/components/BotaoAcao";
 import { FormAcao } from "@/components/FormAcao";
 import { Icone } from "@/components/Icone";
 import { TextoPublicacao } from "@/components/TextoPublicacao";
+import { FormPrazo } from "@/components/FormPrazo";
+import { lerFeriadosLocais } from "@/lib/feriadosLocais";
+import { criarPrazo } from "../prazos/actions";
 import { quemSou } from "@/lib/permissoes";
 import { religarPublicacoes } from "@/lib/recorte";
 import { TIPOS_AUDIENCIA, TZ } from "@/lib/rotulos";
@@ -21,7 +24,7 @@ type Pub = {
   link: string | null;
   tipo: "intimacao" | "audiencia" | "distribuicao" | "outro";
   audiencia_em: string | null;
-  situacao: "nova" | "ciencia" | "tarefa" | "audiencia";
+  situacao: "nova" | "ciencia" | "tarefa" | "audiencia" | "prazo";
   tratada_em: string | null;
   clientes: { id: string; nome: string } | null;
   perfis: { nome: string } | null;
@@ -33,7 +36,7 @@ const TIPO: Record<Pub["tipo"], { rotulo: string; classe: string }> = {
   distribuicao: { rotulo: "Distribuição", classe: "" },
   outro: { rotulo: "Outra", classe: "" },
 };
-const SITUACAO: Record<Pub["situacao"], string> = { nova: "para tratar", ciencia: "ciência", tarefa: "virou tarefa", audiencia: "audiência agendada" };
+const SITUACAO: Record<Pub["situacao"], string> = { nova: "para tratar", ciencia: "ciência", tarefa: "virou tarefa", audiencia: "audiência agendada", prazo: "virou prazo" };
 
 const dataBR = (iso: string | null) => (iso ? iso.slice(0, 10).split("-").reverse().join("/") : "—");
 
@@ -64,12 +67,14 @@ export default async function Publicacoes({ searchParams }: { searchParams: Prom
   consulta = tratadas ? consulta.neq("situacao", "nova").gte("tratada_em", ha30) : consulta.eq("situacao", "nova");
   if (tipo && tipo in TIPO) consulta = consulta.eq("tipo", tipo);
 
-  const [{ data, error }, { count: paraTratar }, { data: ultimo }, { data: pessoas }] = await Promise.all([
+  const [{ data, error }, { count: paraTratar }, { data: ultimo }, { data: pessoas }, feriadosLocais] = await Promise.all([
     consulta,
     supabase.from("publicacoes").select("id", { count: "exact", head: true }).eq("situacao", "nova"),
     supabase.from("recortes_recebidos").select("dia, publicacoes, recebido_em").order("dia", { ascending: false }).limit(1).maybeSingle(),
     supabase.from("perfis").select("id, nome").eq("ativo", true).order("nome"),
+    lerFeriadosLocais(supabase),
   ]);
+  const feriados = feriadosLocais.map((x) => x.dia);
   const lista = (data ?? []) as unknown as Pub[];
   const semTabela = Boolean(error && /publicacoes|does not exist|schema cache/i.test(error.message));
 
@@ -164,6 +169,19 @@ export default async function Publicacoes({ searchParams }: { searchParams: Prom
                 {p.situacao === "nova" ? (
                   <footer className="pub-acoes">
                     <BotaoAcao acao={darCiencia.bind(null, p.id)} rotulo="Ciência" desfazer={voltarParaTratar.bind(null, p.id)} />
+                    {p.tipo !== "distribuicao" && (
+                      <details className="pub-mais">
+                        <summary className="btn sm primary">Criar prazo</summary>
+                        <FormPrazo
+                          action={criarPrazo}
+                          inicial={{ processo_id: p.processo_id, publicacao_id: p.id, publicado_em: p.publicada_em ?? p.disponibilizada_em }}
+                          processos={p.processo_id ? undefined : []}
+                          pessoas={pessoas ?? []}
+                          feriados={feriados}
+                          botao="Criar prazo"
+                        />
+                      </details>
+                    )}
                     <details className="pub-mais">
                       <summary className="btn sm">Criar tarefa</summary>
                       <FormAcao action={tarefaDaPublicacao} botao="Criar tarefa" className="form form-compacto">
