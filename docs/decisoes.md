@@ -8,8 +8,8 @@ Registro do que já foi definido. Quando algo mudar, atualize aqui.
   sem vários escritórios.
 - A equipe é configurável: o administrador define quantos usuários existem e o cargo de cada
   pessoa. O cargo aparece abaixo do nome em todas as telas (ex.: "Advogado", "Estagiária").
-- Fora do escopo por enquanto: controle de prazos processuais e forma de pagamento de
-  honorários. O escritório já tem um sistema próprio de receitas e despesas; integrar com ele
+- Fora do escopo por enquanto: forma de pagamento de honorários. (Controle de prazos entrou em
+  novembro/2026, a pedido do escritório: começa pelas publicações do Recorte Digital, abaixo.) O escritório já tem um sistema próprio de receitas e despesas; integrar com ele
   fica para depois.
 
 ## Áreas de atuação
@@ -127,3 +127,11 @@ da equipe responde (o bot não conta). O menu mostra o contador e toca um som; c
 aparelho (Web Push, chaves geradas pelo próprio CRM e guardadas em chaves_push), avisa mesmo com o CRM fechado.
 No iPhone, só com o app instalado na tela de início.
 
+
+Publicações e prazos (nov/2026): a fonte é o Recorte Digital da OAB/ES (WEBJUR), que não tem API e só
+abre com login. O caminho escolhido é o e-mail diário do Recorte: um script do Google Apps Script no Gmail
+do advogado manda cada e-mail para /api/publicacoes/recorte (senha derivada do CRON_SECRET), o Órion
+separa as publicações (comentários "Inicio/Fim publicacao" do HTML da WEBJUR), liga ao processo pelo número
+e a equipe trata em Publicações (ciência, tarefa, audiência). O Órion não guarda a senha do Recorte. Um
+cron às 10h avisa os administradores quando o e-mail do dia útil não chegou. Prazos com contagem em dias
+úteis ficam para a etapa seguinte, em cima dessa triagem.

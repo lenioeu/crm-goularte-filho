@@ -28,7 +28,7 @@ export async function middleware(request: NextRequest) {
   const user = session?.access_token ? true : null; // sem ler session.user (o Supabase avisa que ele não é conferido)
 
   const caminho = request.nextUrl.pathname;
-  const publico = ["/login", "/auth", "/sobre", "/privacidade", "/api/cron", "/api/whatsapp"].some((p) => caminho.startsWith(p));
+  const publico = ["/login", "/auth", "/sobre", "/privacidade", "/api/cron", "/api/whatsapp", "/api/publicacoes/recorte"].some((p) => caminho.startsWith(p));
 
   if (!user && !publico) {
     const url = request.nextUrl.clone();

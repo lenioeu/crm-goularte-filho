@@ -25,8 +25,8 @@ type Processo = {
 const dataBR = (iso: string | null) => (iso ? iso.slice(0, 10).split("-").reverse().join("/") : "—");
 const diasDesde = (iso: string | null) => (iso ? Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000) : null);
 
-export default async function Processos({ searchParams }: { searchParams: Promise<{ filtro?: string; cliente?: string; nova?: string; ordem?: string }> }) {
-  const { filtro, cliente, nova, ordem = "movimentacao" } = await searchParams;
+export default async function Processos({ searchParams }: { searchParams: Promise<{ filtro?: string; cliente?: string; nova?: string; ordem?: string; numero?: string }> }) {
+  const { filtro, cliente, nova, ordem = "movimentacao", numero } = await searchParams;
   const supabase = await supabaseServer();
   const [{ data, error }, { data: casos }, { data: clientes }] = await Promise.all([
     supabase
@@ -95,7 +95,7 @@ export default async function Processos({ searchParams }: { searchParams: Promis
           </div>
           <div className="field">
             <label htmlFor="numero">Número do processo (CNJ)</label>
-            <input id="numero" name="numero" required inputMode="numeric" placeholder="0000000-00.0000.0.00.0000" />
+            <input id="numero" name="numero" required inputMode="numeric" placeholder="0000000-00.0000.0.00.0000" defaultValue={numero ?? ""} />
           </div>
           <div className="field full">
             <label htmlFor="caso_id">Caso</label>

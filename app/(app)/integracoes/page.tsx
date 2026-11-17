@@ -5,6 +5,10 @@ import { ConexaoWhatsApp } from "@/components/ConexaoWhatsApp";
 import { ImportarHistorico } from "@/components/ImportarHistorico";
 import { googleConfigurado } from "@/lib/google";
 import { quemSou } from "@/lib/permissoes";
+import { tokenRecorte } from "@/lib/recorte";
+import { scriptRecorte } from "@/lib/scriptRecorte";
+import { ScriptRecorte } from "@/components/ScriptRecorte";
+import { headers } from "next/headers";
 import { whatsappConfigurado } from "@/lib/whatsapp";
 import { desconectarGoogle, importarClientesDoDrive, procurarPastaDeNovo } from "./actions";
 import { IconeDrive } from "@/components/IconeDrive";
@@ -25,6 +29,10 @@ export default async function Integracoes({ searchParams }: { searchParams: Prom
   const { google } = await searchParams;
   const { supabase, papel } = await quemSou();
   const admin = papel === "administrador";
+  const tokenRec = admin ? tokenRecorte() : null;
+  const h = await headers();
+  const origem = `https://${h.get("x-forwarded-host") ?? h.get("host")}`;
+  const { data: ultimoRecorte } = await supabase.from("recortes_recebidos").select("dia").order("dia", { ascending: false }).limit(1).maybeSingle();
   const configurado = googleConfigurado();
 
   const { data: cfg } = await supabase.from("configuracoes").select("chave, valor").in("chave", ["google_email", "pasta_clientes", "whatsapp_bot"]);
@@ -132,6 +140,33 @@ export default async function Integracoes({ searchParams }: { searchParams: Prom
             <div style={{ borderTop: "1px solid var(--line)", paddingTop: 14, fontSize: 13.5 }}>
               Textos do bot, horário de expediente, áreas do menu e respostas rápidas: <Link href="/atendimento-automatico" style={{ color: "var(--accent)" }}>Atendimento automático</Link>.
             </div>
+          </>
+        )}
+      </div>
+
+      <div className="card" id="recorte" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <div className="ctitle" style={{ marginBottom: 0 }}>
+          <h3>Recorte Digital (OAB/ES)</h3>
+          {ultimoRecorte ? <span className="chip good">último e-mail: {ultimoRecorte.dia.split("-").reverse().join("/")}</span> : <span className="chip">ainda não ligado</span>}
+        </div>
+        <p style={{ margin: 0, color: "var(--muted)", fontSize: 13.5 }}>
+          O e-mail diário do Recorte chega ao seu Gmail; um script do Google, na sua conta, manda cada um para o Órion, em{" "}
+          <Link href="/publicacoes" style={{ color: "var(--accent)" }}>Publicações</Link>. O Órion não guarda a senha do Recorte.
+        </p>
+        {!admin ? (
+          <div style={{ color: "var(--muted)", fontSize: 13.5 }}>Só o administrador liga o Recorte Digital.</div>
+        ) : !tokenRec ? (
+          <div className="aviso info">Falta a variável <b>CRON_SECRET</b> na Vercel.</div>
+        ) : (
+          <>
+            <ol className="historico-passos" style={{ fontSize: 13.5 }}>
+              <li>Abra <b>script.google.com</b> com a conta do Gmail que recebe o Recorte e clique em <b>Novo projeto</b>.</li>
+              <li>Apague o que vier escrito, cole o script (botão abaixo) e salve (ícone de disquete). Dê o nome “Órion Recorte”.</li>
+              <li>No menu de funções, escolha <b>instalar</b> e clique em <b>Executar</b>. Autorize o acesso ao Gmail quando o Google pedir (em “Avançado”, clique em ir para o projeto).</li>
+              <li>Pronto: ele roda sozinho de hora em hora e já traz os últimos 15 dias. As publicações aparecem em Publicações.</li>
+            </ol>
+            <ScriptRecorte script={scriptRecorte(`${origem}/api/publicacoes/recorte`, tokenRec)} />
+            <small style={{ color: "var(--dim)", fontSize: 12 }}>O script tem a senha de acesso do Órion: não compartilhe. Para trocá-la, troque o CRON_SECRET na Vercel e cole o script de novo.</small>
           </>
         )}
       </div>

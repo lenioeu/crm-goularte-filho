@@ -22,6 +22,7 @@ const OPERACAO: Item[] = [
   { href: "/atendimento", rotulo: "Atendimento", pronto: true, icone: ic(<path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v9A1.5 1.5 0 0 1 18.5 16H9l-5 4z" />) },
   { href: "/clientes", rotulo: "Clientes", pronto: true, icone: ic(<><circle cx="9" cy="8" r="3.2" /><path d="M3.5 19a5.5 5.5 0 0 1 11 0M16 5.5a3 3 0 0 1 0 6M17.5 19a5 5 0 0 0-2.5-4.3" /></>) },
   { href: "/processos", rotulo: "Processos", pronto: true, icone: ic(<path d="M12 4v16M6 7h12M8 7l-3 6.5a3 3 0 0 0 6 0zM16 7l-3 6.5a3 3 0 0 0 6 0zM8.5 20h7" />) },
+  { href: "/publicacoes", rotulo: "Publicações", pronto: true, icone: ic(<><path d="M5 4.5h11l3 3V19.5H5z" /><path d="M8.5 9.5h7M8.5 12.5h7M8.5 15.5h4.5" /></>) },
   { href: "/audiencias", rotulo: "Audiências", pronto: true, icone: ic(<><rect x="3.5" y="5" width="17" height="15" rx="2.5" /><path d="M3.5 10h17M8 3v4M16 3v4" /></>) },
   { href: "/agendamentos", rotulo: "Mensagens agendadas", pronto: true, icone: ic(<><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5V12l3 2" /></>) },
   { href: "/tarefas", rotulo: "Tarefas", pronto: true, icone: ic(<><circle cx="12" cy="12" r="8.5" /><path d="M8.5 12.3l2.3 2.3 4.7-4.8" /></>) },
@@ -81,6 +82,7 @@ export function Shell({ nome, cargo, children }: { nome: string; cargo: string; 
 
   // Conversas esperando resposta: contador no menu, no título da aba e um som quando chega mensagem nova
   const [avisos, setAvisos] = useState(0);
+  const [publicacoes, setPublicacoes] = useState(0);
   const ultimaVista = useRef<string | null>(null);
   useEffect(() => {
     let ativo = true;
@@ -88,8 +90,9 @@ export function Shell({ nome, cargo, children }: { nome: string; cargo: string; 
       try {
         const r = await fetch("/api/avisos", { cache: "no-store" });
         if (!r.ok || !ativo) return;
-        const j = (await r.json()) as { total: number; ultima: { em: string | null } | null };
+        const j = (await r.json()) as { total: number; ultima: { em: string | null } | null; publicacoes?: number };
         setAvisos(j.total);
+        setPublicacoes(j.publicacoes ?? 0);
         const marca = j.ultima?.em ?? null;
         if (ultimaVista.current !== null && marca && marca !== ultimaVista.current && j.total > 0) tocarSom();
         ultimaVista.current = marca ?? "";
@@ -129,6 +132,7 @@ export function Shell({ nome, cargo, children }: { nome: string; cargo: string; 
       <span>{i.rotulo}</span>
       {!i.pronto && <span className="breve">em breve</span>}
       {i.href === "/atendimento" && avisos > 0 && <span className="contador" aria-label={`${avisos} esperando resposta`}>{avisos > 99 ? "99+" : avisos}</span>}
+      {i.href === "/publicacoes" && publicacoes > 0 && <span className="contador" aria-label={`${publicacoes} publicações para tratar`}>{publicacoes > 99 ? "99+" : publicacoes}</span>}
     </Link>
   );
 

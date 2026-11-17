@@ -176,7 +176,21 @@ const aviso = {
   event: "messages.upsert",
   data: { key: { id: "TESTE1", remoteJid: "5551999999999@s.whatsapp.net", fromMe: false }, pushName: "Fulano", messageType: "conversation", message: { conversation: "1" }, messageTimestamp: Math.floor(Date.now() / 1000) },
 };
+// E-mail do Recorte Digital (formato da WEBJUR, dados fictícios)
+const tokenRecorte = createHash("sha256").update("recorte:teste").digest("hex");
+const emailRecorte = {
+  assunto: "Public. 1. DJES 17/11/26, DJU 16/11/26 (35.0)",
+  data: new Date().toISOString(),
+  html: `<!--Inicio publicacao;;Processo:00000011120268080000--><tr><td><B>Publicação: 1</B></td></tr>
+<tr><td><B>Data de Disponibilização:</B> 17/11/2026</td></tr><tr><td><b>Data de Publicação:</b> 18/11/2026</td></tr>
+<tr><td><b>Jornal:</b> Diário Oficial ESPIRITO SANTO</td></tr><tr><td><b>Página: </B>00001</td></tr>
+<tr><td>Intimação<BR>DECISÃO MONOCRÁTICA<BR>Intimem-se. Acesso ao documento: https://pje.tjes.jus.br/x?y=1 Identificador do documento: 1</td></tr>
+<!--Fim publicacao;;Processo:0000001-11.2026.8.08.0000-->`,
+};
 const api = [
+  ["recorte sem senha", base + "/api/publicacoes/recorte", { method: "POST", body: "{}" }, 401],
+  ["recorte com e-mail", base + "/api/publicacoes/recorte", { method: "POST", headers: { "x-orion-token": tokenRecorte, "content-type": "application/json" }, body: JSON.stringify(emailRecorte) }, 200],
+  ["conferência do recorte (cron)", base + "/api/cron/recorte", { headers: { authorization: "Bearer teste" } }, 200],
   ["manifest do app (sem login)", base + "/manifest.webmanifest", {}, 200],
   ["ícone do app (sem login)", base + "/icone-192.png", {}, 200],
   ["webhook sem senha", base + "/api/whatsapp/webhook", { method: "POST", body: "{}" }, 401],

@@ -6,6 +6,10 @@
     {
       "path": "/api/cron/datajud",
       "schedule": "0 10 * * *"
+    },
+    {
+      "path": "/api/cron/recorte",
+      "schedule": "0 13 * * 1-5"
     }
   ]
 }
