@@ -93,6 +93,8 @@ h1, h2, h3 { margin: 0; font-weight: 500; text-wrap: balance; }
 .grid { display: grid; gap: 16px; }
 .kpis { grid-template-columns: repeat(4, 1fr); margin-bottom: 16px; }
 .kpis.kpis-6 { grid-template-columns: repeat(3, 1fr); }
+@media (max-width: 920px) { .kpis.kpis-6 { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 480px) { .kpis.kpis-6 { grid-template-columns: 1fr; } }
 .cols-2 { grid-template-columns: 1.4fr 1fr; }
 .kpi .lbl { font-size: 13px; color: var(--muted); }
 .kpi .val { font-size: 32px; margin-top: 4px; font-variant-numeric: tabular-nums; line-height: 1.2; }
