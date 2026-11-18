@@ -184,7 +184,7 @@ function Cartao({ p, pessoas, feriados, pular }: { p: PubFoco; pessoas: { id: st
         <div className="op-painel">
           <FormPrazo
             action={criarPrazo}
-            inicial={{ processo_id: p.processo_id, publicacao_id: p.id, publicado_em: p.publicada_em ?? p.disponibilizada_em, ...(citado ? { dias: citado.dias, contagem: citado.corridos ? "corridos" : "uteis" } : {}) }}
+            inicial={{ processo_id: p.processo_id, publicacao_id: p.id, publicado_em: p.publicada_em ?? p.disponibilizada_em, ...(citado ? { descricao: "Manifestação", dias: citado.dias, contagem: citado.corridos ? "corridos" : "uteis" } : {}) }}
             processos={p.processo_id ? undefined : []}
             pessoas={pessoas}
             feriados={feriados}

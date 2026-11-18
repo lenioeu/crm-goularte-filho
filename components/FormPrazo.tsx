@@ -70,7 +70,7 @@ export function FormPrazo({
   function escolherComum(nome: string) {
     const c = PRAZOS_COMUNS.find((x) => x.nome === nome);
     if (!c) return;
-    setDescricao(c.nome);
+    setDescricao(c.nome.replace(/\s*\((?:prazo não fixado|CPC)[^)]*\)/, ""));
     setDias(String(c.dias));
     setContagem(c.contagem);
   }
@@ -85,7 +85,11 @@ export function FormPrazo({
           <label htmlFor={`fp_c_${p}`}>Prazo comum (preenche dias e contagem)</label>
           <select id={`fp_c_${p}`} defaultValue="" onChange={(e) => escolherComum(e.target.value)}>
             <option value="">Escolher…</option>
-            {PRAZOS_COMUNS.map((c) => <option key={c.nome} value={c.nome}>{c.nome} · {c.dias} {c.contagem === "uteis" ? "dias úteis" : "dias corridos"}</option>)}
+            {[...new Set(PRAZOS_COMUNS.map((c) => c.grupo))].map((g) => (
+              <optgroup key={g} label={g}>
+                {PRAZOS_COMUNS.filter((c) => c.grupo === g).map((c) => <option key={c.nome} value={c.nome}>{c.nome} · {c.dias} {c.contagem === "uteis" ? "dias úteis" : "dias corridos"}</option>)}
+              </optgroup>
+            ))}
           </select>
         </div>
       )}

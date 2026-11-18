@@ -135,26 +135,30 @@ export function diasUteisAte(hojeBruto: string, alvoBruto: string, feriados: Set
   return n;
 }
 
-/** Prazos mais comuns, para sugerir dias e contagem ao cadastrar. */
-export const PRAZOS_COMUNS: { nome: string; dias: number; contagem: Contagem }[] = [
-  { nome: "Contestação", dias: 15, contagem: "uteis" },
-  { nome: "Réplica", dias: 15, contagem: "uteis" },
-  { nome: "Manifestação", dias: 15, contagem: "uteis" },
-  { nome: "Especificação de provas", dias: 15, contagem: "uteis" },
-  { nome: "Embargos de declaração", dias: 5, contagem: "uteis" },
-  { nome: "Apelação", dias: 15, contagem: "uteis" },
-  { nome: "Contrarrazões", dias: 15, contagem: "uteis" },
-  { nome: "Agravo de instrumento", dias: 15, contagem: "uteis" },
-  { nome: "Agravo interno", dias: 15, contagem: "uteis" },
-  { nome: "Recurso especial / extraordinário", dias: 15, contagem: "uteis" },
-  { nome: "Recurso ordinário (trabalhista)", dias: 8, contagem: "uteis" },
-  { nome: "Recurso de revista", dias: 8, contagem: "uteis" },
-  { nome: "Embargos de declaração (trabalhista)", dias: 5, contagem: "uteis" },
-  { nome: "Recurso inominado (JEC)", dias: 10, contagem: "uteis" },
-  { nome: "Resposta à acusação", dias: 10, contagem: "corridos" },
-  { nome: "Alegações finais (memoriais)", dias: 5, contagem: "corridos" },
-  { nome: "Apelação criminal", dias: 5, contagem: "corridos" },
-  { nome: "Recurso em sentido estrito", dias: 5, contagem: "corridos" },
+/** Prazos mais comuns, para sugerir dias e contagem ao cadastrar (agrupados no formulário). */
+export const PRAZOS_COMUNS: { nome: string; dias: number; contagem: Contagem; grupo: string }[] = [
+  { nome: "Manifestação", dias: 15, contagem: "uteis", grupo: "Manifestações" },
+  { nome: "Manifestação (prazo não fixado: 5 dias, CPC 218 §3º)", dias: 5, contagem: "uteis", grupo: "Manifestações" },
+  { nome: "Manifestação sobre documentos (CPC 437 §1º)", dias: 15, contagem: "uteis", grupo: "Manifestações" },
+  { nome: "Manifestação sobre o laudo pericial (CPC 477 §1º)", dias: 15, contagem: "uteis", grupo: "Manifestações" },
+  { nome: "Contestação", dias: 15, contagem: "uteis", grupo: "Cível" },
+  { nome: "Réplica", dias: 15, contagem: "uteis", grupo: "Cível" },
+  { nome: "Especificação de provas", dias: 15, contagem: "uteis", grupo: "Cível" },
+  { nome: "Embargos de declaração", dias: 5, contagem: "uteis", grupo: "Cível" },
+  { nome: "Apelação", dias: 15, contagem: "uteis", grupo: "Cível" },
+  { nome: "Contrarrazões", dias: 15, contagem: "uteis", grupo: "Cível" },
+  { nome: "Agravo de instrumento", dias: 15, contagem: "uteis", grupo: "Cível" },
+  { nome: "Agravo interno", dias: 15, contagem: "uteis", grupo: "Cível" },
+  { nome: "Recurso especial / extraordinário", dias: 15, contagem: "uteis", grupo: "Cível" },
+  { nome: "Recurso inominado (JEC)", dias: 10, contagem: "uteis", grupo: "Cível" },
+  { nome: "Recurso ordinário (trabalhista)", dias: 8, contagem: "uteis", grupo: "Trabalhista" },
+  { nome: "Recurso de revista", dias: 8, contagem: "uteis", grupo: "Trabalhista" },
+  { nome: "Contrarrazões (trabalhista)", dias: 8, contagem: "uteis", grupo: "Trabalhista" },
+  { nome: "Embargos de declaração (trabalhista)", dias: 5, contagem: "uteis", grupo: "Trabalhista" },
+  { nome: "Resposta à acusação", dias: 10, contagem: "corridos", grupo: "Penal" },
+  { nome: "Alegações finais (memoriais)", dias: 5, contagem: "corridos", grupo: "Penal" },
+  { nome: "Apelação criminal", dias: 5, contagem: "corridos", grupo: "Penal" },
+  { nome: "Recurso em sentido estrito", dias: 5, contagem: "corridos", grupo: "Penal" },
 ];
 
 export const dataBR = (s: string | null | undefined) => (s ? s.slice(0, 10).split("-").reverse().join("/") : "—");
