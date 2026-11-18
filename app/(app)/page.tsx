@@ -186,7 +186,7 @@ export default async function Inicio() {
                 const sem = new Date(`${p.dia}T12:00:00Z`).toLocaleDateString("pt-BR", { timeZone: "UTC", weekday: "short" }).replace(".", "");
                 return (
                   <Link className="li" key={p.id} href="/prazos">
-                    <div className={"datebox" + (vencido || ehHoje ? " hoje" : "")}>
+                    <div className={"datebox" + (vencido || ehHoje ? " prazo-urgente" : "")}>
                       <small>{vencido ? "vencido" : ehHoje ? "hoje" : sem}</small>
                       <b style={{ fontSize: 15 }}>{dataBR(p.dia).slice(0, 5)}</b>
                     </div>
