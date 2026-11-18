@@ -1,15 +1,12 @@
 import Link from "next/link";
 import { BotaoAcao } from "@/components/BotaoAcao";
-import { FormAcao } from "@/components/FormAcao";
-import { Icone } from "@/components/Icone";
+import { FocoPublicacoes } from "@/components/FocoPublicacoes";
 import { TextoPublicacao } from "@/components/TextoPublicacao";
-import { FormPrazo } from "@/components/FormPrazo";
 import { lerFeriadosLocais } from "@/lib/feriadosLocais";
-import { criarPrazo } from "../prazos/actions";
 import { quemSou } from "@/lib/permissoes";
 import { religarPublicacoes } from "@/lib/recorte";
-import { TIPOS_AUDIENCIA, TZ } from "@/lib/rotulos";
-import { audienciaDaPublicacao, darCiencia, tarefaDaPublicacao, voltarParaTratar } from "./actions";
+import { TZ } from "@/lib/rotulos";
+import { voltarParaTratar } from "./actions";
 
 type Pub = {
   id: string;
@@ -39,16 +36,6 @@ const TIPO: Record<Pub["tipo"], { rotulo: string; classe: string }> = {
 const SITUACAO: Record<Pub["situacao"], string> = { nova: "para tratar", ciencia: "ciência", tarefa: "virou tarefa", audiencia: "audiência agendada", prazo: "virou prazo" };
 
 const dataBR = (iso: string | null) => (iso ? iso.slice(0, 10).split("-").reverse().join("/") : "—");
-
-/** Sugestão de vencimento: N dias úteis depois da publicação (só pula sábado e domingo; confira feriados). */
-function maisDiasUteis(iso: string | null, n: number) {
-  const d = new Date(`${iso ?? new Date().toLocaleDateString("sv-SE", { timeZone: TZ })}T12:00:00-03:00`);
-  for (let i = 0; i < n; ) {
-    d.setUTCDate(d.getUTCDate() + 1);
-    if (d.getUTCDay() !== 0 && d.getUTCDay() !== 6) i++;
-  }
-  return d.toISOString().slice(0, 10);
-}
 
 export default async function Publicacoes({ searchParams }: { searchParams: Promise<{ f?: string; tipo?: string }> }) {
   const { f = "novas", tipo } = await searchParams;
@@ -134,100 +121,39 @@ export default async function Publicacoes({ searchParams }: { searchParams: Prom
         ))}
       </div>
 
-      {lista.length === 0 ? (
-        <div className="card"><div className="vazio"><b>{tratadas ? "Nada tratado nos últimos 30 dias" : "Nenhuma publicação para tratar"}</b>{tratadas ? "" : "Quando o Recorte trouxer algo, aparece aqui."}</div></div>
+      {!tratadas ? (
+        <FocoPublicacoes
+          pubs={lista.map((p) => ({
+            id: p.id, numero_cnj: p.numero_cnj, processo_id: p.processo_id, publicada_em: p.publicada_em, disponibilizada_em: p.disponibilizada_em,
+            jornal: p.jornal, caderno: p.caderno, orgao: p.orgao, texto: p.texto, link: p.link, tipo: p.tipo, audiencia_em: p.audiencia_em,
+            cliente: p.clientes, audiencias: p.processo_id ? audPorProc.get(p.processo_id) ?? [] : [],
+          }))}
+          pessoas={pessoas ?? []}
+          feriados={feriados}
+        />
+      ) : lista.length === 0 ? (
+        <div className="card"><div className="vazio"><b>Nada tratado nos últimos 30 dias</b></div></div>
       ) : (
         <div className="pub-lista">
           {lista.map((p) => {
             const cliente = p.clientes;
             const tp = TIPO[p.tipo] ?? TIPO.outro;
-            const futuras = p.processo_id ? audPorProc.get(p.processo_id) ?? [] : [];
-            const audData = p.audiencia_em ? new Date(p.audiencia_em).toLocaleDateString("sv-SE", { timeZone: TZ }) : "";
-            const audHora = p.audiencia_em ? new Date(p.audiencia_em).toLocaleTimeString("pt-BR", { timeZone: TZ, hour: "2-digit", minute: "2-digit" }) : "";
             return (
               <article key={p.id} className="card pub">
                 <header className="pub-topo">
                   <span className={`chip ${tp.classe}`}>{tp.rotulo}</span>
                   <b className="pub-proc">{p.numero_cnj ?? "sem número de processo"}</b>
-                  {cliente ? (
-                    <Link href={`/clientes/${cliente.id}`} className="link-cliente">{cliente.nome}</Link>
-                  ) : p.numero_cnj ? (
-                    <Link href={`/processos?nova=1&numero=${encodeURIComponent(p.numero_cnj)}`} className="chip warn" title="Este processo não está no Órion">processo não cadastrado · cadastrar</Link>
-                  ) : null}
+                  {cliente && <Link href={`/clientes/${cliente.id}`} className="link-cliente">{cliente.nome}</Link>}
                   <small className="pub-data">publicada em {dataBR(p.publicada_em)}{p.disponibilizada_em ? ` · disponibilizada em ${dataBR(p.disponibilizada_em)}` : ""}</small>
                 </header>
                 <small className="pub-orgao">{[p.jornal, p.caderno, p.orgao].filter(Boolean).join(" · ")}</small>
                 <TextoPublicacao texto={p.texto} />
-
-                {p.tipo === "audiencia" && p.audiencia_em && (
-                  <div className="aviso info pub-aud">
-                    <Icone nome="calendario" tamanho={16} /> O texto cita audiência em <b>{dataBR(audData)} às {audHora}</b>.
-                    {futuras.length > 0 && <> Já há no Órion: {futuras.map((a) => `${a.tipo} em ${new Date(a.inicio).toLocaleString("pt-BR", { timeZone: TZ, day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}`).join("; ")}. Se for a mesma, edite em Audiências em vez de agendar outra.</>}
-                  </div>
-                )}
-
-                {p.situacao === "nova" ? (
-                  <footer className="pub-acoes">
-                    <BotaoAcao acao={darCiencia.bind(null, p.id)} rotulo="Ciência" desfazer={voltarParaTratar.bind(null, p.id)} />
-                    {p.tipo !== "distribuicao" && (
-                      <details className="pub-mais">
-                        <summary className="btn sm primary">Criar prazo</summary>
-                        <FormPrazo
-                          action={criarPrazo}
-                          inicial={{ processo_id: p.processo_id, publicacao_id: p.id, publicado_em: p.publicada_em ?? p.disponibilizada_em }}
-                          processos={p.processo_id ? undefined : []}
-                          pessoas={pessoas ?? []}
-                          feriados={feriados}
-                          botao="Criar prazo"
-                        />
-                      </details>
-                    )}
-                    <details className="pub-mais">
-                      <summary className="btn sm">Criar tarefa</summary>
-                      <FormAcao action={tarefaDaPublicacao} botao="Criar tarefa" className="form form-compacto">
-                        <input type="hidden" name="id" value={p.id} />
-                        <div className="field full"><label htmlFor={`pt_t_${p.id}`}>O que fazer</label><input id={`pt_t_${p.id}`} name="titulo" required defaultValue={`${tp.rotulo}: ${p.numero_cnj ?? ""}${cliente ? ` · ${cliente.nome}` : ""}`} /></div>
-                        <div className="field"><label htmlFor={`pt_v_${p.id}`}>Até quando</label><input id={`pt_v_${p.id}`} name="vence_em" type="date" defaultValue={maisDiasUteis(p.publicada_em, 5)} /><small className="dica">Sugestão: 5 dias úteis após a publicação. Confira o prazo real.</small></div>
-                        <div className="field">
-                          <label htmlFor={`pt_r_${p.id}`}>Responsável</label>
-                          <select id={`pt_r_${p.id}`} name="responsavel_id" defaultValue="">
-                            <option value="">Eu</option>
-                            {(pessoas ?? []).map((x) => <option key={x.id} value={x.id}>{x.nome}</option>)}
-                          </select>
-                        </div>
-                      </FormAcao>
-                    </details>
-                    {p.processo_id && (
-                      <details className="pub-mais" open={false}>
-                        <summary className="btn sm">Agendar audiência</summary>
-                        <FormAcao action={audienciaDaPublicacao} botao="Agendar audiência" className="form form-compacto">
-                          <input type="hidden" name="publicacao_id" value={p.id} />
-                          <input type="hidden" name="processo_id" value={p.processo_id} />
-                          <div className="field">
-                            <label htmlFor={`pa_t_${p.id}`}>Tipo</label>
-                            <select id={`pa_t_${p.id}`} name="tipo" defaultValue={TIPOS_AUDIENCIA[0]}>{TIPOS_AUDIENCIA.map((t) => <option key={t}>{t}</option>)}</select>
-                          </div>
-                          <div className="field"><label htmlFor={`pa_d_${p.id}`}>Dia</label><input id={`pa_d_${p.id}`} name="data" type="date" required defaultValue={audData} /></div>
-                          <div className="field"><label htmlFor={`pa_h_${p.id}`}>Hora</label><input id={`pa_h_${p.id}`} name="hora" type="time" required defaultValue={audHora} /></div>
-                          <div className="field">
-                            <label htmlFor={`pa_m_${p.id}`}>Modalidade</label>
-                            <select id={`pa_m_${p.id}`} name="modalidade" defaultValue="presencial"><option value="presencial">Presencial</option><option value="video">Por vídeo</option></select>
-                          </div>
-                          <div className="field full"><label htmlFor={`pa_l_${p.id}`}>Local</label><input id={`pa_l_${p.id}`} name="local" defaultValue={p.orgao?.split(" - ").slice(-1)[0] ?? ""} /></div>
-                          <small className="dica full">Mensagens ao cliente pelo WhatsApp: programe pelo “Editar” da audiência, em Audiências.</small>
-                        </FormAcao>
-                      </details>
-                    )}
-                    {p.link && <a className="btn sm" href={p.link} target="_blank" rel="noopener">Abrir no PJe</a>}
-                  </footer>
-                ) : (
-                  <footer className="pub-acoes">
-                    <span className="chip good">{SITUACAO[p.situacao] ?? "tratada"}</span>
-                    <small style={{ color: "var(--muted)" }}>{p.perfis?.nome ? `por ${p.perfis.nome}` : ""}{p.tratada_em ? ` em ${new Date(p.tratada_em).toLocaleString("pt-BR", { timeZone: TZ, day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}` : ""}</small>
-                    <BotaoAcao acao={voltarParaTratar.bind(null, p.id)} rotulo="Voltar para tratar" />
-                    {p.link && <a className="btn sm" href={p.link} target="_blank" rel="noopener">Abrir no PJe</a>}
-                  </footer>
-                )}
+                <footer className="pub-acoes">
+                  <span className="chip good">{SITUACAO[p.situacao] ?? "tratada"}</span>
+                  <small style={{ color: "var(--muted)" }}>{p.perfis?.nome ? `por ${p.perfis.nome}` : ""}{p.tratada_em ? ` em ${new Date(p.tratada_em).toLocaleString("pt-BR", { timeZone: TZ, day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}` : ""}</small>
+                  <BotaoAcao acao={voltarParaTratar.bind(null, p.id)} rotulo="Voltar para tratar" />
+                  {p.link && <a className="btn sm" href={p.link} target="_blank" rel="noopener">Abrir no PJe</a>}
+                </footer>
               </article>
             );
           })}

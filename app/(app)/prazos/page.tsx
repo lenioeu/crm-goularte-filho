@@ -3,6 +3,7 @@ import { BotaoAcao } from "@/components/BotaoAcao";
 import { EditarPrazo } from "@/components/EditarPrazo";
 import { FormAcao } from "@/components/FormAcao";
 import { FormPrazo } from "@/components/FormPrazo";
+import { PainelPrazos } from "@/components/PainelPrazos";
 import { lerFeriadosLocais } from "@/lib/feriadosLocais";
 import { quemSou } from "@/lib/permissoes";
 import { dataBR, diasSemExpediente, diasUteisAte, feriadosPadrao, feriadosSugeridos } from "@/lib/prazos";
@@ -29,19 +30,12 @@ type Prazo = {
 };
 
 const SEMANA = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
-const GRUPOS = [
-  { id: "vencidos", titulo: "Vencidos", classe: "crit" },
-  { id: "hoje", titulo: "Vencem hoje", classe: "crit" },
-  { id: "semana", titulo: "Próximos 7 dias", classe: "warn" },
-  { id: "depois", titulo: "Depois", classe: "" },
-] as const;
 
 export default async function Prazos({ searchParams }: { searchParams: Promise<{ quem?: string; ver?: string; nova?: string }> }) {
   const { quem = "todos", ver, nova } = await searchParams;
   const { supabase, user } = await quemSou();
   const cumpridos = ver === "cumpridos";
   const hoje = new Date().toLocaleDateString("sv-SE", { timeZone: TZ });
-  const em7 = new Date(Date.now() + 7 * 86_400_000).toLocaleDateString("sv-SE", { timeZone: TZ });
   const ha30 = new Date(Date.now() - 30 * 86_400_000).toISOString();
 
   let consulta = supabase
@@ -65,8 +59,6 @@ export default async function Prazos({ searchParams }: { searchParams: Promise<{
     .map((x) => ({ id: x.id, rotulo: [x.numero_cnj, x.casos?.clientes?.nome].filter(Boolean).join(" · "), cliente: x.casos?.clientes?.nome ?? "" }))
     .sort((a, b) => a.cliente.localeCompare(b.cliente, "pt-BR"));
 
-  const grupo = (p: Prazo) => (p.vence_em < hoje ? "vencidos" : p.vence_em === hoje ? "hoje" : p.vence_em <= em7 ? "semana" : "depois");
-  const contagem = Object.fromEntries(GRUPOS.map((g) => [g.id, lista.filter((p) => grupo(p) === g.id).length]));
   const anos = [Number(hoje.slice(0, 4)), Number(hoje.slice(0, 4)) + 1];
   const proximosLocais = locais.filter((x) => x.dia >= hoje);
   const sugeridosPendentes = anos.flatMap((a) => feriadosSugeridos(a)).filter((x) => x.dia >= hoje && !listaFeriados.includes(x.dia));
@@ -129,17 +121,6 @@ export default async function Prazos({ searchParams }: { searchParams: Promise<{
       {semTabela && <div className="aviso info" style={{ marginBottom: 16 }}>Falta rodar o script supabase/018_prazos.sql no Supabase.</div>}
       {error && !semTabela && <div className="aviso erro" style={{ marginBottom: 16 }}>Não foi possível carregar os prazos: {error.message}</div>}
 
-      {!cumpridos && (
-        <div className="grid kpis prazo-kpis" style={{ marginBottom: 16 }}>
-          {GRUPOS.map((g) => (
-            <a key={g.id} href={`#${g.id}`} className={"card kpi" + (g.classe && contagem[g.id] ? ` kpi-${g.classe}` : "")}>
-              <div className="lbl">{g.titulo}</div>
-              <div className="val">{contagem[g.id]}</div>
-            </a>
-          ))}
-        </div>
-      )}
-
       <details className="card novo" style={{ marginBottom: 16 }} open={Boolean(nova)}>
         <summary><span className="btn primary">+ Novo prazo</span></summary>
         <FormPrazo action={criarPrazo} processos={processos} pessoas={pessoas ?? []} feriados={listaFeriados} botao="Criar prazo" />
@@ -155,15 +136,16 @@ export default async function Prazos({ searchParams }: { searchParams: Promise<{
 
       {cumpridos ? (
         <div className="card">{lista.length ? <div className="list">{lista.map((p) => <Linha key={p.id} p={p} />)}</div> : <div className="vazio">Nenhum prazo cumprido nos últimos 30 dias.</div>}</div>
-      ) : lista.length === 0 ? (
-        <div className="card"><div className="vazio"><b>Nenhum prazo aberto</b>Crie pelo “+ Novo prazo” ou, em Publicações, pelo “Criar prazo” de cada intimação.</div></div>
       ) : (
-        GRUPOS.filter((g) => contagem[g.id]).map((g) => (
-          <section key={g.id} id={g.id} className="card" style={{ marginBottom: 16 }}>
-            <div className="ctitle"><h3>{g.titulo}</h3><span className={`chip ${g.classe}`}>{contagem[g.id]}</span></div>
-            <div className="list">{lista.filter((p) => grupo(p) === g.id).map((p) => <Linha key={p.id} p={p} />)}</div>
-          </section>
-        ))
+        <PainelPrazos
+          prazos={lista.map((p) => ({
+            id: p.id, descricao: p.descricao, publicado_em: p.publicado_em, dias: p.dias, contagem: p.contagem, vence_em: p.vence_em, vence_interno: p.vence_interno,
+            responsavel_id: p.responsavel_id, observacao: p.observacao, numero_cnj: p.processos?.numero_cnj ?? null, cliente: p.clientes, responsavel: p.responsavel?.nome ?? null,
+          }))}
+          hoje={hoje}
+          feriados={listaFeriados}
+          pessoas={pessoas ?? []}
+        />
       )}
 
       <details className="card" id="feriados" style={{ marginTop: 16 }}>
