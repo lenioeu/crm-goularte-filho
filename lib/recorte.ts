@@ -21,14 +21,17 @@ export type PublicacaoLida = {
   audiencia: { data: string; hora: string } | null; // quando o texto marca ou remarca audiência
 };
 
-const ENTIDADES: Record<string, string> = { nbsp: " ", amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", ordm: "º", ordf: "ª", sect: "§" };
+const ENTIDADES: Record<string, string> = {
+  nbsp: " ", amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", ordm: "º", ordf: "ª", sect: "§", middot: "·",
+  aacute: "á", eacute: "é", iacute: "í", oacute: "ó", uacute: "ú", atilde: "ã", otilde: "õ", ccedil: "ç", acirc: "â", ecirc: "ê", ocirc: "ô", agrave: "à",
+};
 
 function semHtml(html: string) {
   return html
     .replace(/<br\s*\/?>/gi, "\n")
     .replace(/<\/(tr|p|div|li)>/gi, "\n")
     .replace(/<[^>]+>/g, " ")
-    .replace(/&(#\d+|[a-z]+);/gi, (m, e: string) => (e.startsWith("#") ? String.fromCharCode(Number(e.slice(1))) : ENTIDADES[e.toLowerCase()] ?? m))
+    .replace(/&(#\d+|[a-z]+);/gi, (m, e: string) => (e.startsWith("#") ? String.fromCharCode(Number(e.slice(1))) : ENTIDADES[e] ?? ENTIDADES[e.toLowerCase()]?.toUpperCase() ?? m))
     .replace(/[ \t\r\f\v]+/g, " ")
     .replace(/ *\n */g, "\n")
     .replace(/\n{2,}/g, "\n")
@@ -64,6 +67,9 @@ function audienciaNoTexto(texto: string) {
   return data ? { data, hora: `${m[2].padStart(2, "0")}:${m[3]}` } : null;
 }
 
+/** Linhas de cabeçalho do formato novo, antes do texto da publicação. */
+const CABECALHO = /^(publica[cç][aã]o\s*\d+\s*\/\s*\d+|processo\s*:\s*[\d.\-]+\s*$|data d[ae] (disponibiliza|publica)[^:]*:|fonte\s*:|jornal\s*:|caderno\s*:|local\s*:|tribunal\s*:|vara\s*:)/i;
+
 /** Separa as publicações de um e-mail do Recorte Digital. Lista vazia quando o dia não teve publicação. */
 export function lerEmailRecorte(html: string): PublicacaoLida[] {
   const lidas: PublicacaoLida[] = [];
@@ -72,32 +78,38 @@ export function lerEmailRecorte(html: string): PublicacaoLida[] {
     const corpo = semHtml(m[2]);
     const linhas = corpo.split("\n");
     // Valor de um rótulo: o resto da linha ou, se vier vazio ("Jornal:" sozinho), a linha de baixo
-    const campo = (rotulo: string) => {
-      const i = linhas.findIndex((x) => x.toLowerCase().startsWith(rotulo.toLowerCase()));
+    const campo = (rotulo: string | RegExp) => {
+      const i = linhas.findIndex((x) => (typeof rotulo === "string" ? x.toLowerCase().startsWith(rotulo.toLowerCase()) : rotulo.test(x)));
       if (i < 0) return null;
       const l = linhas[i];
       const resto = l.includes(":") ? l.slice(l.indexOf(":") + 1).trim() : "";
       return resto || linhas[i + 1]?.trim() || null;
     };
-    // O texto começa depois da linha "Página:"
+    // Formato antigo: o texto começa depois da linha "Página:". Formato novo (desde 18/11/2026, sem "Página:"):
+    // o texto começa depois do cabeçalho ("PUBLICAÇÃO 1 / 1", "Processo:", "Data da Disponibilização:", "Fonte:"...).
     const iPagina = linhas.findIndex((x) => /^p[aá]gina\s*:/i.test(x));
+    let inicio = iPagina + 1;
+    if (iPagina < 0) {
+      inicio = 0;
+      while (inicio < linhas.length && inicio < 12 && CABECALHO.test(linhas[inicio])) inicio++;
+    }
     const texto = linhas
-      .slice(iPagina >= 0 ? iPagina + 1 : 0)
+      .slice(inicio)
       .filter((x) => !/^publica[cç][aã]o\s*:\s*\d+/i.test(x))
       .join("\n")
       .trim();
     const numeroCnj = formatarCnj(m[3]) ?? formatarCnj(m[1]);
-    const orgao = [campo("Tribunal:"), campo("Vara:"), campo("Local:")].filter(Boolean).join(" · ") || linhas[iPagina - 1]?.trim() || null;
+    const orgao = [campo("Tribunal:"), campo("Vara:"), campo("Local:"), campo("Fonte:")].filter(Boolean).join(" · ") || (iPagina > 0 ? linhas[iPagina - 1]?.trim() : null) || null;
     // O link às vezes vem quebrado em duas linhas: junta o trecho entre "Acesso ao documento:" e "Identificador"
     const trechoLink = texto.match(/Acesso ao documento:\s*([\s\S]{8,600}?)(?:\s+Identificador|$)/i)?.[1]?.replace(/\s+/g, "");
     const link = trechoLink?.match(/^https?:\/\/\S+/)?.[0]?.replace(/[.,;]+$/, "") ?? texto.match(/https?:\/\/pje[^\s]+/i)?.[0] ?? null;
-    const disponibilizacao = dataIso(campo("Data de Disponibiliza"));
+    const disponibilizacao = dataIso(campo(/^data d[ae] disponibiliza/i));
     const tipo = classificar(texto);
     lidas.push({
       chave: createHash("sha256").update(`${numeroCnj ?? m[1]}|${disponibilizacao}|${texto.slice(0, 2000)}`).digest("hex").slice(0, 40),
       numeroCnj,
       disponibilizacao,
-      publicacao: dataIso(campo("Data de Publica")),
+      publicacao: dataIso(campo(/^data d[ae] publica/i)),
       jornal: campo("Jornal:"),
       caderno: campo("Caderno:"),
       orgao,

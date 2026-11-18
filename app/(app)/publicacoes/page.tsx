@@ -103,7 +103,9 @@ export default async function Publicacoes({ searchParams }: { searchParams: Prom
       )}
       {atrasado && (
         <div className="aviso erro" style={{ marginBottom: 16 }}>
-          O e-mail do Recorte de hoje ainda não chegou ao Órion. Confira o histórico em recortedigital.oabes.org.br para não perder nenhuma publicação.
+          O e-mail do Recorte de hoje ainda não foi levado ao Órion. Se ele já está no seu Gmail, o script do Google parou de rodar sozinho:{" "}
+          {papel === "administrador" ? <>veja como religar em <Link href="/integracoes#recorte" style={{ textDecoration: "underline" }}>Integrações › Recorte Digital</Link>.</> : "avise o administrador."}{" "}
+          Enquanto isso, confira em recortedigital.oabes.org.br para não perder nenhuma publicação.
         </div>
       )}
       {error && !semTabela && <div className="aviso erro" style={{ marginBottom: 16 }}>Não foi possível carregar as publicações: {error.message}</div>}
