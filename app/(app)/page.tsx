@@ -41,7 +41,7 @@ export default async function Inicio() {
   const em7 = new Date(Date.now() + 7 * 86_400_000).toISOString();
   const ha7 = new Date(Date.now() - 7 * 86_400_000).toLocaleDateString("sv-SE", { timeZone: TZ });
 
-  const [{ data: perfil }, { data: audiencias }, esperando, { data: tarefas }, { data: processos }, { count: agendadasHoje }] = await Promise.all([
+  const [{ data: perfil }, { data: audiencias }, esperando, { data: tarefas }, { data: processos }, { count: agendadasHoje }, { count: pubNovas }, { data: prazosUrg }] = await Promise.all([
     supabase.from("perfis").select("nome").eq("id", user?.id ?? "").maybeSingle(),
     supabase.from("audiencias").select("id, tipo, inicio, local, modalidade, casos(titulo, clientes(id, nome))").gte("inicio", inicioHoje).lte("inicio", em7).order("inicio").limit(8),
     supabase
@@ -67,6 +67,8 @@ export default async function Inicio() {
       .order("ultima_movimentacao_em", { ascending: false })
       .limit(6),
     supabase.from("mensagens_agendadas").select("id", { count: "exact", head: true }).eq("status", "programada").gte("enviar_em", new Date().toISOString()).lt("enviar_em", fimHoje),
+    supabase.from("publicacoes").select("id", { count: "exact", head: true }).eq("situacao", "nova"),
+    supabase.from("prazos").select("vence_em").eq("situacao", "aberto").lte("vence_em", hoje).limit(500),
   ]);
   // Antes do script 008 não existe "aguardando_resposta": usa a fila
   const { data: fila } = esperando.error
@@ -78,7 +80,18 @@ export default async function Inicio() {
   const atrasadas = (tarefas ?? []).filter((t) => t.vence_em && t.vence_em < hoje).length;
   const dataLonga = new Date().toLocaleDateString("pt-BR", { timeZone: TZ, weekday: "long", day: "numeric", month: "long" });
 
+  const prazosVencidos = (prazosUrg ?? []).filter((p) => String(p.vence_em).slice(0, 10) < hoje).length;
+  const prazosHoje = (prazosUrg ?? []).length - prazosVencidos;
+
   const numeros: { rotulo: string; valor: number; href: string; icone: NomeIcone; alerta?: boolean }[] = [
+    { rotulo: "Publicações para tratar", valor: pubNovas ?? 0, href: "/publicacoes", icone: "documento", alerta: (pubNovas ?? 0) > 0 },
+    {
+      rotulo: prazosVencidos ? `Prazos que vencem hoje · ${prazosVencidos} vencido${prazosVencidos > 1 ? "s" : ""}` : "Prazos que vencem hoje",
+      valor: prazosHoje,
+      href: "/prazos",
+      icone: "relogio",
+      alerta: prazosHoje + prazosVencidos > 0,
+    },
     { rotulo: "Conversas esperando resposta", valor: (fila ?? []).length, href: "/atendimento", icone: "conversa", alerta: (fila ?? []).length > 0 },
     { rotulo: "Audiências hoje", valor: audHoje.length, href: "/audiencias", icone: "calendario" },
     { rotulo: atrasadas ? `Suas tarefas para hoje · ${atrasadas} atrasada${atrasadas > 1 ? "s" : ""}` : "Suas tarefas para hoje", valor: (tarefas ?? []).length, href: "/tarefas?minhas=1", icone: "tarefa", alerta: atrasadas > 0 },
@@ -101,7 +114,7 @@ export default async function Inicio() {
         <span className="atalho-dica">ou <kbd>Ctrl</kbd>+<kbd>K</kbd> para buscar qualquer coisa</span>
       </div>
 
-      <div className="grid kpis">
+      <div className="grid kpis kpis-6">
         {numeros.map((n) => (
           <Link key={n.rotulo} href={n.href} className={"card kpi kpi-link" + (n.alerta ? " alerta" : "")}>
             <div className="lbl"><Icone nome={n.icone} tamanho={16} /> {n.rotulo}</div>
