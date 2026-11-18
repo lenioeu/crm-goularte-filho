@@ -39,9 +39,9 @@ export default async function Inicio() {
   const inicioHoje = new Date(`${hoje}T00:00:00-03:00`).toISOString();
   const fimHoje = new Date(new Date(inicioHoje).getTime() + 86_400_000).toISOString();
   const em7 = new Date(Date.now() + 7 * 86_400_000).toISOString();
-  const ha7 = new Date(Date.now() - 7 * 86_400_000).toLocaleDateString("sv-SE", { timeZone: TZ });
+  const em7dia = new Date(Date.now() + 7 * 86_400_000).toLocaleDateString("sv-SE", { timeZone: TZ });
 
-  const [{ data: perfil }, { data: audiencias }, esperando, { data: tarefas }, { data: processos }, { count: agendadasHoje }, { count: pubNovas }, { data: prazosUrg }] = await Promise.all([
+  const [{ data: perfil }, { data: audiencias }, esperando, { data: tarefas }, { count: agendadasHoje }, { count: pubNovas }, { data: prazosUrg }] = await Promise.all([
     supabase.from("perfis").select("nome").eq("id", user?.id ?? "").maybeSingle(),
     supabase.from("audiencias").select("id, tipo, inicio, local, modalidade, casos(titulo, clientes(id, nome))").gte("inicio", inicioHoje).lte("inicio", em7).order("inicio").limit(8),
     supabase
@@ -59,16 +59,15 @@ export default async function Inicio() {
       .or(`vence_em.lte.${hoje},vence_em.is.null`)
       .order("vence_em", { nullsFirst: false })
       .limit(8),
-    supabase
-      .from("processos")
-      .select("id, numero_cnj, ultima_movimentacao, ultima_movimentacao_em, casos(clientes(id, nome))")
-      .eq("arquivado", false)
-      .gte("ultima_movimentacao_em", ha7)
-      .order("ultima_movimentacao_em", { ascending: false })
-      .limit(6),
     supabase.from("mensagens_agendadas").select("id", { count: "exact", head: true }).eq("status", "programada").gte("enviar_em", new Date().toISOString()).lt("enviar_em", fimHoje),
     supabase.from("publicacoes").select("id", { count: "exact", head: true }).eq("situacao", "nova"),
-    supabase.from("prazos").select("vence_em").eq("situacao", "aberto").lte("vence_em", hoje).limit(500),
+    supabase
+      .from("prazos")
+      .select("id, descricao, vence_em, vence_interno, processos(numero_cnj), clientes(id, nome)")
+      .eq("situacao", "aberto")
+      .lte("vence_em", em7dia)
+      .order("vence_em")
+      .limit(200),
   ]);
   // Antes do script 008 não existe "aguardando_resposta": usa a fila
   const { data: fila } = esperando.error
@@ -80,8 +79,9 @@ export default async function Inicio() {
   const atrasadas = (tarefas ?? []).filter((t) => t.vence_em && t.vence_em < hoje).length;
   const dataLonga = new Date().toLocaleDateString("pt-BR", { timeZone: TZ, weekday: "long", day: "numeric", month: "long" });
 
-  const prazosVencidos = (prazosUrg ?? []).filter((p) => String(p.vence_em).slice(0, 10) < hoje).length;
-  const prazosHoje = (prazosUrg ?? []).length - prazosVencidos;
+  const prazos7 = (prazosUrg ?? []).map((p) => ({ ...p, dia: String(p.vence_em).slice(0, 10) }));
+  const prazosVencidos = prazos7.filter((p) => p.dia < hoje).length;
+  const prazosHoje = prazos7.filter((p) => p.dia === hoje).length;
 
   const numeros: { rotulo: string; valor: number; href: string; icone: NomeIcone; alerta?: boolean }[] = [
     { rotulo: "Publicações para tratar", valor: pubNovas ?? 0, href: "/publicacoes", icone: "documento", alerta: (pubNovas ?? 0) > 0 },
@@ -173,6 +173,36 @@ export default async function Inicio() {
 
       <div className="grid cols-2">
         <div className="card">
+          <div className="ctitle"><h3>Prazos vencendo nos próximos 7 dias</h3><Link href="/prazos" className="tag" style={{ marginLeft: "auto", color: "var(--accent)" }}>abrir prazos</Link></div>
+          {prazos7.length === 0 ? (
+            <div className="vazio"><b>Nenhum prazo vencendo</b>Nada vence nos próximos 7 dias.</div>
+          ) : (
+            <div className="list">
+              {prazos7.slice(0, 8).map((p) => {
+                const cli = um(p.clientes as Rel<{ id: string; nome: string }>);
+                const proc = um(p.processos as Rel<{ numero_cnj: string }>);
+                const vencido = p.dia < hoje;
+                const ehHoje = p.dia === hoje;
+                const sem = new Date(`${p.dia}T12:00:00Z`).toLocaleDateString("pt-BR", { timeZone: "UTC", weekday: "short" }).replace(".", "");
+                return (
+                  <Link className="li" key={p.id} href="/prazos">
+                    <div className={"datebox" + (vencido || ehHoje ? " hoje" : "")}>
+                      <small>{vencido ? "vencido" : ehHoje ? "hoje" : sem}</small>
+                      <b style={{ fontSize: 15 }}>{dataBR(p.dia).slice(0, 5)}</b>
+                    </div>
+                    <div className="bd">
+                      <b>{p.descricao}{cli ? ` · ${cli.nome}` : ""}</b>
+                      <small>{[proc?.numero_cnj, `interno ${dataBR(String(p.vence_interno).slice(0, 10)).slice(0, 5)}`].filter(Boolean).join(" · ")}</small>
+                    </div>
+                  </Link>
+                );
+              })}
+              {prazos7.length > 8 && <Link href="/prazos" className="dayhead" style={{ margin: "6px 0 0", color: "var(--accent)" }}>e mais {prazos7.length - 8}</Link>}
+            </div>
+          )}
+        </div>
+
+        <div className="card">
           <div className="ctitle"><h3>Suas tarefas</h3><Link href="/tarefas?minhas=1" className="tag" style={{ marginLeft: "auto", color: "var(--accent)" }}>todas</Link></div>
           {(tarefas ?? []).length === 0 ? (
             <div className="vazio"><b>Nada para hoje</b>Nenhuma tarefa sua vencendo hoje ou atrasada.</div>
@@ -198,26 +228,6 @@ export default async function Inicio() {
           )}
         </div>
 
-        <div className="card">
-          <div className="ctitle"><h3>Processos que andaram</h3><Link href="/processos?filtro=semana" className="tag" style={{ marginLeft: "auto", color: "var(--accent)" }}>últimos 7 dias</Link></div>
-          {(processos ?? []).length === 0 ? (
-            <div className="vazio"><b>Nenhuma movimentação nova</b>O CRM consulta o CNJ todo dia de manhã.</div>
-          ) : (
-            <div className="list">
-              {(processos ?? []).map((p) => {
-                const cli = um(um(p.casos as Rel<{ clientes: Rel<{ id: string; nome: string }> }>)?.clientes ?? null);
-                return (
-                  <Link className="li" key={p.id} href={cli ? `/clientes/${cli.id}` : "/processos"}>
-                    <div className="bd">
-                      <b>{cli?.nome ?? p.numero_cnj}</b>
-                      <small>{dataBR(p.ultima_movimentacao_em)} · {p.ultima_movimentacao}</small>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-          )}
-        </div>
       </div>
     </div>
   );
