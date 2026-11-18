@@ -95,7 +95,6 @@ export default async function Inicio() {
     { rotulo: "Conversas esperando resposta", valor: (fila ?? []).length, href: "/atendimento", icone: "conversa", alerta: (fila ?? []).length > 0 },
     { rotulo: "Audiências hoje", valor: audHoje.length, href: "/audiencias", icone: "calendario" },
     { rotulo: atrasadas ? `Suas tarefas para hoje · ${atrasadas} atrasada${atrasadas > 1 ? "s" : ""}` : "Suas tarefas para hoje", valor: (tarefas ?? []).length, href: "/tarefas?minhas=1", icone: "tarefa", alerta: atrasadas > 0 },
-    { rotulo: "Processos que andaram na semana", valor: (processos ?? []).length, href: "/processos?filtro=semana", icone: "balanca" },
   ];
 
   return (
