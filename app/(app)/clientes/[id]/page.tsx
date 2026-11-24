@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BotaoAcao } from "@/components/BotaoAcao";
 import { CampoCpf } from "@/components/CampoCpf";
+import { type Parte, ProcessoCartao, type ProcessoFicha } from "@/components/ProcessoCartao";
 import { CampoEndereco } from "@/components/CampoEndereco";
 import { FormAcao } from "@/components/FormAcao";
 import { FormAudiencia } from "@/components/FormAudiencia";
@@ -44,7 +45,7 @@ export default async function FichaCliente({ params }: { params: Promise<{ id: s
 
   const [{ data: processos }, { data: audiencias }, { data: tarefas }, { data: agendadas }, { data: areas }, { data: pessoas }, { data: google }, { data: documentos }, { data: qualif, error: erroQualif }] =
     await Promise.all([
-      supabase.from("processos").select("id, numero_cnj, tribunal, vara, ultima_movimentacao, ultima_movimentacao_em").in("caso_id", idsCasos.length ? idsCasos : nenhum),
+      supabase.from("processos").select("id, numero_cnj, tribunal, vara, ultima_movimentacao, ultima_movimentacao_em, processo_pai_id, tipo_vinculo, processo_partes(id, nome, cpf_cnpj, papel, advogado)").in("caso_id", idsCasos.length ? idsCasos : nenhum),
       supabase.from("audiencias").select("id, tipo, inicio, local, modalidade, processos(numero_cnj)").in("caso_id", idsCasos.length ? idsCasos : nenhum).order("inicio", { ascending: false }).limit(20),
       supabase.from("tarefas").select("id, titulo, coluna, vence_em").eq("cliente_id", id).neq("coluna", "concluida").order("vence_em", { nullsFirst: false }),
       supabase.from("mensagens_agendadas").select("id, tipo, texto, enviar_em").eq("cliente_id", id).eq("status", "programada").order("enviar_em"),
@@ -72,6 +73,15 @@ export default async function FichaCliente({ params }: { params: Promise<{ id: s
   const driveLigado = (google ?? []).length === 2;
 
   const nomeArea = area?.nome;
+  // Processos com partes contrárias; os vinculados (agravo, recurso…) aparecem dentro do principal
+  const fichaProcs = ((processos ?? []) as unknown as (ProcessoFicha & { processo_pai_id: string | null; processo_partes: Parte[] | null })[]).map((p) => ({
+    ...p,
+    partes: p.processo_partes ?? [],
+    pai: p.processo_pai_id,
+  }));
+  const idsFicha = new Set(fichaProcs.map((p) => p.id));
+  const principais = fichaProcs.filter((p) => !p.pai || !idsFicha.has(p.pai));
+
   return (
     <div className="view">
       <Link href="/clientes" style={{ color: "var(--accent)", fontSize: 13 }}>‹ Clientes</Link>
@@ -204,13 +214,9 @@ export default async function FichaCliente({ params }: { params: Promise<{ id: s
               <div className="vazio" style={{ padding: "10px 4px" }}>Nenhum processo cadastrado.</div>
             ) : (
               <div className="list">
-                {(processos ?? []).map((p) => (
+                {principais.map((p) => (
                   <div className="li" key={p.id}>
-                    <div className="bd">
-                      <b style={{ fontFamily: "var(--f-mono)", fontSize: 12.5 }}>{p.numero_cnj}</b>
-                      <small>{[p.tribunal, p.vara].filter(Boolean).join(" · ")}</small>
-                      {p.ultima_movimentacao && <small>{dataBR(p.ultima_movimentacao_em)} · {p.ultima_movimentacao}</small>}
-                    </div>
+                    <ProcessoCartao processo={p} filhos={fichaProcs.filter((x) => x.pai === p.id)} clienteId={c.id} />
                   </div>
                 ))}
               </div>

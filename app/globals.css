@@ -988,3 +988,21 @@ kbd { font-family: var(--f-mono); font-size: 11px; border: 1px solid var(--line-
   .cal-livre { text-align: left; }
 }
 .ponto-tipo { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; }
+
+/* Processo na ficha do cliente: partes contrárias e processos vinculados */
+.proc-cartao { display: flex; flex-direction: column; gap: 3px; min-width: 0; width: 100%; }
+.proc-cartao > small, .proc-filho > small { color: var(--muted); font-size: 12.5px; }
+.proc-num { font-family: var(--f-mono); font-size: 12.5px; font-weight: 500; }
+.partes { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.partes li { display: flex; align-items: baseline; gap: 6px; font-size: 13px; flex-wrap: wrap; }
+.partes li b { font-weight: 500; }
+.partes li small { color: var(--muted); }
+.partes-x { color: var(--crit); font-weight: 700; }
+.proc-filhos { display: flex; flex-direction: column; gap: 8px; margin: 6px 0 2px 6px; padding-left: 12px; border-left: 2px solid var(--line-2); }
+.proc-filho { display: flex; flex-direction: column; gap: 2px; align-items: flex-start; }
+.proc-filho-tipo { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent); }
+.proc-acoes { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 4px; }
+.proc-acoes .linkbtn { color: var(--accent); }
+.proc-acoes .linkbtn.on { text-decoration: underline; }
+.proc-form { margin-top: 8px; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+.proc-vinculo { color: var(--accent) !important; }

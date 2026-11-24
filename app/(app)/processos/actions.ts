@@ -274,3 +274,91 @@ export async function cadastrarLista(
   revalidatePath("/funil");
   return { ok, erros };
 }
+
+// ------------------------------------------------------------------ Parte contrária e processos vinculados
+const SEM_019 = "Falta rodar o script supabase/019_calendario_partes_vinculos.sql no Supabase.";
+const traduzir019 = (m: string) =>
+  /processo_partes|processo_pai_id|tipo_vinculo|does not exist|schema cache/i.test(m) ? SEM_019 : /row-level security/i.test(m) ? "Você não tem permissão para esse processo." : m;
+const campo = (f: FormData, k: string) => {
+  const v = f.get(k);
+  return typeof v === "string" && v.trim() ? v.trim() : null;
+};
+
+function revalidarProcesso(clienteId?: string | null) {
+  revalidatePath("/processos");
+  if (clienteId) revalidatePath(`/clientes/${clienteId}`);
+}
+
+/** Parte contrária de um processo (reclamada, ré, agravado…). Avisa se ela é cliente do escritório. */
+export async function adicionarParte(_: Resultado, f: FormData): Promise<Resultado> {
+  const { supabase, user, papel } = await quemSou();
+  if (!user || !papel) return { erro: "Sem permissão.", ok: null };
+  const processoId = campo(f, "processo_id");
+  const nome = campo(f, "nome");
+  if (!processoId) return { erro: "Processo não encontrado.", ok: null };
+  if (!nome) return { erro: "Informe o nome da parte contrária.", ok: null };
+  const cpf = campo(f, "cpf");
+  const { error } = await supabase.from("processo_partes").insert({ processo_id: processoId, nome, cpf_cnpj: cpf, papel: campo(f, "papel"), advogado: campo(f, "advogado") });
+  if (error) return { erro: traduzir019(error.message), ok: null };
+  const { parteEhCliente } = await import("@/lib/conflito");
+  const aviso = await parteEhCliente(supabase, nome, cpf);
+  revalidarProcesso(campo(f, "cliente_id"));
+  return { erro: null, ok: `Parte contrária adicionada: ${nome.toUpperCase()}.${aviso}` };
+}
+
+export async function removerParte(id: string, clienteId?: string | null): Promise<Resultado> {
+  const { supabase, user, papel } = await quemSou();
+  if (!user || !papel) return { erro: "Sem permissão.", ok: null };
+  const { error } = await supabase.from("processo_partes").delete().eq("id", id);
+  if (error) return { erro: traduzir019(error.message), ok: null };
+  revalidarProcesso(clienteId);
+  return { erro: null, ok: "Parte contrária retirada." };
+}
+
+
+/**
+ * Liga um processo ao principal (agravo, recurso, cumprimento de sentença…). Se o número ainda não está no
+ * Órion, cadastra (consultando o DataJud) no mesmo caso do principal e copia as partes contrárias dele.
+ */
+export async function vincularProcesso(_: Resultado, f: FormData): Promise<Resultado> {
+  const { supabase, user, papel } = await quemSou();
+  if (!user || !papel) return { erro: "Sem permissão.", ok: null };
+  const paiId = campo(f, "pai_id");
+  const tipo = campo(f, "tipo_vinculo") ?? "Recurso";
+  const numero = somenteDigitos(String(f.get("numero") ?? ""));
+  if (!paiId) return { erro: "Processo principal não encontrado.", ok: null };
+  if (numero.length !== 20) return { erro: "O número precisa ter 20 dígitos (formato 0000000-00.0000.0.00.0000).", ok: null };
+  if (!validarCNJ(numero)) return { erro: "Esse número não confere com os dígitos verificadores do CNJ. Confira a digitação.", ok: null };
+
+  const { data: pai } = await supabase.from("processos").select("id, caso_id, numero_cnj, processo_pai_id").eq("id", paiId).maybeSingle();
+  if (!pai) return { erro: "Processo principal não encontrado. Recarregue a página.", ok: null };
+  const cnj = formatarCNJ(numero);
+  if (cnj === pai.numero_cnj) return { erro: "Esse é o próprio processo principal.", ok: null };
+
+  let { data: filho } = await supabase.from("processos").select("id, caso_id").eq("numero_cnj", cnj).maybeSingle();
+  let msg = "";
+  if (!filho) {
+    const r = await registrar(supabase, user.id, numero, pai.caso_id, "");
+    if (r.erro) return r;
+    msg = r.ok?.replace(/^Processo \S+ cadastrado\.?/, "").trim() ?? "";
+    ({ data: filho } = await supabase.from("processos").select("id, caso_id").eq("numero_cnj", cnj).maybeSingle());
+    if (!filho) return { erro: "Cadastrei, mas não consegui ligar ao principal. Recarregue a página.", ok: null };
+    // As partes contrárias costumam ser as mesmas do principal
+    const { data: partes } = await supabase.from("processo_partes").select("nome, cpf_cnpj, papel, advogado").eq("processo_id", pai.id);
+    if (partes?.length) await supabase.from("processo_partes").insert(partes.map((p) => ({ ...p, processo_id: filho!.id })));
+  }
+  const { error } = await supabase.from("processos").update({ processo_pai_id: pai.id, tipo_vinculo: tipo }).eq("id", filho.id);
+  if (error) return { erro: traduzir019(error.message), ok: null };
+  revalidarProcesso(campo(f, "cliente_id"));
+  revalidatePath("/publicacoes");
+  return { erro: null, ok: `${tipo} ${cnj} ligado ao processo ${pai.numero_cnj}.${msg ? ` ${msg}` : ""}` };
+}
+
+export async function desvincularProcesso(id: string, clienteId?: string | null): Promise<Resultado> {
+  const { supabase, user, papel } = await quemSou();
+  if (!user || !papel) return { erro: "Sem permissão.", ok: null };
+  const { error } = await supabase.from("processos").update({ processo_pai_id: null, tipo_vinculo: null }).eq("id", id);
+  if (error) return { erro: traduzir019(error.message), ok: null };
+  revalidarProcesso(clienteId);
+  return { erro: null, ok: "Processo separado do principal (continua cadastrado)." };
+}

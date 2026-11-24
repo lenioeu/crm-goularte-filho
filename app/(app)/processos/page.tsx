@@ -20,6 +20,9 @@ type Processo = {
   sincronizado_em: string | null;
   movimentos: Movimento[] | null;
   casos: { titulo: string; parte_contraria: string | null; clientes: { id: string; nome: string } | null; areas: { nome: string; cor: string } | null } | null;
+  processo_pai_id?: string | null;
+  tipo_vinculo?: string | null;
+  processo_partes?: { nome: string }[] | null;
 };
 
 const dataBR = (iso: string | null) => (iso ? iso.slice(0, 10).split("-").reverse().join("/") : "—");
@@ -31,7 +34,7 @@ export default async function Processos({ searchParams }: { searchParams: Promis
   const [{ data, error }, { data: casos }, { data: clientes }] = await Promise.all([
     supabase
       .from("processos")
-      .select("id, numero_cnj, tribunal, vara, classe, ultima_movimentacao, ultima_movimentacao_em, sincronizado_em, movimentos, casos(titulo, parte_contraria, clientes(id, nome), areas(nome, cor))")
+      .select("id, numero_cnj, tribunal, vara, classe, ultima_movimentacao, ultima_movimentacao_em, sincronizado_em, movimentos, processo_pai_id, tipo_vinculo, processo_partes(nome), casos(titulo, parte_contraria, clientes(id, nome), areas(nome, cor))")
       .eq("arquivado", false)
       .order("ultima_movimentacao_em", { ascending: false, nullsFirst: false })
       .limit(2000),
@@ -40,6 +43,7 @@ export default async function Processos({ searchParams }: { searchParams: Promis
   ]);
 
   const todos = (data ?? []) as unknown as Processo[];
+  const numeroPorId = new Map(todos.map((p) => [p.id, p.numero_cnj]));
   const semana = todos.filter((p) => (diasDesde(p.ultima_movimentacao_em) ?? 999) <= 7);
   const parados = todos.filter((p) => (diasDesde(p.ultima_movimentacao_em) ?? 0) > 60);
   const filtrada = filtro === "semana" ? semana : filtro === "parados" ? parados : todos;
@@ -135,10 +139,15 @@ export default async function Processos({ searchParams }: { searchParams: Promis
                     <td>
                       <span className="num" style={{ fontFamily: "var(--f-mono)", fontSize: 12.5, whiteSpace: "nowrap" }}>{p.numero_cnj}</span>
                       {p.classe && <small>{p.classe}</small>}
+                      {p.processo_pai_id && <small className="proc-vinculo">↳ {p.tipo_vinculo ?? "vinculado"} de {numeroPorId.get(p.processo_pai_id) ?? "outro processo"}</small>}
                     </td>
                     <td>
                       {p.casos?.clientes ? <Link href={`/clientes/${p.casos.clientes.id}`} style={{ fontWeight: 500, color: "var(--accent)" }}>{p.casos.clientes.nome}</Link> : "—"}
-                      {p.casos?.parte_contraria && <small>× {p.casos.parte_contraria}</small>}
+                      {(p.processo_partes ?? []).length > 0 ? (
+                        <small>× {(p.processo_partes ?? []).map((x) => x.nome).join(", ")}</small>
+                      ) : (
+                        p.casos?.parte_contraria && <small>× {p.casos.parte_contraria}</small>
+                      )}
                       {p.casos?.areas && <span className="chip area" style={{ "--c": p.casos.areas.cor, marginTop: 4 } as React.CSSProperties}>{p.casos.areas.nome}</span>}
                     </td>
                     <td>{p.tribunal ?? "—"}{p.vara && <small>{p.vara}</small>}</td>

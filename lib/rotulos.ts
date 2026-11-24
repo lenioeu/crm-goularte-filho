@@ -63,3 +63,6 @@ export const TIPOS_DOCUMENTO = ["RG", "CPF", "CNH", "COMPROVANTE DE RESIDÊNCIA"
 
 /** Tipos de audiência oferecidos ao agendar ou editar. */
 export const TIPOS_AUDIENCIA = ["Conciliação", "Instrução", "Instrução e julgamento", "Una", "Inicial", "Perícia", "Custódia", "Sessão de julgamento"];
+
+/** Como um processo se liga ao principal (agravo, recurso, cumprimento…). */
+export const TIPOS_VINCULO = ["Agravo de instrumento", "Agravo interno", "Recurso", "Cumprimento de sentença", "Execução", "Embargos", "Incidente", "Ação conexa"];

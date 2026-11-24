@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import type { Resultado } from "@/app/(app)/actions";
 import { lerTiposContato, SEM_COLUNA_CONTATO, semColunaContato } from "@/lib/contatos";
+import { clienteEhParteContraria } from "@/lib/conflito";
 import { quemSou } from "@/lib/permissoes";
 
 function atualizarTelas(id?: string) {
@@ -113,5 +114,6 @@ export async function cadastrarComoCliente(_: Resultado, f: FormData): Promise<R
   }
   if (erro) return { erro: /duplicate key/i.test(erro) ? "Já existe outro cadastro com esse WhatsApp ou CPF. Use “Vincular a cliente”." : erro, ok: null };
   atualizarTelas(id);
-  return { erro: null, ok: `${nome.toUpperCase()} agora é cliente.` };
+  const conflito = await clienteEhParteContraria(supabase, nome, basicos.cpf_cnpj);
+  return { erro: null, ok: `${nome.toUpperCase()} agora é cliente.${conflito}` };
 }

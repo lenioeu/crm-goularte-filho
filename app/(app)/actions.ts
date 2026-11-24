@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { atualizarEvento, criarEvento, excluirEvento, tokenDeAcesso } from "@/lib/google";
 import { randomInt } from "node:crypto";
 import { ehDeAudiencia, lerModelosMensagem, preencherMensagem, quandoEnviar } from "@/lib/modelosMensagem";
+import { clienteEhParteContraria } from "@/lib/conflito";
 import { quemSou } from "@/lib/permissoes";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { supabaseServer } from "@/lib/supabase/server";
@@ -43,7 +44,8 @@ export async function criarCliente(_: Resultado, f: FormData): Promise<Resultado
   if (error) return { erro: traduzirErro(error.message), ok: null };
   revalidatePath("/clientes");
   revalidatePath("/");
-  return { erro: null, ok: `${nome.toUpperCase()} cadastrado.` };
+  const conflito = await clienteEhParteContraria(supabase, nome, texto(f, "cpf"));
+  return { erro: null, ok: `${nome.toUpperCase()} cadastrado.${conflito}` };
 }
 
 export async function criarArea(_: Resultado, f: FormData): Promise<Resultado> {
