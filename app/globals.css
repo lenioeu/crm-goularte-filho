@@ -1006,3 +1006,8 @@ kbd { font-family: var(--f-mono); font-size: 11px; border: 1px solid var(--line-
 .proc-acoes .linkbtn.on { text-decoration: underline; }
 .proc-form { margin-top: 8px; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
 .proc-vinculo { color: var(--accent) !important; }
+.btn-google { height: 46px; gap: 10px; background: var(--panel); border: 1px solid var(--line-2); font-weight: 600; width: 100%; }
+.btn-google:hover { background: var(--panel-2); }
+.login-senha summary { cursor: pointer; text-align: center; color: var(--muted); font-size: 13px; list-style: none; }
+.login-senha summary::-webkit-details-marker { display: none; }
+.login-senha summary:hover { color: var(--fg); text-decoration: underline; }
