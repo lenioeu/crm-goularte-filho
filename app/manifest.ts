@@ -19,7 +19,7 @@ export default function manifest(): MetadataRoute.Manifest {
     ],
     shortcuts: [
       { name: "Atendimento", url: "/atendimento" },
-      { name: "Audiências", url: "/audiencias" },
+      { name: "Calendário", url: "/calendario" },
       { name: "Tarefas", url: "/tarefas" },
     ],
   };

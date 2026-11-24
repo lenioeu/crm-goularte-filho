@@ -277,7 +277,7 @@ export async function criarAudiencia(_: Resultado, f: FormData): Promise<Resulta
   }
   const lembrete = programados.length ? ` Mensage${programados.length > 1 ? "ns" : "m"} ao cliente: ${programados.join(", ")}.` : "";
 
-  revalidatePath("/audiencias");
+  revalidatePath("/calendario");
   revalidatePath("/");
   return { erro: null, ok: `Audiência agendada.${agenda}${lembrete}` };
 }
@@ -379,7 +379,7 @@ export async function editarAudiencia(_: Resultado, f: FormData): Promise<Result
   }
   const lembrete = programados.length ? ` Mensage${programados.length > 1 ? "ns" : "m"} ao cliente: ${programados.join(", ")}.` : " Nenhuma mensagem ao cliente programada.";
 
-  revalidatePath("/audiencias");
+  revalidatePath("/calendario");
   revalidatePath("/agendamentos");
   revalidatePath("/");
   return { erro: null, ok: `Audiência atualizada.${agenda}${lembrete}` };
@@ -398,7 +398,7 @@ export async function excluirAudiencia(id: string): Promise<Resultado> {
   }
   const { error } = await supabase.from("audiencias").delete().eq("id", id);
   if (error) return { erro: traduzirErro(error.message), ok: null };
-  revalidatePath("/audiencias");
+  revalidatePath("/calendario");
   revalidatePath("/");
   return { erro: null, ok: "Audiência excluída." };
 }

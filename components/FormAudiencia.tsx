@@ -11,16 +11,20 @@ export function FormAudiencia({
   pessoas,
   modelosMensagem,
   compacto = false,
+  dataInicial,
+  aoSalvar,
 }: {
   processos: ProcessoOpcao[];
   pessoas: { id: string; nome: string }[];
   modelosMensagem: ModeloMensagem[];
   compacto?: boolean;
+  dataInicial?: string;
+  aoSalvar?: () => void;
 }) {
   const modelos = modelosMensagem.filter((m) => ehDeAudiencia(m.gatilho));
   const so = processos.length === 1 ? processos[0] : null;
   return (
-    <FormAcao action={criarAudiencia} botao="Agendar audiência" className={"form" + (compacto ? " form-compacto" : "")}>
+    <FormAcao action={criarAudiencia} botao="Agendar audiência" className={"form" + (compacto ? " form-compacto" : "")} aoSalvar={aoSalvar}>
       <div className="field full">
         <label htmlFor="aud_processo_id">Processo</label>
         <select id="aud_processo_id" name="processo_id" required defaultValue={so?.id ?? ""}>
@@ -37,7 +41,7 @@ export function FormAudiencia({
         </select>
       </div>
       <div className="field"><label htmlFor="aud_tipo_outro">Outro tipo (opcional)</label><input id="aud_tipo_outro" name="tipo_outro" placeholder="se não estiver na lista" /></div>
-      <div className="field"><label htmlFor="aud_data">Dia</label><input id="aud_data" name="data" type="date" required /></div>
+      <div className="field"><label htmlFor="aud_data">Dia</label><input id="aud_data" name="data" type="date" required defaultValue={dataInicial} /></div>
       <div className="field"><label htmlFor="aud_hora">Hora</label><input id="aud_hora" name="hora" type="time" required /></div>
       <div className="field">
         <label htmlFor="aud_modalidade">Modalidade</label>

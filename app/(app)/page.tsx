@@ -3,6 +3,7 @@ import { moverTarefa } from "@/app/(app)/actions";
 import { BotaoAcao } from "@/components/BotaoAcao";
 import { Icone, type NomeIcone } from "@/components/Icone";
 import { corDoNome, iniciais } from "@/lib/avatar";
+import { corDoTipo, rotuloDoTipo, type TipoEvento } from "@/lib/calendario";
 import { quemSou } from "@/lib/permissoes";
 import { dataBR, primeiroNome, TZ } from "@/lib/rotulos";
 
@@ -28,7 +29,7 @@ const ATALHOS: { rotulo: string; href: string; icone: NomeIcone }[] = [
   { rotulo: "Nova conversa", href: "/atendimento?nova=1", icone: "conversa" },
   { rotulo: "Novo cliente", href: "/clientes#novo", icone: "usuario" },
   { rotulo: "Cadastrar processo", href: "/processos?nova=1", icone: "balanca" },
-  { rotulo: "Agendar audiência", href: "/audiencias?nova=1", icone: "calendario" },
+  { rotulo: "Agendar audiência", href: "/calendario?nova=audiencia", icone: "calendario" },
   { rotulo: "Nova tarefa", href: "/tarefas?nova=1", icone: "tarefa" },
 ];
 
@@ -41,7 +42,7 @@ export default async function Inicio() {
   const em7 = new Date(Date.now() + 7 * 86_400_000).toISOString();
   const em7dia = new Date(Date.now() + 7 * 86_400_000).toLocaleDateString("sv-SE", { timeZone: TZ });
 
-  const [{ data: perfil }, { data: audiencias }, esperando, { data: tarefas }, { count: agendadasHoje }, { count: pubNovas }, { data: prazosUrg }] = await Promise.all([
+  const [{ data: perfil }, { data: audiencias }, esperando, { data: tarefas }, { count: agendadasHoje }, { count: pubNovas }, { data: prazosUrg }, { data: comps }] = await Promise.all([
     supabase.from("perfis").select("nome").eq("id", user?.id ?? "").maybeSingle(),
     supabase.from("audiencias").select("id, tipo, inicio, local, modalidade, casos(titulo, clientes(id, nome))").gte("inicio", inicioHoje).lte("inicio", em7).order("inicio").limit(8),
     supabase
@@ -68,14 +69,35 @@ export default async function Inicio() {
       .lte("vence_em", em7dia)
       .order("vence_em")
       .limit(200),
+    supabase.from("compromissos").select("id, tipo, titulo, inicio, local, clientes(id, nome)").gte("inicio", inicioHoje).lte("inicio", em7).order("inicio").limit(8),
   ]);
   // Antes do script 008 não existe "aguardando_resposta": usa a fila
   const { data: fila } = esperando.error
     ? await supabase.from("conversas").select("id, ultima_mensagem_em, atendente_id, clientes(nome), areas(nome)").in("status", ["bot", "aguardando"]).order("ultima_mensagem_em", { ascending: true }).limit(6)
     : { data: esperando.data };
 
-  const audHoje = (audiencias ?? []).filter((a) => a.inicio < fimHoje);
-  const audProximas = (audiencias ?? []).filter((a) => a.inicio >= fimHoje);
+  // Agenda: audiências e compromissos (reuniões, atendimentos, diligências…) dos próximos 7 dias
+  type ItemAgenda = { id: string; inicio: string; titulo: string; sub: string; cliente: { id: string; nome: string } | null; cor: string };
+  const agenda: ItemAgenda[] = [
+    ...(audiencias ?? []).map((a) => ({
+      id: `a-${a.id}`,
+      inicio: a.inicio,
+      titulo: `Audiência de ${String(a.tipo).toLowerCase()}`,
+      sub: a.local ?? (a.modalidade === "video" ? "por vídeo" : "local a definir"),
+      cliente: um(um(a.casos as Rel<{ titulo: string; clientes: Rel<{ id: string; nome: string }> }>)?.clientes ?? null),
+      cor: corDoTipo("audiencia"),
+    })),
+    ...(comps ?? []).map((c) => ({
+      id: `c-${c.id}`,
+      inicio: c.inicio,
+      titulo: `${rotuloDoTipo(c.tipo as TipoEvento)}: ${c.titulo}`,
+      sub: c.local ?? "",
+      cliente: um(c.clientes as Rel<{ id: string; nome: string }>),
+      cor: corDoTipo(c.tipo as TipoEvento),
+    })),
+  ].sort((x, y) => x.inicio.localeCompare(y.inicio));
+  const audHoje = agenda.filter((a) => a.inicio < fimHoje);
+  const audProximas = agenda.filter((a) => a.inicio >= fimHoje);
   const atrasadas = (tarefas ?? []).filter((t) => t.vence_em && t.vence_em < hoje).length;
   const dataLonga = new Date().toLocaleDateString("pt-BR", { timeZone: TZ, weekday: "long", day: "numeric", month: "long" });
 
@@ -93,7 +115,7 @@ export default async function Inicio() {
       alerta: prazosHoje + prazosVencidos > 0,
     },
     { rotulo: "Conversas esperando resposta", valor: (fila ?? []).length, href: "/atendimento", icone: "conversa", alerta: (fila ?? []).length > 0 },
-    { rotulo: "Audiências hoje", valor: audHoje.length, href: "/audiencias", icone: "calendario" },
+    { rotulo: "Na agenda hoje", valor: audHoje.length, href: "/calendario", icone: "calendario" },
     { rotulo: atrasadas ? `Suas tarefas para hoje · ${atrasadas} atrasada${atrasadas > 1 ? "s" : ""}` : "Suas tarefas para hoje", valor: (tarefas ?? []).length, href: "/tarefas?minhas=1", icone: "tarefa", alerta: atrasadas > 0 },
   ];
 
@@ -124,24 +146,23 @@ export default async function Inicio() {
 
       <div className="grid cols-2" style={{ marginBottom: 16 }}>
         <div className="card">
-          <div className="ctitle"><h3>Agenda</h3><Link href="/audiencias" className="tag" style={{ marginLeft: "auto", color: "var(--accent)" }}>ver todas</Link></div>
+          <div className="ctitle"><h3>Agenda</h3><Link href="/calendario" className="tag" style={{ marginLeft: "auto", color: "var(--accent)" }}>abrir calendário</Link></div>
           {audHoje.length + audProximas.length === 0 ? (
-            <div className="vazio"><b>Nenhuma audiência nos próximos 7 dias</b>Bom momento para colocar os processos em dia.</div>
+            <div className="vazio"><b>Nada na agenda nos próximos 7 dias</b>Bom momento para colocar os processos em dia.</div>
           ) : (
             <div className="list">
-              {audHoje.length === 0 && <div className="dayhead" style={{ margin: "0 0 4px" }}>Hoje não há audiências · próximos dias</div>}
+              {audHoje.length === 0 && <div className="dayhead" style={{ margin: "0 0 4px" }}>Nada hoje · próximos dias</div>}
               {[...audHoje, ...audProximas].slice(0, 6).map((a) => {
-                const cli = um(um(a.casos as Rel<{ titulo: string; clientes: Rel<{ id: string; nome: string }> }>)?.clientes ?? null);
                 const ehHoje = a.inicio < fimHoje;
                 return (
-                  <Link className="li" key={a.id} href={cli ? `/clientes/${cli.id}` : "/audiencias"}>
+                  <Link className="li" key={a.id} href={a.cliente ? `/clientes/${a.cliente.id}` : "/calendario"}>
                     <div className={"datebox" + (ehHoje ? " hoje" : "")}>
                       <small>{ehHoje ? "hoje" : new Date(a.inicio).toLocaleDateString("pt-BR", { timeZone: TZ, weekday: "short", day: "2-digit" })}</small>
                       <b style={{ fontSize: 15 }}>{hora(a.inicio)}</b>
                     </div>
                     <div className="bd">
-                      <b>{a.tipo}{cli ? ` · ${cli.nome}` : ""}</b>
-                      <small>{a.local ?? (a.modalidade === "video" ? "por vídeo" : "local a definir")}</small>
+                      <b><i className="ponto-tipo" style={{ background: a.cor }} aria-hidden="true" />{a.titulo}{a.cliente ? ` · ${a.cliente.nome}` : ""}</b>
+                      {a.sub && <small>{a.sub}</small>}
                     </div>
                   </Link>
                 );

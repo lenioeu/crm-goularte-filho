@@ -11,14 +11,14 @@ const ACOES: Item[] = [
   { titulo: "Nova conversa no WhatsApp", href: "/atendimento?nova=1", icone: "conversa", grupo: "Ações" },
   { titulo: "Novo cliente", href: "/clientes#novo", icone: "usuario", grupo: "Ações" },
   { titulo: "Cadastrar processo", href: "/processos?nova=1", icone: "balanca", grupo: "Ações" },
-  { titulo: "Agendar audiência", href: "/audiencias?nova=1", icone: "calendario", grupo: "Ações" },
+  { titulo: "Agendar audiência", href: "/calendario?nova=audiencia", icone: "calendario", grupo: "Ações" },
   { titulo: "Nova tarefa", href: "/tarefas?nova=1", icone: "tarefa", grupo: "Ações" },
   { titulo: "Agendar mensagem", href: "/agendamentos", icone: "relogio", grupo: "Ações" },
   { titulo: "Novo caso no funil", href: "/funil?nova=1", icone: "pasta", grupo: "Ações" },
 ];
 const PAGINAS: Item[] = [
   ["Início", "/", "painel"], ["Atendimento", "/atendimento", "conversa"], ["Clientes", "/clientes", "usuario"], ["Processos", "/processos", "balanca"],
-  ["Audiências", "/audiencias", "calendario"], ["Mensagens agendadas", "/agendamentos", "relogio"], ["Tarefas", "/tarefas", "tarefa"],
+  ["Calendário", "/calendario", "calendario"], ["Mensagens agendadas", "/agendamentos", "relogio"], ["Tarefas", "/tarefas", "tarefa"],
   ["Indicadores", "/indicadores", "painel"], ["Áreas de atuação", "/areas", "pasta"], ["Funil de casos", "/funil", "etapa"],
   ["Atendimento automático", "/atendimento-automatico", "raio"], ["Modelos", "/modelos", "documento"], ["Equipe e cargos", "/equipe", "usuario"],
   ["Integrações", "/integracoes", "automatico"], ["Meu perfil", "/perfil", "usuario"],

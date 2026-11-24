@@ -14,6 +14,7 @@ export function FormAcao({
   className,
   limparAoSalvar = true,
   okFixo = false,
+  aoSalvar,
 }: {
   action: Acao;
   children: React.ReactNode;
@@ -22,6 +23,8 @@ export function FormAcao({
   limparAoSalvar?: boolean;
   /** Mostra o "ok" ao lado do botão, e não num aviso que some (ex.: senha provisória). */
   okFixo?: boolean;
+  /** Chamado depois de salvar com sucesso (ex.: fechar a janela). */
+  aoSalvar?: () => void;
 }) {
   const [estado, enviar, pendente] = useActionState(action, { erro: null, ok: null });
   const ref = useRef<HTMLFormElement>(null);
@@ -32,6 +35,8 @@ export function FormAcao({
   useEffect(() => {
     if (estado.ok && limparAoSalvar) ref.current?.reset();
     if (estado.ok && noCanto) aviso!(estado.ok);
+    if (estado.ok) aoSalvar?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [estado, limparAoSalvar, noCanto, aviso]);
 
   return (

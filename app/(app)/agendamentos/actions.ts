@@ -103,7 +103,7 @@ export async function salvarModeloMensagem(_: Resultado, f: FormData): Promise<R
   const { error } = id ? await supabase.from("modelos_mensagem").update(dados).eq("id", id) : await supabase.from("modelos_mensagem").insert(dados);
   if (error) return { erro: traduzirModelo(error.message), ok: null };
   revalidatePath("/agendamentos");
-  revalidatePath("/audiencias");
+  revalidatePath("/calendario");
   revalidatePath("/atendimento");
   return { erro: null, ok: id ? "Modelo salvo." : `Modelo “${nome}” criado.` };
 }
@@ -115,6 +115,6 @@ export async function excluirModeloMensagem(id: string): Promise<Resultado> {
   const { error } = await supabase.from("modelos_mensagem").delete().eq("id", id);
   if (error) return { erro: traduzirModelo(error.message), ok: null };
   revalidatePath("/agendamentos");
-  revalidatePath("/audiencias");
+  revalidatePath("/calendario");
   return { erro: null, ok: "Modelo apagado." };
 }
