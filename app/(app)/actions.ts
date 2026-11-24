@@ -7,6 +7,7 @@ import { atualizarEvento, criarEvento, excluirEvento, tokenDeAcesso } from "@/li
 import { randomInt } from "node:crypto";
 import { ehDeAudiencia, lerModelosMensagem, preencherMensagem, quandoEnviar } from "@/lib/modelosMensagem";
 import { clienteEhParteContraria } from "@/lib/conflito";
+import { espelharNaAgendaDeQuemVai } from "@/lib/googleUsuario";
 import { quemSou } from "@/lib/permissoes";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { supabaseServer } from "@/lib/supabase/server";
@@ -256,6 +257,15 @@ export async function criarAudiencia(_: Resultado, f: FormData): Promise<Resulta
     agenda = " Não foi possível adicionar ao Google Agenda agora.";
   }
 
+  // Cópia na agenda Google de quem vai (se a pessoa ligou a Agenda em Meu perfil)
+  await espelharNaAgendaDeQuemVai(supabase, "audiencias", aud.id, texto(f, "responsavel_id"), {
+    titulo: `Audiência de ${tipo.toLowerCase()} · ${nomeCliente}`,
+    inicio,
+    fim: new Date(new Date(inicio).getTime() + 60 * 60 * 1000).toISOString(),
+    local: local ?? (modalidade === "video" ? "Por vídeo" : undefined),
+    descricao: `Processo: ${processo.numero_cnj}${processo.vara ? ` · ${processo.vara}` : ""}\n${texto(f, "observacoes") ?? ""}\nRegistrado pelo Órion CRM`.trim(),
+  });
+
   // Mensagens ao cliente pelos modelos marcados no formulário (Mensagens agendadas › Modelos)
   const { modelos } = await lerModelosMensagem(supabase);
   const dadosAud = { inicio, tipo, local, modalidade, processo: processo.numero_cnj };
@@ -351,6 +361,14 @@ export async function editarAudiencia(_: Resultado, f: FormData): Promise<Result
     agenda = " Não foi possível atualizar a Google Agenda agora.";
   }
 
+  await espelharNaAgendaDeQuemVai(supabase, "audiencias", id, texto(f, "responsavel_id"), {
+    titulo: `Audiência de ${tipo.toLowerCase()} · ${nomeCliente}`,
+    inicio,
+    fim: new Date(new Date(inicio).getTime() + 60 * 60 * 1000).toISOString(),
+    local: local ?? (modalidade === "video" ? "Por vídeo" : undefined),
+    descricao: `${processo ? `Processo: ${processo.numero_cnj}${processo.vara ? ` · ${processo.vara}` : ""}\n` : ""}${observacoes ?? ""}\nRegistrado pelo Órion CRM`.trim(),
+  });
+
   // Mensagens ao cliente: cancela as que ainda não saíram e programa de novo, com os dados novos,
   // as dos modelos marcados no formulário
   await supabase
@@ -398,6 +416,7 @@ export async function excluirAudiencia(id: string): Promise<Resultado> {
       // O evento pode já ter sido apagado direto no Google Agenda.
     }
   }
+  await espelharNaAgendaDeQuemVai(supabase, "audiencias", id, null, null);
   const { error } = await supabase.from("audiencias").delete().eq("id", id);
   if (error) return { erro: traduzirErro(error.message), ok: null };
   revalidatePath("/calendario");

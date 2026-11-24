@@ -7,6 +7,11 @@ import { quemSou } from "@/lib/permissoes";
 import { religarPublicacoes } from "@/lib/recorte";
 import { TZ } from "@/lib/rotulos";
 import { voltarParaTratar } from "./actions";
+import { after } from "next/server";
+import { conexaoDoUsuario } from "@/lib/googleUsuario";
+import { importarRecorteDoGmail } from "@/lib/recorteImportar";
+import { supabaseAdmin } from "@/lib/supabase/admin";
+import { buscarRecorteAgora } from "../perfil/actions";
 
 type Pub = {
   id: string;
@@ -39,7 +44,19 @@ const dataBR = (iso: string | null) => (iso ? iso.slice(0, 10).split("-").revers
 
 export default async function Publicacoes({ searchParams }: { searchParams: Promise<{ f?: string; tipo?: string }> }) {
   const { f = "novas", tipo } = await searchParams;
-  const { supabase, papel } = await quemSou();
+  const { supabase, papel, user } = await quemSou();
+  const meuGoogle = user ? await conexaoDoUsuario(user.id).catch(() => null) : null;
+  // Gmails ligados em Meu perfil: se faz mais de 20 minutos que ninguém leu, lê depois de mostrar a página
+  after(async () => {
+    try {
+      const admin = supabaseAdmin();
+      const { data } = await admin.from("google_usuarios").select("gmail_lido_em").eq("gmail", true);
+      const limite = Date.now() - 20 * 60_000;
+      if ((data ?? []).some((x) => !x.gmail_lido_em || new Date(x.gmail_lido_em).getTime() < limite)) await importarRecorteDoGmail(admin);
+    } catch {
+      // sem a tabela (script 020) ou sem Google: nada a fazer
+    }
+  });
   // Publicações de processos cadastrados depois que elas chegaram: liga agora (sem a tabela, não faz nada)
   await religarPublicacoes(supabase).catch(() => 0);
   const tratadas = f === "tratadas";
@@ -93,18 +110,22 @@ export default async function Publicacoes({ searchParams }: { searchParams: Prom
             {ultimo && <> Último e-mail: <b>{dataBR(ultimo.dia)}</b>, com {ultimo.publicacoes} {ultimo.publicacoes === 1 ? "publicação" : "publicações"}.</>}
           </p>
         </div>
+        {meuGoogle?.gmail && <div style={{ marginLeft: "auto" }}><BotaoAcao acao={buscarRecorteAgora} rotulo="Buscar no Gmail" /></div>}
       </div>
 
       {semTabela && <div className="aviso info" style={{ marginBottom: 16 }}>{"Falta rodar o script supabase/017_publicacoes.sql no Supabase."}</div>}
       {!semTabela && !ultimo && (
         <div className="aviso info" style={{ marginBottom: 16 }}>
-          Ainda não chegou nenhum e-mail do Recorte. {papel === "administrador" ? <>Ligue o script do Gmail em <Link href="/integracoes#recorte" style={{ color: "var(--accent)" }}>Integrações › Recorte Digital</Link>.</> : "Peça ao administrador para ligar o script do Gmail em Integrações."}
+          Ainda não chegou nenhum e-mail do Recorte. Quem recebe o Recorte no Gmail pode ligar a leitura em{" "}
+          <Link href="/perfil#google" style={{ color: "var(--accent)" }}>Meu perfil › Sua conta Google › Conectar meu Gmail</Link>.
         </div>
       )}
       {atrasado && (
         <div className="aviso erro" style={{ marginBottom: 16 }}>
-          O e-mail do Recorte de hoje ainda não foi levado ao Órion. Se ele já está no seu Gmail, o script do Google parou de rodar sozinho:{" "}
-          {papel === "administrador" ? <>veja como religar em <Link href="/integracoes#recorte" style={{ textDecoration: "underline" }}>Integrações › Recorte Digital</Link>.</> : "avise o administrador."}{" "}
+          O e-mail do Recorte de hoje ainda não foi levado ao Órion.{" "}
+          {meuGoogle?.gmail
+            ? "Se ele já está no seu Gmail, toque em “Buscar no Gmail” aqui em cima."
+            : <>Se ele já está no seu Gmail, ligue a leitura em <Link href="/perfil#google" style={{ textDecoration: "underline" }}>Meu perfil › Conectar meu Gmail</Link>{papel === "administrador" ? <> (ou confira o script em <Link href="/integracoes#recorte" style={{ textDecoration: "underline" }}>Integrações</Link>)</> : null}.</>}{" "}
           Enquanto isso, confira em recortedigital.oabes.org.br para não perder nenhuma publicação.
         </div>
       )}

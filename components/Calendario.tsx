@@ -37,6 +37,7 @@ export function Calendario({
   compromissos,
   janela,
   hoje,
+  temGoogle = false,
   cursorInicial,
   visaoInicial,
   novoInicial,
@@ -50,6 +51,7 @@ export function Calendario({
   compromissos: Record<string, CompromissoEditavel>;
   janela: { de: string; ate: string };
   hoje: string;
+  temGoogle?: boolean;
   cursorInicial: string;
   visaoInicial: Visao;
   novoInicial: Novo | null;
@@ -174,6 +176,7 @@ export function Calendario({
             )}
             {e.tipo === "tarefa" && <BotaoAcao acao={moverTarefa.bind(null, e.id, "concluida")} rotulo="Feito" />}
             {e.href && (e.tipo === "prazo" || e.tipo === "tarefa") && <Link href={e.href} className="linkbtn editar">Abrir</Link>}
+            {e.href && e.tipo === "google" && <a href={e.href} target="_blank" rel="noopener" className="linkbtn editar">Abrir no Google</a>}
           </div>
         </div>
       </div>
@@ -203,7 +206,7 @@ export function Calendario({
       </div>
 
       <div className="cal-filtros" role="group" aria-label="Tipos de evento">
-        {TIPOS_EVENTO.map((t) => (
+        {TIPOS_EVENTO.filter((t) => t.id !== "google" || temGoogle).map((t) => (
           <label key={t.id} className={"cal-filtro" + (ocultos.has(t.id) ? " off" : "")} style={{ "--c": t.cor } as React.CSSProperties}>
             <input type="checkbox" checked={!ocultos.has(t.id)} onChange={() => alternarTipo(t.id)} />
             <i aria-hidden="true" />

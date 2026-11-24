@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import type { Resultado } from "@/app/(app)/actions";
 import { rotuloDoTipo, TIPOS_COMPROMISSO, type TipoCompromisso } from "@/lib/calendario";
 import { atualizarEvento, criarEvento, excluirEvento, tokenDeAcesso } from "@/lib/google";
+import { espelharNaAgendaDeQuemVai } from "@/lib/googleUsuario";
 import { quemSou } from "@/lib/permissoes";
 
 const SEM_TABELA = "Falta rodar o script supabase/019_calendario_partes_vinculos.sql no Supabase.";
@@ -64,6 +65,7 @@ export async function criarCompromisso(_: Resultado, f: FormData): Promise<Resul
   if (!user || !papel) return { erro: "Sem permissão.", ok: null };
   const d = ler(f);
   if (typeof d === "string") return { erro: d, ok: null };
+  d.responsavel_id ??= user.id; // "Eu"
   const { data: novo, error } = await supabase.from("compromissos").insert({ ...d, criado_por: user.id }).select("id").single();
   if (error) return { erro: traduzir(error.message), ok: null };
 
@@ -78,6 +80,7 @@ export async function criarCompromisso(_: Resultado, f: FormData): Promise<Resul
   } catch {
     agenda = " Não foi possível adicionar ao Google Agenda agora.";
   }
+  await espelharNaAgendaDeQuemVai(supabase, "compromissos", novo.id, d.responsavel_id, await descricaoGoogle(supabase, d));
   revalidar();
   return { erro: null, ok: `Agendado: ${rotuloDoTipo(d.tipo).toLowerCase()} em ${d.inicio.slice(8, 10)}/${d.inicio.slice(5, 7)} às ${d.inicio.slice(11, 16)}.${agenda}` };
 }
@@ -89,6 +92,7 @@ export async function editarCompromisso(_: Resultado, f: FormData): Promise<Resu
   const d = ler(f);
   if (!id) return { erro: "Compromisso não encontrado.", ok: null };
   if (typeof d === "string") return { erro: d, ok: null };
+  d.responsavel_id ??= user.id; // "Eu"
   const { data: atual } = await supabase.from("compromissos").select("google_event_id").eq("id", id).maybeSingle();
   if (!atual) return { erro: "Compromisso não encontrado. Recarregue a página.", ok: null };
   const { error } = await supabase.from("compromissos").update(d).eq("id", id);
@@ -117,6 +121,7 @@ export async function editarCompromisso(_: Resultado, f: FormData): Promise<Resu
   } catch {
     agenda = " Não foi possível atualizar a Google Agenda agora.";
   }
+  await espelharNaAgendaDeQuemVai(supabase, "compromissos", id, d.responsavel_id, await descricaoGoogle(supabase, d));
   revalidar();
   return { erro: null, ok: `Alterações salvas.${agenda}` };
 }
@@ -133,6 +138,7 @@ export async function excluirCompromisso(id: string): Promise<Resultado> {
       // já apagado na Google Agenda
     }
   }
+  await espelharNaAgendaDeQuemVai(supabase, "compromissos", id, null, null);
   const { error } = await supabase.from("compromissos").delete().eq("id", id);
   if (error) return { erro: traduzir(error.message), ok: null };
   revalidar();

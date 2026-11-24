@@ -3,6 +3,7 @@ import type { AudienciaEditavel, ModeloDaAudiencia } from "@/components/EditarAu
 import type { CompromissoEditavel } from "@/components/FormCompromisso";
 import type { ProcessoOpcao } from "@/components/FormAudiencia";
 import type { EventoCal, TipoCompromisso } from "@/lib/calendario";
+import { eventosDaAgendaDoUsuario } from "@/lib/googleUsuario";
 import { ehDeAudiencia, lerModelosMensagem, quandoEnviar } from "@/lib/modelosMensagem";
 import { quemSou } from "@/lib/permissoes";
 import { TZ } from "@/lib/rotulos";
@@ -195,6 +196,25 @@ export default async function PaginaCalendario({ searchParams }: { searchParams:
     });
   }
 
+  // Eventos pessoais da agenda Google de quem está vendo (se ligou a Agenda em Meu perfil)
+  const pessoais = user ? await eventosDaAgendaDoUsuario(user.id, de, ate).catch(() => null) : null;
+  for (const g of pessoais ?? []) {
+    const ini = g.start?.dateTime ?? g.start?.date;
+    if (!ini) continue;
+    const diaInteiro = !g.start?.dateTime;
+    eventos.push({
+      chave: `g-${g.id}`,
+      id: g.id,
+      tipo: "google",
+      dia: diaInteiro ? ini.slice(0, 10) : diaSP(ini),
+      hora: diaInteiro ? null : horaSP(ini),
+      titulo: g.summary || "(sem título)",
+      detalhe: [g.end?.dateTime && `até ${horaSP(g.end.dateTime)}`, g.location].filter(Boolean).join(" · ") || null,
+      cliente: null,
+      href: g.htmlLink ?? null,
+    });
+  }
+
   const processos: ProcessoOpcao[] = ((procs ?? []) as unknown as { id: string; numero_cnj: string; vara: string | null; casos: Rel<{ clientes: Rel<{ nome: string }> }> }[])
     .map((p) => ({ id: p.id, numero_cnj: p.numero_cnj, vara: p.vara, cliente: um(um(p.casos)?.clientes ?? null)?.nome ?? null }))
     .sort((x, y) => (x.cliente ?? "").localeCompare(y.cliente ?? "", "pt-BR"));
@@ -219,6 +239,7 @@ export default async function PaginaCalendario({ searchParams }: { searchParams:
         compromissos={compromissos}
         janela={{ de, ate }}
         hoje={hoje}
+        temGoogle={pessoais !== null}
         cursorInicial={cursor}
         visaoInicial={visao}
         novoInicial={nova as "audiencia" | TipoCompromisso | null}

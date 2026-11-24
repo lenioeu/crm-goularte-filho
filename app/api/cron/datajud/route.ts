@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { camposDoResumo, consultarDataJud, somenteDigitos } from "@/lib/datajud";
 import { enviarPush } from "@/lib/push";
+import { importarRecorteDoGmail } from "@/lib/recorteImportar";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export const maxDuration = 60;
@@ -14,6 +15,8 @@ export async function GET(request: Request) {
   }
 
   const admin = supabaseAdmin();
+  // O Recorte chega de madrugada: às 7h já entra em Publicações, antes do aviso do dia
+  await importarRecorteDoGmail(admin).catch(() => null);
   const prazos = await avisarPrazos(admin).catch(() => 0);
   const { data } = await admin
     .from("processos")
