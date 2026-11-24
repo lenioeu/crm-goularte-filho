@@ -127,7 +127,7 @@ export function Calendario({
         const f = somar(i, 6);
         return `${Number(i.slice(8))} ${MESES[Number(i.slice(5, 7)) - 1].slice(0, 3)} – ${Number(f.slice(8))} ${MESES[Number(f.slice(5, 7)) - 1].slice(0, 3)} ${f.slice(0, 4)}`;
       })()
-    : `${MESES[mes - 1]} de ${ano}`;
+    : `${MESES[mes - 1].charAt(0).toUpperCase()}${MESES[mes - 1].slice(1)} de ${ano}`;
 
   // Grade do mês: começa na segunda-feira da semana do dia 1º
   const primeiro = `${cursor.slice(0, 7)}-01`;

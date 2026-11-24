@@ -76,8 +76,8 @@ export default async function FichaCliente({ params }: { params: Promise<{ id: s
   // Processos com partes contrárias; os vinculados (agravo, recurso…) aparecem dentro do principal
   const fichaProcs = ((processos ?? []) as unknown as (ProcessoFicha & { processo_pai_id: string | null; processo_partes: Parte[] | null })[]).map((p) => ({
     ...p,
-    partes: p.processo_partes ?? [],
-    pai: p.processo_pai_id,
+    partes: Array.isArray(p.processo_partes) ? p.processo_partes : [],
+    pai: p.processo_pai_id && p.processo_pai_id !== p.id ? p.processo_pai_id : null,
   }));
   const idsFicha = new Set(fichaProcs.map((p) => p.id));
   const principais = fichaProcs.filter((p) => !p.pai || !idsFicha.has(p.pai));
