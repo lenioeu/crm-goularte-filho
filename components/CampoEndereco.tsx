@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { DadosCnpj } from "@/components/CampoCpf";
 
 const formatarCep = (v: string) => v.replace(/\D/g, "").slice(0, 8).replace(/^(\d{5})(\d)/, "$1-$2");
 
@@ -15,6 +16,25 @@ export function CampoEndereco({ cepInicial, enderecoInicial }: { cepInicial: str
   const [aviso, setAviso] = useState<string | null>(null);
   const [buscando, setBuscando] = useState(false);
   const numero = useRef<HTMLInputElement>(null);
+  const oculto = useRef<HTMLInputElement>(null);
+  const livreRef = useRef(livre);
+  livreRef.current = livre;
+
+  // Endereço da empresa quando o CPF/CNPJ do mesmo formulário acha um CNPJ na Receita
+  useEffect(() => {
+    const form = oculto.current?.form;
+    if (!form) return;
+    const ouvir = (e: Event) => {
+      const d = (e as CustomEvent<DadosCnpj>).detail;
+      if (!d?.rua && !d?.cidade) return;
+      if (livreRef.current.trim()) return; // já tem endereço escrito: não troca
+      setCep((atual) => (atual.replace(/\D/g, "").length === 8 ? atual : d.cep ?? atual));
+      setPartes((p) => p ?? { rua: d.rua, numero: d.numero, complemento: d.complemento, bairro: d.bairro, cidade: d.cidade });
+      setAviso("Endereço preenchido pelo CNPJ. Confira.");
+    };
+    form.addEventListener("orion:cnpj", ouvir);
+    return () => form.removeEventListener("orion:cnpj", ouvir);
+  }, []);
 
   async function buscar(valor: string) {
     const d = valor.replace(/\D/g, "");
@@ -42,7 +62,7 @@ export function CampoEndereco({ cepInicial, enderecoInicial }: { cepInicial: str
 
   return (
     <>
-      <input type="hidden" name="endereco" value={composto} />
+      <input ref={oculto} type="hidden" name="endereco" value={composto} />
       <div className="field">
         <label htmlFor="cep">CEP</label>
         <input
